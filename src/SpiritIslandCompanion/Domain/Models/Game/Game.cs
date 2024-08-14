@@ -11,10 +11,10 @@ public class Game : AggregateRoot<GameId>
     public PlayedAdversary? SecondAdversary { get; private set; }
     public PlayedScenario? Scenario { get; private set; }
     public IslandSetup IslandSetup { get; private set; }
-    public uint DifficultyLevel { get; private set; }
+    public Difficulty Difficulty { get; private set; }
     public GameNote? Note { get; private set; }
     public IReadOnlyCollection<GamePlayer> Players => _players.AsReadOnly();
-    private List<GamePlayer> _players = [];
+    private List<GamePlayer> _players;
 
     private Game(
         GameId id,
@@ -24,14 +24,20 @@ public class Game : AggregateRoot<GameId>
         PlayedAdversary? firstAdversary,
         PlayedAdversary? secondAdversary,
         PlayedScenario? scenario,
-        uint difficultyLevel,
+        Difficulty difficulty,
         GameResult? result,
         GameNote? note)
         : base(id)
     {
         StartedAt = startedAt;
         IslandSetup = islandSetup;
-        DifficultyLevel = difficultyLevel;
+        Difficulty = difficulty;
+        Result = result;
+        Note = note;
+        FirstAdversary = firstAdversary;
+        SecondAdversary = secondAdversary;
+        Scenario = scenario;
+        _players = players;
     }
 
 
@@ -43,7 +49,7 @@ public class Game : AggregateRoot<GameId>
         PlayedAdversary? firstAdversary,
         PlayedAdversary? secondAdversary,
         PlayedScenario? scenario,
-        uint difficultyLevel)
+        Difficulty difficultyLevel)
     {
         var game = new Game(id, startedAt, islandSetup, players, firstAdversary, secondAdversary, scenario, difficultyLevel, null, null);
         return game;
@@ -57,7 +63,7 @@ public class Game : AggregateRoot<GameId>
         PlayedAdversary? firstAdversary,
         PlayedAdversary? secondAdversary,
         PlayedScenario? scenario,
-        uint difficultyLevel,
+        Difficulty difficultyLevel,
         GameResult? result,
         GameNote? note)
     {
@@ -72,13 +78,13 @@ public class Game : AggregateRoot<GameId>
         PlayedAdversary? firstAdversary,
         PlayedAdversary? secondAdversary,
         PlayedScenario? scenario,
-        uint difficultyLevel,
+        Difficulty difficultyLevel,
         GameResult? result,
         GameNote? note)
     {
         StartedAt = startedAt;
         IslandSetup = islandSetup;
-        DifficultyLevel = difficultyLevel;
+        Difficulty = difficultyLevel;
         Result = result;
         Note = note;
         FirstAdversary = firstAdversary;
