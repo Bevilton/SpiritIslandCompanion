@@ -43,4 +43,12 @@ public class GameResult : Entity<GameResultId>
         Score = score;
         ScoreModifier = scoreModifier;
     }
+
+#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
+    /// <summary>
+    /// Empty constructor required for EF Core.
+    /// </summary>
+    [Obsolete("Empty constructor required for EF Core.")]
+    private GameResult(){}
+#pragma warning restore
 }

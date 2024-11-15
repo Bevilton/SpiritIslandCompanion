@@ -7,22 +7,21 @@ public class Game : AggregateRoot<GameId>
 {
     public DateTimeOffset StartedAt { get; private set; }
     public GameResult? Result { get; private set; }
-    public PlayedAdversary? FirstAdversary { get; private set; }
-    public PlayedAdversary? SecondAdversary { get; private set; }
     public PlayedScenario? Scenario { get; private set; }
-    public IslandSetup IslandSetup { get; private set; }
+    public IslandSetupId IslandSetupId { get; private set; }
     public Difficulty Difficulty { get; private set; }
     public GameNote? Note { get; private set; }
+    public IReadOnlyCollection<PlayedAdversary> PlayedAdversaries => _playedAdversaries.AsReadOnly();
+    private List<PlayedAdversary> _playedAdversaries;
     public IReadOnlyCollection<GamePlayer> Players => _players.AsReadOnly();
     private List<GamePlayer> _players;
 
     private Game(
         GameId id,
         DateTimeOffset startedAt,
-        IslandSetup islandSetup,
+        IslandSetupId islandSetupId,
         List<GamePlayer> players,
-        PlayedAdversary? firstAdversary,
-        PlayedAdversary? secondAdversary,
+        List<PlayedAdversary> adversaries,
         PlayedScenario? scenario,
         Difficulty difficulty,
         GameResult? result,
@@ -30,12 +29,11 @@ public class Game : AggregateRoot<GameId>
         : base(id)
     {
         StartedAt = startedAt;
-        IslandSetup = islandSetup;
+        IslandSetupId = islandSetupId;
         Difficulty = difficulty;
         Result = result;
         Note = note;
-        FirstAdversary = firstAdversary;
-        SecondAdversary = secondAdversary;
+        _playedAdversaries = adversaries;
         Scenario = scenario;
         _players = players;
     }
@@ -44,54 +42,56 @@ public class Game : AggregateRoot<GameId>
     public static Game StartNew(
         GameId id,
         DateTimeOffset startedAt,
-        IslandSetup islandSetup,
+        IslandSetupId islandSetupId,
         List<GamePlayer> players,
-        PlayedAdversary? firstAdversary,
-        PlayedAdversary? secondAdversary,
+        List<PlayedAdversary> adversaries,
         PlayedScenario? scenario,
         Difficulty difficultyLevel)
     {
-        var game = new Game(id, startedAt, islandSetup, players, firstAdversary, secondAdversary, scenario, difficultyLevel, null, null);
+        var game = new Game(id, startedAt, islandSetupId, players, adversaries, scenario, difficultyLevel, null, null);
         return game;
     }
 
     public static Game Create(
         GameId id,
         DateTimeOffset startedAt,
-        IslandSetup islandSetup,
+        IslandSetupId islandSetupId,
         List<GamePlayer> players,
-        PlayedAdversary? firstAdversary,
-        PlayedAdversary? secondAdversary,
+        List<PlayedAdversary> adversaries,
         PlayedScenario? scenario,
         Difficulty difficultyLevel,
         GameResult? result,
         GameNote? note)
     {
-        var game = new Game(id, startedAt, islandSetup, players, firstAdversary, secondAdversary, scenario, difficultyLevel, result, note);
+        var game = new Game(id, startedAt, islandSetupId, players, adversaries, scenario, difficultyLevel, result, note);
         return game;
     }
 
     public void Update(
         DateTimeOffset startedAt,
-        IslandSetup islandSetup,
+        IslandSetupId islandSetupId,
         List<GamePlayer> players,
-        PlayedAdversary? firstAdversary,
-        PlayedAdversary? secondAdversary,
+        List<PlayedAdversary> adversaries,
         PlayedScenario? scenario,
         Difficulty difficultyLevel,
         GameResult? result,
         GameNote? note)
     {
         StartedAt = startedAt;
-        IslandSetup = islandSetup;
+        IslandSetupId = islandSetupId;
         Difficulty = difficultyLevel;
         Result = result;
         Note = note;
-        FirstAdversary = firstAdversary;
-        SecondAdversary = secondAdversary;
+        _playedAdversaries = adversaries;
         Scenario = scenario;
         _players = players;
     }
 
-
+#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
+    /// <summary>
+    /// Empty constructor required for EF Core.
+    /// </summary>
+    [Obsolete("Empty constructor required for EF Core.")]
+    private Game(){}
+#pragma warning restore
 }

@@ -6,7 +6,7 @@ namespace Domain.Models.Game;
 
 public record GameNote : ValueObject
 {
-    public string Value { get; }
+    public string Value { get; private init; }
 
     private GameNote(string value)
     {

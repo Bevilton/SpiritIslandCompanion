@@ -4,7 +4,7 @@ namespace Domain.Models.Player;
 
 public record PlayerName : ValueObject
 {
-    public string Value { get; }
+    public string Value { get; private init; }
 
     private PlayerName(string value)
     {
