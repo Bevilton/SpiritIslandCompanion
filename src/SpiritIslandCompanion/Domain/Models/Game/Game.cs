@@ -1,4 +1,5 @@
 using Domain.Models.Static;
+using Domain.Models.User;
 using Domain.Primitives;
 
 namespace Domain.Models.Game;
@@ -11,6 +12,7 @@ public class Game : AggregateRoot<GameId>
     public IslandSetupId IslandSetupId { get; private set; }
     public Difficulty Difficulty { get; private set; }
     public GameNote? Note { get; private set; }
+    public UserId OwnerId { get; private init; }
     public IReadOnlyCollection<PlayedAdversary> PlayedAdversaries => _playedAdversaries.AsReadOnly();
     private List<PlayedAdversary> _playedAdversaries;
     public IReadOnlyCollection<GamePlayer> Players => _players.AsReadOnly();
@@ -25,7 +27,8 @@ public class Game : AggregateRoot<GameId>
         PlayedScenario? scenario,
         Difficulty difficulty,
         GameResult? result,
-        GameNote? note)
+        GameNote? note,
+        UserId ownerId)
         : base(id)
     {
         StartedAt = startedAt;
@@ -36,6 +39,7 @@ public class Game : AggregateRoot<GameId>
         _playedAdversaries = adversaries;
         Scenario = scenario;
         _players = players;
+        OwnerId = ownerId;
     }
 
 
@@ -46,9 +50,10 @@ public class Game : AggregateRoot<GameId>
         List<GamePlayer> players,
         List<PlayedAdversary> adversaries,
         PlayedScenario? scenario,
-        Difficulty difficultyLevel)
+        Difficulty difficultyLevel,
+        UserId ownerId)
     {
-        var game = new Game(id, startedAt, islandSetupId, players, adversaries, scenario, difficultyLevel, null, null);
+        var game = new Game(id, startedAt, islandSetupId, players, adversaries, scenario, difficultyLevel, null, null, ownerId);
         return game;
     }
 
@@ -61,9 +66,10 @@ public class Game : AggregateRoot<GameId>
         PlayedScenario? scenario,
         Difficulty difficultyLevel,
         GameResult? result,
-        GameNote? note)
+        GameNote? note,
+        UserId ownerId)
     {
-        var game = new Game(id, startedAt, islandSetupId, players, adversaries, scenario, difficultyLevel, result, note);
+        var game = new Game(id, startedAt, islandSetupId, players, adversaries, scenario, difficultyLevel, result, note, ownerId);
         return game;
     }
 

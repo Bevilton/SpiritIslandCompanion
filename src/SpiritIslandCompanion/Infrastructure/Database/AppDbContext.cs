@@ -1,3 +1,4 @@
+using Domain.Data;
 using Domain.Models.Game;
 using Domain.Models.Player;
 using Domain.Models.User;
@@ -5,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Database;
 
-public class AppDbContext : DbContext
+public class AppDbContext : DbContext, IAppDbContext
 {
     public DbSet<Game> Games { get; set; }
     public DbSet<Player> Players { get; set; }

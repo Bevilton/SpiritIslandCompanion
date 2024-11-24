@@ -12,6 +12,8 @@ internal class GameConfiguration : IEntityTypeConfiguration<Game>
         builder.Property(x => x.Id)
             .HasConversion(x => x.Value, x => new GameId(x));
 
+        builder.OwnsOne(x => x.OwnerId);
+
         builder.OwnsOne(x => x.Result, b =>
         {
             b.OwnsOne(x => x.Id);
