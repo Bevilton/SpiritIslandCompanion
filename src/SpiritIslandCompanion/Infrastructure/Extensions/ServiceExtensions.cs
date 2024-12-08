@@ -9,7 +9,7 @@ namespace Infrastructure.Extensions;
 
 public static class ServiceExtensions
 {
-    public static void AddInfrastructure(IServiceCollection services, IConfiguration configuration)
+    public static void AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddDbContext<AppDbContext>(
             (sp, options) =>
