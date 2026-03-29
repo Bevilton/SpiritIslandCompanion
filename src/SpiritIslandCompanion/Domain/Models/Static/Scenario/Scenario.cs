@@ -1,13 +1,13 @@
 namespace Domain.Models.Static;
 
-public class Screnario
+public class Scenario
 {
     public ScenarioId Id { get; init; }
     public string Name { get; init; }
     public int Difficulty { get; init; }
     public ExpansionId ExpansionId { get; init; }
 
-    public Screnario(ScenarioId id, string name, int difficulty, ExpansionId expansionId)
+    public Scenario(ScenarioId id, string name, int difficulty, ExpansionId expansionId)
     {
         Id = id;
         Name = name;

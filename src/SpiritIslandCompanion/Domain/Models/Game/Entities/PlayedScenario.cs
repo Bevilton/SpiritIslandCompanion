@@ -3,11 +3,11 @@ using Domain.Primitives;
 
 namespace Domain.Models.Game;
 
-public class PlayedScenario : Entity<PlayedAdversaryId>
+public class PlayedScenario : Entity<PlayedScenarioId>
 {
     public ScenarioId ScenarioId { get; private set; }
 
-    public PlayedScenario(PlayedAdversaryId id, ScenarioId scenarioId) : base(id)
+    public PlayedScenario(PlayedScenarioId id, ScenarioId scenarioId) : base(id)
     {
         ScenarioId = scenarioId;
     }

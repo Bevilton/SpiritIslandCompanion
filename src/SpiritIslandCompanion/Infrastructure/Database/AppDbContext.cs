@@ -1,4 +1,4 @@
-using Domain.Data;
+using Application.Data;
 using Domain.Models.Game;
 using Domain.Models.Player;
 using Domain.Models.User;
@@ -6,15 +6,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Database;
 
-public class AppDbContext : DbContext, IAppDbContext
+public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options), IAppDbContext
 {
-    public DbSet<Game> Games { get; set; }
-    public DbSet<Player> Players { get; set; }
-    public DbSet<User> Users { get; set; }
-
-    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
-    {
-    }
+    public DbSet<Game> Games { get; set; } = null!;
+    public DbSet<Player> Players { get; set; } = null!;
+    public DbSet<User> Users { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

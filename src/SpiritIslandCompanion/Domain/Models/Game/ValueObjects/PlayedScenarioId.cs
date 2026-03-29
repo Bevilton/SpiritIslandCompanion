@@ -2,4 +2,4 @@ using Domain.Primitives;
 
 namespace Domain.Models.Game;
 
-internal record PlayedScenarioId(Guid Value) : Identifier(Value);
+public record PlayedScenarioId(Guid Value) : Identifier(Value);

@@ -3,7 +3,7 @@ using Domain.Models.Player;
 using Domain.Models.User;
 using Microsoft.EntityFrameworkCore;
 
-namespace Domain.Data;
+namespace Application.Data;
 
 public interface IAppDbContext
 {

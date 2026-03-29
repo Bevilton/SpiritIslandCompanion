@@ -1,4 +1,4 @@
-using Domain.Data;
+using Application.Data;
 using Domain.Results;
 using MediatR;
 
