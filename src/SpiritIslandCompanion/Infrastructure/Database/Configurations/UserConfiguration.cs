@@ -12,7 +12,17 @@ internal class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(x => x.Id)
             .HasConversion(x => x.Value, x => new UserId(x));
 
-        builder.OwnsOne(x => x.Email);
+        builder.OwnsOne(x => x.Email, b =>
+        {
+            b.Property(e => e.Value)
+                .HasColumnName("Email")
+                .HasMaxLength(256)
+                .IsRequired();
+
+            b.HasIndex(e => e.Value)
+                .IsUnique();
+        });
+
         builder.OwnsOne(x => x.Nickname);
         builder.OwnsOne(x => x.UserSettings, b =>
         {

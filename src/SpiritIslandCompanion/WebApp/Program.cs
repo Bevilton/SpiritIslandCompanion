@@ -1,6 +1,7 @@
 using Application.Extensions;
 using Infrastructure.Database;
 using Infrastructure.Extensions;
+using WebApp.Auth;
 using WebApp.Components;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -13,6 +14,8 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure();
+builder.Services.AddOidcAuthentication(builder.Configuration);
+builder.Services.AddCascadingAuthenticationState();
 
 var app = builder.Build();
 
@@ -27,6 +30,11 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseAntiforgery();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapAuthEndpoints();
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
