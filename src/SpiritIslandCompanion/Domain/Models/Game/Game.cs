@@ -51,9 +51,10 @@ public class Game : AggregateRoot<GameId>
         List<PlayedAdversary> adversaries,
         PlayedScenario? scenario,
         Difficulty difficultyLevel,
+        GameNote? note,
         UserId ownerId)
     {
-        var game = new Game(id, startedAt, islandSetupId, players, adversaries, scenario, difficultyLevel, null, null, ownerId);
+        var game = new Game(id, startedAt, islandSetupId, players, adversaries, scenario, difficultyLevel, null, note, ownerId);
         return game;
     }
 

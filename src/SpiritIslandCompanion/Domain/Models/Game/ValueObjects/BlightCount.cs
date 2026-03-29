@@ -16,7 +16,7 @@ public record BlightCount : ValueObject
     public static Result<BlightCount> Create(int value)
     {
         if (value is < 0 or > GameRestrictions.MaximumBlightCount)
-            Result.Failure<BlightCount>(DomainErrors.Game.InvalidBlightCount);
+            return Result.Failure<BlightCount>(DomainErrors.Game.InvalidBlightCount);
 
         return new BlightCount(value);
     }
