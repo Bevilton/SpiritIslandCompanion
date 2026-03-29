@@ -48,6 +48,10 @@ internal sealed class UpdateGameHandler(IAppDbContext db) : ICommandHandler<Upda
         if (game is null)
             return Result.Failure(Error.NotFound("Game.NotFound", "Game not found."));
 
+        var friendshipCheck = await GameFactory.ValidatePlayerFriendships(game.OwnerId, request.Players, db, cancellationToken);
+        if (friendshipCheck.IsFailure)
+            return friendshipCheck;
+
         var difficultyResult = Difficulty.Create(request.Difficulty);
         if (difficultyResult.IsFailure)
             return Result.Failure(difficultyResult.Error);

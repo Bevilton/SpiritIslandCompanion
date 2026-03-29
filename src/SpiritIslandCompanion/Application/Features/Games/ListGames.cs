@@ -7,7 +7,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Application.Features.Games;
 
-public sealed record ListGamesQuery(Guid OwnerId) : IQuery<List<ListGamesResponse>>;
+/// <summary>
+/// Lists all games where the user is the owner or a participant (friend-player).
+/// </summary>
+public sealed record ListGamesQuery(Guid UserId) : IQuery<List<ListGamesResponse>>;
 
 public sealed record ListGamesResponse(
     Guid Id,
@@ -30,7 +33,8 @@ internal sealed class ListGamesHandler(IAppDbContext db) : IQueryHandler<ListGam
             .Include(g => g.PlayedAdversaries)
             .Include(g => g.Result)
             .Include(g => g.Scenario)
-            .Where(g => g.OwnerId == new UserId(request.OwnerId))
+            .Where(g => g.OwnerId == new UserId(request.UserId) ||
+                        g.Players.Any(p => p.UserId == new UserId(request.UserId)))
             .OrderByDescending(g => g.StartedAt)
             .ToListAsync(cancellationToken);
 

@@ -45,6 +45,12 @@ internal sealed class CreateGameHandler(IAppDbContext db) : ICommandHandler<Crea
 {
     public async Task<Result> Handle(CreateGameCommand request, CancellationToken cancellationToken)
     {
+        var ownerId = new UserId(request.OwnerId);
+
+        var friendshipCheck = await GameFactory.ValidatePlayerFriendships(ownerId, request.Players, db, cancellationToken);
+        if (friendshipCheck.IsFailure)
+            return friendshipCheck;
+
         var difficultyResult = Difficulty.Create(request.Difficulty);
         if (difficultyResult.IsFailure)
             return Result.Failure(difficultyResult.Error);

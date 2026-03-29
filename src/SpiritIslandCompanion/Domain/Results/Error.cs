@@ -49,6 +49,11 @@ public class Error : IEquatable<Error>
         return new Error(code, message, ErrorType.Validation);
     }
 
+    public static Error Forbidden(string code, string message)
+    {
+        return new Error(code, message, ErrorType.Forbidden);
+    }
+
     public static Error Failure(string code, string message)
     {
         return new Error(code, message, ErrorType.Failure);

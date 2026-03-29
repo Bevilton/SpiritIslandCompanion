@@ -1,9 +1,13 @@
+using Application.Data;
 using Application.Features.Games.Dtos;
+using Domain.Errors;
+using Domain.Models.Friendship;
 using Domain.Models.Game;
 using Domain.Models.Static;
 using Domain.Models.User;
 using Domain.Results;
 using Domain.Services;
+using Microsoft.EntityFrameworkCore;
 
 namespace Application.Features.Games;
 
@@ -71,5 +75,40 @@ internal static class GameFactory
             dahan.Value,
             scoreResult.Value,
             scoreMod.Value);
+    }
+
+    /// <summary>
+    /// Validates that all registered users (UserId) in the player list are friends with the game owner.
+    /// The owner themselves is excluded from the check.
+    /// </summary>
+    public static async Task<Result> ValidatePlayerFriendships(
+        UserId ownerId,
+        List<GamePlayerDto> players,
+        IAppDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var otherUserIds = players
+            .Where(p => p.UserId.HasValue && p.UserId.Value != ownerId.Value)
+            .Select(p => new UserId(p.UserId!.Value))
+            .Distinct()
+            .ToList();
+
+        if (otherUserIds.Count == 0)
+            return Result.Success();
+
+        var acceptedFriendIds = await db.Friendships
+            .AsNoTracking()
+            .Where(f => f.Status == FriendshipStatus.Accepted &&
+                        (f.RequesterId == ownerId || f.AddresseeId == ownerId))
+            .Select(f => f.RequesterId == ownerId ? f.AddresseeId : f.RequesterId)
+            .ToListAsync(cancellationToken);
+
+        var friendIdSet = acceptedFriendIds.ToHashSet();
+
+        var nonFriend = otherUserIds.FirstOrDefault(id => !friendIdSet.Contains(id));
+        if (nonFriend is not null)
+            return Result.Failure(DomainErrors.Game.PlayerNotFriend);
+
+        return Result.Success();
     }
 }
