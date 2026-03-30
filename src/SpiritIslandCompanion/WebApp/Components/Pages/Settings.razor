@@ -1,0 +1,90 @@
+@page "/settings"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject IMediator Mediator
+@inject ICurrentUserService CurrentUser
+
+<PageTitle>Settings</PageTitle>
+
+<div class="page-header">
+    <h1>Settings</h1>
+</div>
+
+<Alert Message="@_message" Type="@_alertType"/>
+
+@if (_loading)
+{
+    <LoadingSpinner/>
+}
+else
+{
+    <div class="card" style="max-width: 600px;">
+        <div class="card-header"><h5 class="mb-0">Owned Expansions</h5></div>
+        <div class="card-body">
+            <p class="text-muted">Select the expansions you own. This filters available spirits, adversaries, and other content throughout the app.</p>
+            @foreach (var expansion in GameData.Expansions)
+            {
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox"
+                           id="@($"exp-{expansion.Id.Value}")"
+                           checked="@_ownedExpansions.Contains(expansion.Id.Value)"
+                           @onchange="e => ToggleExpansion(expansion.Id.Value, (bool)(e.Value ?? false))"/>
+                    <label class="form-check-label" for="@($"exp-{expansion.Id.Value}")">
+                        @expansion.Name
+                    </label>
+                </div>
+            }
+        </div>
+        <div class="card-footer">
+            <button class="btn btn-primary" @onclick="Save" disabled="@_saving">
+                @if (_saving)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                <i class="bi bi-check-lg me-1"></i> Save
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    private HashSet<string> _ownedExpansions = [];
+    private bool _loading = true;
+    private bool _saving;
+    private string? _message;
+    private string _alertType = "success";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser.UserId is not { } userId) return;
+        var result = await Mediator.Send(new Application.Features.Users.GetUserQuery(userId));
+        if (result.IsSuccess)
+            _ownedExpansions = result.Value.OwnedExpansionIds.ToHashSet();
+        _loading = false;
+    }
+
+    private void ToggleExpansion(string id, bool isChecked)
+    {
+        if (isChecked) _ownedExpansions.Add(id);
+        else _ownedExpansions.Remove(id);
+    }
+
+    private async Task Save()
+    {
+        _saving = true;
+        var result = await Mediator.Send(new Application.Features.Users.UpdateUserSettingsCommand(
+            CurrentUser.UserId!.Value, _ownedExpansions.ToList()));
+        _saving = false;
+
+        if (result.IsSuccess)
+        {
+            _message = "Settings saved!";
+            _alertType = "success";
+        }
+        else
+        {
+            _message = result.Error.Message;
+            _alertType = "danger";
+        }
+    }
+}

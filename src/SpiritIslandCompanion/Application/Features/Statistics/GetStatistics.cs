@@ -71,8 +71,8 @@ internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<Get
             .Include(g => g.PlayedAdversaries)
             .Include(g => g.Result)
             .Include(g => g.Scenario)
-            .Where(g => g.OwnerId == new UserId(request.UserId) ||
-                        g.Players.Any(p => p.UserId == new UserId(request.UserId)))
+            .Where(g => g.OwnerId.Value == request.UserId ||
+                        g.Players.Any(p => p.UserId != null && p.UserId.Value == request.UserId))
             .ToListAsync(cancellationToken);
 
         var completedGames = games.Where(g => g.Result is not null).ToList();

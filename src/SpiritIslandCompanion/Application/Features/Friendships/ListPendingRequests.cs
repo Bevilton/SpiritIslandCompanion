@@ -29,7 +29,7 @@ internal sealed class ListPendingRequestsHandler(IAppDbContext db) : IQueryHandl
         var pendingFriendships = await db.Friendships
             .AsNoTracking()
             .Where(f => f.Status == FriendshipStatus.Pending &&
-                        (f.RequesterId == userId || f.AddresseeId == userId))
+                        (f.RequesterId.Value == request.UserId || f.AddresseeId.Value == request.UserId))
             .ToListAsync(cancellationToken);
 
         var allUserIds = pendingFriendships

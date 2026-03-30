@@ -1,0 +1,191 @@
+@page "/friends"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject IMediator Mediator
+@inject ICurrentUserService CurrentUser
+
+<PageTitle>Friends</PageTitle>
+
+<div class="page-header">
+    <h1>Friends</h1>
+</div>
+
+<Alert Message="@_message" Type="@_alertType"/>
+
+@if (_loading)
+{
+    <LoadingSpinner/>
+}
+else
+{
+    @* Send Request *@
+    <div class="card mb-4">
+        <div class="card-header"><h5 class="mb-0">Send Friend Request</h5></div>
+        <div class="card-body">
+            <div class="input-group" style="max-width: 500px;">
+                <input type="email" class="form-control" placeholder="Enter email address..."
+                       @bind="_friendEmail" @bind:event="oninput"/>
+                <button class="btn btn-primary" @onclick="SendRequest" disabled="@string.IsNullOrWhiteSpace(_friendEmail)">
+                    <i class="bi bi-send me-1"></i> Send
+                </button>
+            </div>
+        </div>
+    </div>
+
+    @* Incoming Requests *@
+    @if (_pending?.Incoming.Count > 0)
+    {
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Incoming Requests <span class="badge bg-primary ms-2">@_pending.Incoming.Count</span></h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    @foreach (var r in _pending.Incoming)
+                    {
+                        <div class="list-group-item d-flex align-items-center justify-content-between">
+                            <div>
+                                <strong>@r.Nickname</strong>
+                                <small class="text-muted ms-2">@r.Email</small>
+                                <small class="text-muted ms-2">@r.SentAt.LocalDateTime.ToString("MMM dd")</small>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-success" @onclick="() => AcceptRequest(r.FriendshipId)">
+                                    <i class="bi bi-check-lg"></i> Accept
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => RejectRequest(r.FriendshipId)">
+                                    <i class="bi bi-x-lg"></i> Reject
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+
+    @* Outgoing Requests *@
+    @if (_pending?.Outgoing.Count > 0)
+    {
+        <div class="card mb-4">
+            <div class="card-header"><h5 class="mb-0">Outgoing Requests</h5></div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    @foreach (var r in _pending.Outgoing)
+                    {
+                        <div class="list-group-item d-flex align-items-center justify-content-between">
+                            <div>
+                                <strong>@r.Nickname</strong>
+                                <small class="text-muted ms-2">@r.Email</small>
+                            </div>
+                            <span class="badge bg-secondary">Pending</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+
+    @* Friends List *@
+    <div class="card">
+        <div class="card-header"><h5 class="mb-0">My Friends</h5></div>
+        <div class="card-body p-0">
+            @if (_friends.Count == 0)
+            {
+                <div class="text-muted text-center py-4">No friends yet. Send a request to get started!</div>
+            }
+            else
+            {
+                <div class="list-group list-group-flush">
+                    @foreach (var f in _friends)
+                    {
+                        <div class="list-group-item d-flex align-items-center justify-content-between">
+                            <div>
+                                <strong>@f.Nickname</strong>
+                                <small class="text-muted ms-2">@f.Email</small>
+                            </div>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => RemoveFriend(f.FriendshipId)">
+                                <i class="bi bi-person-x"></i> Remove
+                            </button>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+    <ConfirmDialog @ref="_confirmDialog" Title="Remove Friend" Message="Are you sure you want to remove this friend?"/>
+}
+
+@code {
+    private List<Application.Features.Friendships.FriendResponse> _friends = [];
+    private Application.Features.Friendships.PendingRequestsResponse? _pending;
+    private bool _loading = true;
+    private string _friendEmail = "";
+    private string? _message;
+    private string _alertType = "success";
+    private ConfirmDialog _confirmDialog = default!;
+
+    protected override async Task OnInitializedAsync() => await LoadData();
+
+    private async Task LoadData()
+    {
+        if (CurrentUser.UserId is not { } userId) return;
+
+        var friendsResult = await Mediator.Send(new Application.Features.Friendships.ListFriendsQuery(userId));
+        var pendingResult = await Mediator.Send(new Application.Features.Friendships.ListPendingRequestsQuery(userId));
+
+        if (friendsResult.IsSuccess) _friends = friendsResult.Value;
+        if (pendingResult.IsSuccess) _pending = pendingResult.Value;
+
+        _loading = false;
+    }
+
+    private async Task SendRequest()
+    {
+        var result = await Mediator.Send(new Application.Features.Friendships.SendFriendRequestCommand(
+            CurrentUser.UserId!.Value, _friendEmail));
+
+        if (result.IsSuccess)
+        {
+            _message = $"Friend request sent to {_friendEmail}!";
+            _alertType = "success";
+            _friendEmail = "";
+            await LoadData();
+        }
+        else
+        {
+            _message = result.Error.Message;
+            _alertType = "danger";
+        }
+    }
+
+    private async Task AcceptRequest(Guid friendshipId)
+    {
+        var result = await Mediator.Send(new Application.Features.Friendships.AcceptFriendRequestCommand(
+            friendshipId, CurrentUser.UserId!.Value));
+        _message = result.IsSuccess ? "Friend request accepted!" : result.Error.Message;
+        _alertType = result.IsSuccess ? "success" : "danger";
+        await LoadData();
+    }
+
+    private async Task RejectRequest(Guid friendshipId)
+    {
+        var result = await Mediator.Send(new Application.Features.Friendships.RejectFriendRequestCommand(
+            friendshipId, CurrentUser.UserId!.Value));
+        _message = result.IsSuccess ? "Friend request rejected." : result.Error.Message;
+        _alertType = result.IsSuccess ? "info" : "danger";
+        await LoadData();
+    }
+
+    private async Task RemoveFriend(Guid friendshipId)
+    {
+        if (!await _confirmDialog.ShowAsync()) return;
+
+        var result = await Mediator.Send(new Application.Features.Friendships.RemoveFriendCommand(
+            friendshipId, CurrentUser.UserId!.Value));
+        _message = result.IsSuccess ? "Friend removed." : result.Error.Message;
+        _alertType = result.IsSuccess ? "info" : "danger";
+        await LoadData();
+    }
+}

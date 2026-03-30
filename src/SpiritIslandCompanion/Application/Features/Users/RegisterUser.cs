@@ -30,11 +30,9 @@ internal sealed class RegisterUserHandler(IAppDbContext db) : ICommandHandler<Re
 {
     public async Task<Result> Handle(RegisterUserCommand request, CancellationToken cancellationToken)
     {
-        var email = Email.Create(request.Email);
-
         var existingUser = await db.Users
             .AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
+            .FirstOrDefaultAsync(u => u.Email.Value == request.Email, cancellationToken);
 
         if (existingUser is not null)
             return Result.Failure(Error.Conflict("User.AlreadyExists", "A user with this email already exists."));
@@ -46,7 +44,7 @@ internal sealed class RegisterUserHandler(IAppDbContext db) : ICommandHandler<Re
 
         var user = User.Create(
             new UserId(Guid.NewGuid()),
-            email,
+            Email.Create(request.Email),
             Nickname.Create(request.Nickname),
             settings,
             DateTimeOffset.UtcNow);

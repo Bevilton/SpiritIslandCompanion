@@ -29,13 +29,9 @@ internal class FriendshipConfiguration : IEntityTypeConfiguration<Friendship>
             b.Property(e => e.Value)
                 .HasColumnName("AddresseeId")
                 .IsRequired();
+
+            // Speed up lookups for incoming requests
+            b.HasIndex(e => e.Value);
         });
-
-        // Prevent duplicate requests between the same pair
-        builder.HasIndex("RequesterId", "AddresseeId")
-            .IsUnique();
-
-        // Speed up lookups for incoming requests
-        builder.HasIndex("AddresseeId");
     }
 }

@@ -16,7 +16,7 @@ internal sealed class ListPlayersHandler(IAppDbContext db) : IQueryHandler<ListP
     {
         var players = await db.Players
             .AsNoTracking()
-            .Where(p => p.CreatedBy == new UserId(request.UserId))
+            .Where(p => p.CreatedBy.Value == request.UserId)
             .OrderBy(p => p.Name.Value)
             .Select(p => new ListPlayersResponse(p.Id.Value, p.Name.Value))
             .ToListAsync(cancellationToken);

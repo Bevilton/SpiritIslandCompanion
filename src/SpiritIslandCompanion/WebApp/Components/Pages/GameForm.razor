@@ -1,0 +1,396 @@
+@page "/games/new"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject IMediator Mediator
+@inject ICurrentUserService CurrentUser
+@inject NavigationManager Nav
+
+<PageTitle>New Game</PageTitle>
+
+<div class="page-header">
+    <h1>Record New Game</h1>
+</div>
+
+<Alert Message="@_message" Type="@_alertType"/>
+
+@if (_loading)
+{
+    <LoadingSpinner/>
+}
+else
+{
+    @* === SETUP SECTION === *@
+    <div class="card mb-4">
+        <div class="card-header"><h5 class="mb-0">Game Setup</h5></div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Island Setup</label>
+                    <select class="form-select" @bind="_islandSetupId">
+                        <option value="">Select...</option>
+                        @foreach (var setup in GameData.IslandSetups)
+                        {
+                            <option value="@setup.Id.Value">@setup.Name (@setup.NumberOfPlayers players)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Difficulty</label>
+                    <input type="number" class="form-control" @bind="_difficulty" min="0" max="20"/>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Scenario (optional)</label>
+                    <select class="form-select" @bind="_scenarioId">
+                        <option value="">None</option>
+                        @foreach (var s in GameData.Scenarios)
+                        {
+                            <option value="@s.Id.Value">@s.Name (Diff +@s.Difficulty)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Date Played</label>
+                    <input type="date" class="form-control" @bind="_datePlayed"/>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* === PLAYERS SECTION === *@
+    <div class="card mb-4">
+        <div class="card-header d-flex align-items-center justify-content-between">
+            <h5 class="mb-0">Players</h5>
+            <button class="btn btn-sm btn-outline-primary" @onclick="AddPlayer">
+                <i class="bi bi-plus-lg me-1"></i> Add Player
+            </button>
+        </div>
+        <div class="card-body">
+            @for (var i = 0; i < _players.Count; i++)
+            {
+                var idx = i;
+                <div class="row g-2 mb-3 align-items-end border-bottom pb-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Spirit</label>
+                        <select class="form-select" value="@_players[idx].SpiritId"
+                                @onchange="e => OnSpiritChanged(idx, e.Value?.ToString())">
+                            <option value="">Select...</option>
+                            @foreach (var s in GameData.Spirits)
+                            {
+                                <option value="@s.Id.Value">@s.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Aspect</label>
+                        <select class="form-select" @bind="_players[idx].AspectId">
+                            <option value="">None</option>
+                            @foreach (var a in GetAspectsForSpirit(_players[idx].SpiritId))
+                            {
+                                <option value="@a.Id.Value">@a.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Board</label>
+                        <select class="form-select" @bind="_players[idx].BoardId">
+                            <option value="">Select...</option>
+                            @foreach (var b in GameData.Boards)
+                            {
+                                <option value="@b.Id.Value">@b.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Assigned To</label>
+                        <select class="form-select" @bind="_players[idx].AssignedTo">
+                            <option value="me">Me</option>
+                            @foreach (var f in _friends)
+                            {
+                                <option value="friend:@f.FriendUserId">@f.Nickname</option>
+                            }
+                            @foreach (var p in _localPlayers)
+                            {
+                                <option value="player:@p.Id">@p.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        @if (_players.Count > 1)
+                        {
+                            <button class="btn btn-outline-danger btn-sm" @onclick="() => RemovePlayer(idx)">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    @* === ADVERSARIES SECTION === *@
+    <div class="card mb-4">
+        <div class="card-header d-flex align-items-center justify-content-between">
+            <h5 class="mb-0">Adversaries</h5>
+            <button class="btn btn-sm btn-outline-primary" @onclick="AddAdversary">
+                <i class="bi bi-plus-lg me-1"></i> Add Adversary
+            </button>
+        </div>
+        <div class="card-body">
+            @if (_adversaries.Count == 0)
+            {
+                <p class="text-muted mb-0">No adversary (tutorial game)</p>
+            }
+            @for (var i = 0; i < _adversaries.Count; i++)
+            {
+                var idx = i;
+                <div class="row g-2 mb-2 align-items-end">
+                    <div class="col-md-5">
+                        <label class="form-label">Adversary</label>
+                        <select class="form-select" @bind="_adversaries[idx].AdversaryId">
+                            <option value="">Select...</option>
+                            @foreach (var a in GameData.Adversaries)
+                            {
+                                <option value="@a.Id.Value">@a.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Level</label>
+                        <input type="number" class="form-control" @bind="_adversaries[idx].Level" min="0" max="6"/>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-outline-danger btn-sm" @onclick="() => _adversaries.RemoveAt(idx)">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    @* === RESULT SECTION (optional) === *@
+    <div class="card mb-4">
+        <div class="card-header d-flex align-items-center justify-content-between">
+            <h5 class="mb-0">Result</h5>
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" @bind="_includeResult"/>
+                <label class="form-check-label">Include result</label>
+            </div>
+        </div>
+        @if (_includeResult)
+        {
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Outcome</label>
+                        <select class="form-select" @bind="_resultWin">
+                            <option value="true">Victory</option>
+                            <option value="false">Defeat</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Terror Level</label>
+                        <select class="form-select" @bind="_resultTerror">
+                            @foreach (var t in Enum.GetValues<TerrorLevel>())
+                            {
+                                <option value="@t">@t</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Duration (min)</label>
+                        <input type="number" class="form-control" @bind="_resultDuration" min="0"/>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Dahan Remaining</label>
+                        <input type="number" class="form-control" @bind="_resultDahan" min="0"/>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Blight on Island</label>
+                        <input type="number" class="form-control" @bind="_resultBlight" min="0"/>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Cards in Invader Deck</label>
+                        <input type="number" class="form-control" @bind="_resultCards" min="0"/>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Score Modifier</label>
+                        <input type="number" class="form-control" @bind="_resultScoreMod"/>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    @* === NOTE === *@
+    <div class="card mb-4">
+        <div class="card-header"><h5 class="mb-0">Note</h5></div>
+        <div class="card-body">
+            <textarea class="form-control" rows="3" @bind="_note" placeholder="Optional game notes..."></textarea>
+        </div>
+    </div>
+
+    @* === ACTIONS === *@
+    <div class="d-flex gap-2">
+        @if (_includeResult)
+        {
+            <button class="btn btn-success" @onclick="SaveCompleted" disabled="@_saving">
+                <i class="bi bi-check-circle me-1"></i> Save Completed Game
+            </button>
+        }
+        else
+        {
+            <button class="btn btn-primary" @onclick="SaveDraft" disabled="@_saving">
+                <i class="bi bi-save me-1"></i> Save as Draft
+            </button>
+        }
+        <a href="/games" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+}
+
+@code {
+    // State
+    private bool _loading = true;
+    private bool _saving;
+    private string? _message;
+    private string _alertType = "danger";
+
+    // Setup
+    private string _islandSetupId = "";
+    private int _difficulty;
+    private string? _scenarioId;
+    private DateTime _datePlayed = DateTime.Today;
+
+    // Players
+    private List<PlayerFormItem> _players = [new()];
+    private List<Application.Features.Friendships.FriendResponse> _friends = [];
+    private List<Application.Features.Players.ListPlayersResponse> _localPlayers = [];
+
+    // Adversaries
+    private List<AdversaryFormItem> _adversaries = [];
+
+    // Result
+    private bool _includeResult;
+    private bool _resultWin = true;
+    private TerrorLevel _resultTerror = TerrorLevel.First;
+    private int _resultDuration = 60;
+    private int _resultDahan;
+    private int _resultBlight;
+    private int _resultCards;
+    private int _resultScoreMod;
+    private string? _note;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser.UserId is not { } userId) return;
+
+        var friendsResult = await Mediator.Send(new Application.Features.Friendships.ListFriendsQuery(userId));
+        var playersResult = await Mediator.Send(new Application.Features.Players.ListPlayersQuery(userId));
+
+        if (friendsResult.IsSuccess) _friends = friendsResult.Value;
+        if (playersResult.IsSuccess) _localPlayers = playersResult.Value;
+
+        _loading = false;
+    }
+
+    private void AddPlayer() => _players.Add(new PlayerFormItem());
+    private void RemovePlayer(int idx) => _players.RemoveAt(idx);
+    private void AddAdversary() => _adversaries.Add(new AdversaryFormItem());
+
+    private void OnSpiritChanged(int idx, string? spiritId)
+    {
+        _players[idx].SpiritId = spiritId ?? "";
+        _players[idx].AspectId = "";
+    }
+
+    private IReadOnlyList<Aspect> GetAspectsForSpirit(string spiritId)
+        => string.IsNullOrEmpty(spiritId) ? [] : GameData.GetAspectsForSpirit(new SpiritId(spiritId));
+
+    private List<Application.Features.Games.Dtos.GamePlayerDto> BuildPlayerDtos()
+    {
+        return _players.Select(p =>
+        {
+            Guid? userId = null;
+            Guid? playerId = null;
+
+            if (p.AssignedTo == "me")
+                userId = CurrentUser.UserId;
+            else if (p.AssignedTo.StartsWith("friend:"))
+                userId = Guid.Parse(p.AssignedTo["friend:".Length..]);
+            else if (p.AssignedTo.StartsWith("player:"))
+                playerId = Guid.Parse(p.AssignedTo["player:".Length..]);
+
+            return new Application.Features.Games.Dtos.GamePlayerDto(
+                p.SpiritId, string.IsNullOrEmpty(p.AspectId) ? null : p.AspectId,
+                p.BoardId, userId, playerId);
+        }).ToList();
+    }
+
+    private List<Application.Features.Games.Dtos.GameAdversaryDto> BuildAdversaryDtos()
+        => _adversaries.Select(a => new Application.Features.Games.Dtos.GameAdversaryDto(a.AdversaryId, a.Level)).ToList();
+
+    private async Task SaveDraft()
+    {
+        _saving = true;
+        var cmd = new Application.Features.Games.DraftGameCommand(
+            CurrentUser.UserId!.Value,
+            new DateTimeOffset(_datePlayed, TimeSpan.Zero),
+            _islandSetupId, _difficulty,
+            BuildPlayerDtos(), BuildAdversaryDtos(),
+            string.IsNullOrEmpty(_scenarioId) ? null : _scenarioId,
+            string.IsNullOrEmpty(_note) ? null : _note);
+
+        var result = await Mediator.Send(cmd);
+        _saving = false;
+
+        if (result.IsSuccess)
+            Nav.NavigateTo("/games");
+        else
+        {
+            _message = result.Error.Message;
+            _alertType = "danger";
+        }
+    }
+
+    private async Task SaveCompleted()
+    {
+        _saving = true;
+        var resultDto = new Application.Features.Games.Dtos.GameResultDto(
+            _resultWin, TimeSpan.FromMinutes(_resultDuration),
+            _resultCards, _resultTerror, _resultBlight, _resultDahan, _resultScoreMod);
+
+        var cmd = new Application.Features.Games.CreateGameCommand(
+            CurrentUser.UserId!.Value,
+            new DateTimeOffset(_datePlayed, TimeSpan.Zero),
+            _islandSetupId, _difficulty,
+            BuildPlayerDtos(), BuildAdversaryDtos(),
+            string.IsNullOrEmpty(_scenarioId) ? null : _scenarioId,
+            resultDto,
+            string.IsNullOrEmpty(_note) ? null : _note);
+
+        var result = await Mediator.Send(cmd);
+        _saving = false;
+
+        if (result.IsSuccess)
+            Nav.NavigateTo("/games");
+        else
+        {
+            _message = result.Error.Message;
+            _alertType = "danger";
+        }
+    }
+
+    private class PlayerFormItem
+    {
+        public string SpiritId { get; set; } = "";
+        public string? AspectId { get; set; }
+        public string BoardId { get; set; } = "";
+        public string AssignedTo { get; set; } = "me";
+    }
+
+    private class AdversaryFormItem
+    {
+        public string AdversaryId { get; set; } = "";
+        public int Level { get; set; }
+    }
+}

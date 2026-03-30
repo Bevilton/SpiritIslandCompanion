@@ -1,0 +1,17 @@
+@if (!IsCompleted)
+{
+    <span class="badge badge-draft">Draft</span>
+}
+else if (Win == true)
+{
+    <span class="badge badge-win">Win</span>
+}
+else
+{
+    <span class="badge badge-loss">Loss</span>
+}
+
+@code {
+    [Parameter] public bool IsCompleted { get; set; }
+    [Parameter] public bool? Win { get; set; }
+}

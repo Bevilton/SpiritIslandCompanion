@@ -20,7 +20,7 @@ internal sealed class ListFriendsHandler(IAppDbContext db) : IQueryHandler<ListF
         var friendships = await db.Friendships
             .AsNoTracking()
             .Where(f => f.Status == FriendshipStatus.Accepted &&
-                        (f.RequesterId == userId || f.AddresseeId == userId))
+                        (f.RequesterId.Value == request.UserId || f.AddresseeId.Value == request.UserId))
             .ToListAsync(cancellationToken);
 
         var friendUserIds = friendships

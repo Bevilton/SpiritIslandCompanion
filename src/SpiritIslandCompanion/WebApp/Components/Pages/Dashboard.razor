@@ -1,0 +1,113 @@
+@page "/"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject IMediator Mediator
+@inject ICurrentUserService CurrentUser
+
+<PageTitle>Dashboard</PageTitle>
+
+<div class="page-header">
+    <h1>Dashboard</h1>
+</div>
+
+@if (_loading)
+{
+    <LoadingSpinner/>
+}
+else
+{
+    @if (_pendingCount > 0)
+    {
+        <div class="alert alert-info d-flex align-items-center mb-4">
+            <i class="bi bi-people-fill me-2"></i>
+            You have <strong class="mx-1">@_pendingCount</strong> pending friend request(s).
+            <a href="/friends" class="ms-2">View</a>
+        </div>
+    }
+
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-lg-3">
+            <StatCard Value="@_stats?.TotalGames.ToString()" Label="Total Games" Icon="controller"/>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <StatCard Value="@($"{_stats?.WinRate:F0}%")" Label="Win Rate" Icon="trophy"/>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <StatCard Value="@($"{_stats?.AverageScore:F0}")" Label="Avg Score" Icon="graph-up"/>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <StatCard Value="@_stats?.InProgress.ToString()" Label="In Progress" Icon="hourglass-split"/>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header d-flex align-items-center justify-content-between">
+            <h5 class="mb-0">Recent Games</h5>
+            <a href="/games" class="btn btn-sm btn-outline-primary">View All</a>
+        </div>
+        <div class="card-body p-0">
+            @if (_games is null || _games.Count == 0)
+            {
+                <div class="text-muted text-center py-4">
+                    No games recorded yet. <a href="/games/new">Record your first game!</a>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Adversary</th>
+                            <th>Players</th>
+                            <th>Difficulty</th>
+                            <th>Result</th>
+                            <th>Score</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var g in _games.Take(5))
+                        {
+                            <tr class="cursor-pointer" @onclick="() => NavigateToGame(g.Id)">
+                                <td>@g.StartedAt.LocalDateTime.ToString("MMM dd, yyyy")</td>
+                                <td>@string.Join(" + ", g.AdversaryNames)</td>
+                                <td>@g.PlayerCount</td>
+                                <td>@g.Difficulty</td>
+                                <td><GameStatusBadge IsCompleted="g.IsCompleted" Win="g.Win"/></td>
+                                <td>@(g.Score?.ToString() ?? "-")</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    private Application.Features.Statistics.StatisticsResponse? _stats;
+    private List<Application.Features.Games.ListGamesResponse>? _games;
+    private int _pendingCount;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser.UserId is not { } userId) return;
+
+        var statsResult = await Mediator.Send(new Application.Features.Statistics.GetStatisticsQuery(userId));
+        var gamesResult = await Mediator.Send(new Application.Features.Games.ListGamesQuery(userId));
+        var pendingResult = await Mediator.Send(new Application.Features.Friendships.ListPendingRequestsQuery(userId));
+
+        if (statsResult.IsSuccess) _stats = statsResult.Value;
+        if (gamesResult.IsSuccess) _games = gamesResult.Value;
+        if (pendingResult.IsSuccess) _pendingCount = pendingResult.Value.Incoming.Count;
+
+        _loading = false;
+    }
+
+    private void NavigateToGame(Guid id) => Nav.NavigateTo($"/games/{id}");
+}

@@ -28,12 +28,11 @@ internal sealed class SendFriendRequestHandler(IAppDbContext db) : ICommandHandl
     public async Task<Result> Handle(SendFriendRequestCommand request, CancellationToken cancellationToken)
     {
         var requesterId = new UserId(request.RequesterId);
-        var addresseeEmail = Email.Create(request.AddresseeEmail);
 
         // Find the addressee by email
         var addressee = await db.Users
             .AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Email == addresseeEmail, cancellationToken);
+            .FirstOrDefaultAsync(u => u.Email.Value == request.AddresseeEmail, cancellationToken);
 
         if (addressee is null)
             return Result.Failure(Error.NotFound("User.NotFound", "No user found with that email."));
@@ -44,8 +43,8 @@ internal sealed class SendFriendRequestHandler(IAppDbContext db) : ICommandHandl
         var existing = await db.Friendships
             .AsNoTracking()
             .FirstOrDefaultAsync(f =>
-                (f.RequesterId == requesterId && f.AddresseeId == addresseeId) ||
-                (f.RequesterId == addresseeId && f.AddresseeId == requesterId),
+                (f.RequesterId.Value == requesterId.Value && f.AddresseeId.Value == addresseeId.Value) ||
+                (f.RequesterId.Value == addresseeId.Value && f.AddresseeId.Value == requesterId.Value),
                 cancellationToken);
 
         if (existing is not null)

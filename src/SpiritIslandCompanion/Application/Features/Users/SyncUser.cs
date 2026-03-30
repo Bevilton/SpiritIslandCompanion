@@ -31,11 +31,9 @@ internal sealed class SyncUserHandler(IAppDbContext db) : IQueryHandler<SyncUser
 {
     public async Task<Result<SyncUserResponse>> Handle(SyncUserCommand request, CancellationToken cancellationToken)
     {
-        var email = Email.Create(request.Email);
-
         var user = await db.Users
             .Include(u => u.UserSettings)
-            .FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
+            .FirstOrDefaultAsync(u => u.Email.Value == request.Email, cancellationToken);
 
         if (user is not null)
         {
@@ -48,7 +46,7 @@ internal sealed class SyncUserHandler(IAppDbContext db) : IQueryHandler<SyncUser
 
         var newUser = User.Create(
             new UserId(Guid.NewGuid()),
-            email,
+            Email.Create(request.Email),
             Nickname.Create(request.Nickname),
             settings,
             DateTimeOffset.UtcNow);

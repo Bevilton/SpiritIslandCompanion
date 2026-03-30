@@ -1,0 +1,165 @@
+@page "/statistics"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject IMediator Mediator
+@inject ICurrentUserService CurrentUser
+
+<PageTitle>Statistics</PageTitle>
+
+<div class="page-header">
+    <h1>Statistics</h1>
+</div>
+
+@if (_loading)
+{
+    <LoadingSpinner/>
+}
+else if (_stats is null)
+{
+    <div class="text-muted">No statistics available yet. Play some games first!</div>
+}
+else
+{
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-lg-3">
+            <StatCard Value="@_stats.TotalGames.ToString()" Label="Total Games" Icon="controller"/>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <StatCard Value="@($"{_stats.WinRate:F0}%")" Label="Win Rate" Icon="trophy"/>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <StatCard Value="@($"{_stats.AverageScore:F0}")" Label="Avg Score" Icon="graph-up"/>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <StatCard Value="@_stats.AverageDuration.ToString(@"h\:mm")" Label="Avg Duration" Icon="clock"/>
+        </div>
+    </div>
+
+    @* Tabs *@
+    <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+            <button class="nav-link @(_tab == "spirits" ? "active" : "")" @onclick='() => _tab = "spirits"'>Spirits</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(_tab == "adversaries" ? "active" : "")" @onclick='() => _tab = "adversaries"'>Adversaries</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(_tab == "players" ? "active" : "")" @onclick='() => _tab = "players"'>Players</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(_tab == "scenarios" ? "active" : "")" @onclick='() => _tab = "scenarios"'>Scenarios</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(_tab == "monthly" ? "active" : "")" @onclick='() => _tab = "monthly"'>Monthly</button>
+        </li>
+    </ul>
+
+    <div class="card">
+        <div class="card-body p-0">
+            @switch (_tab)
+            {
+                case "spirits":
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead><tr><th>Spirit</th><th>Games</th><th>Wins</th><th>Losses</th><th>Win Rate</th></tr></thead>
+                            <tbody>
+                            @foreach (var s in _stats.SpiritStatistics)
+                            {
+                                <tr>
+                                    <td>@s.SpiritId</td><td>@s.GamesPlayed</td><td>@s.Wins</td><td>@s.Losses</td>
+                                    <td><div class="progress" style="min-width:80px"><div class="progress-bar bg-success" style="width:@(s.WinRate)%">@($"{s.WinRate:F0}%")</div></div></td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                    break;
+
+                case "adversaries":
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead><tr><th>Adversary</th><th>Games</th><th>Wins</th><th>Losses</th><th>Avg Level</th><th>Win Rate</th></tr></thead>
+                            <tbody>
+                            @foreach (var a in _stats.AdversaryStatistics)
+                            {
+                                <tr>
+                                    <td>@a.AdversaryId</td><td>@a.GamesPlayed</td><td>@a.Wins</td><td>@a.Losses</td>
+                                    <td>@($"{a.AverageLevel:F1}")</td>
+                                    <td><div class="progress" style="min-width:80px"><div class="progress-bar bg-success" style="width:@(a.WinRate)%">@($"{a.WinRate:F0}%")</div></div></td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                    break;
+
+                case "players":
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead><tr><th>Player</th><th>Games</th><th>Wins</th><th>Win Rate</th><th>Top Spirits</th></tr></thead>
+                            <tbody>
+                            @foreach (var p in _stats.PlayerStatistics)
+                            {
+                                <tr>
+                                    <td>@(p.UserId?.ToString("N")[..8] ?? p.PlayerId?.ToString("N")[..8] ?? "Unknown")</td>
+                                    <td>@p.GamesPlayed</td><td>@p.Wins</td>
+                                    <td>@($"{p.WinRate:F0}%")</td>
+                                    <td>@string.Join(", ", p.MostPlayedSpirits)</td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                    break;
+
+                case "scenarios":
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead><tr><th>Scenario</th><th>Games</th><th>Wins</th><th>Losses</th><th>Win Rate</th></tr></thead>
+                            <tbody>
+                            @foreach (var s in _stats.ScenarioStatistics)
+                            {
+                                <tr>
+                                    <td>@s.ScenarioId</td><td>@s.GamesPlayed</td><td>@s.Wins</td><td>@s.Losses</td>
+                                    <td>@($"{s.WinRate:F0}%")</td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                    break;
+
+                case "monthly":
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead><tr><th>Month</th><th>Games</th><th>Wins</th></tr></thead>
+                            <tbody>
+                            @foreach (var m in _stats.MonthlyStatistics)
+                            {
+                                <tr>
+                                    <td>@(new DateTime(m.Year, m.Month, 1).ToString("MMM yyyy"))</td>
+                                    <td>@m.GamesPlayed</td><td>@m.Wins</td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                    break;
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private Application.Features.Statistics.StatisticsResponse? _stats;
+    private bool _loading = true;
+    private string _tab = "spirits";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser.UserId is not { } userId) return;
+        var result = await Mediator.Send(new Application.Features.Statistics.GetStatisticsQuery(userId));
+        if (result.IsSuccess) _stats = result.Value;
+        _loading = false;
+    }
+}

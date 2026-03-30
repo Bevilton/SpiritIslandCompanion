@@ -96,12 +96,15 @@ internal static class GameFactory
         if (otherUserIds.Count == 0)
             return Result.Success();
 
-        var acceptedFriendIds = await db.Friendships
+        var friendships = await db.Friendships
             .AsNoTracking()
             .Where(f => f.Status == FriendshipStatus.Accepted &&
-                        (f.RequesterId == ownerId || f.AddresseeId == ownerId))
-            .Select(f => f.RequesterId == ownerId ? f.AddresseeId : f.RequesterId)
+                        (f.RequesterId.Value == ownerId.Value || f.AddresseeId.Value == ownerId.Value))
             .ToListAsync(cancellationToken);
+
+        var acceptedFriendIds = friendships
+            .Select(f => f.GetOtherUserId(ownerId))
+            .ToList();
 
         var friendIdSet = acceptedFriendIds.ToHashSet();
 

@@ -13,7 +13,8 @@ public static class AuthExtensions
     /// Uses standard OIDC configuration so the identity provider can be swapped
     /// by changing appsettings (Auth0, Entra ID, Keycloak, etc.).
     /// </summary>
-    public static IServiceCollection AddOidcAuthentication(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddOidcAuthentication(this IServiceCollection services, IConfiguration configuration,
+        IWebHostEnvironment environment)
     {
         var oidcSection = configuration.GetSection("Oidc");
 
@@ -31,7 +32,9 @@ public static class AuthExtensions
             {
                 options.Cookie.Name = "SICompanion.Auth";
                 options.Cookie.HttpOnly = true;
-                options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+                options.Cookie.SecurePolicy = environment.IsDevelopment()
+                    ? CookieSecurePolicy.SameAsRequest
+                    : CookieSecurePolicy.Always;
                 options.Cookie.SameSite = SameSiteMode.Lax;
                 options.ExpireTimeSpan = TimeSpan.FromDays(7);
                 options.SlidingExpiration = true;
@@ -52,6 +55,9 @@ public static class AuthExtensions
 
                 options.SaveTokens = true;
                 options.GetClaimsFromUserInfoEndpoint = true;
+
+                // Allow HTTP metadata endpoint in development (Aspire uses HTTP by default)
+                options.RequireHttpsMetadata = !environment.IsDevelopment();
 
                 options.CallbackPath = new PathString("/callback");
                 options.SignedOutCallbackPath = new PathString("/signout-callback");
