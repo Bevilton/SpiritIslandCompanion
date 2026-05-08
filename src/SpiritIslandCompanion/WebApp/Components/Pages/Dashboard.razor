@@ -1,13 +1,20 @@
-@page "/"
+@page "/app/dashboard"
 @attribute [Authorize]
 @rendermode InteractiveServer
 @inject IMediator Mediator
 @inject ICurrentUserService CurrentUser
+@inject NavigationManager Nav
 
 <PageTitle>Dashboard</PageTitle>
 
-<div class="page-header">
-    <h1>Dashboard</h1>
+<div class="page-head">
+    <div>
+        <span class="eyebrow">Welcome back</span>
+        <h1 class="page-title mt-2">Dashboard</h1>
+    </div>
+    <a href="/app/games/new" class="btn btn-primary">
+        <Icon Name="plus" Class="w-4 h-4"/> New game
+    </a>
 </div>
 
 @if (_loading)
@@ -18,77 +25,71 @@ else
 {
     @if (_pendingCount > 0)
     {
-        <div class="alert alert-info d-flex align-items-center mb-4">
-            <i class="bi bi-people-fill me-2"></i>
-            You have <strong class="mx-1">@_pendingCount</strong> pending friend request(s).
-            <a href="/friends" class="ms-2">View</a>
+        <div class="alert alert-info mb-6">
+            <Icon Name="users" Class="w-5 h-5 shrink-0"/>
+            <div class="flex-1">
+                You have <strong>@_pendingCount</strong> pending friend request@(_pendingCount == 1 ? "" : "s").
+                <a href="/app/friends" class="font-medium underline">View</a>
+            </div>
         </div>
     }
 
-    <div class="row g-3 mb-4">
-        <div class="col-sm-6 col-lg-3">
-            <StatCard Value="@_stats?.TotalGames.ToString()" Label="Total Games" Icon="controller"/>
-        </div>
-        <div class="col-sm-6 col-lg-3">
-            <StatCard Value="@($"{_stats?.WinRate:F0}%")" Label="Win Rate" Icon="trophy"/>
-        </div>
-        <div class="col-sm-6 col-lg-3">
-            <StatCard Value="@($"{_stats?.AverageScore:F0}")" Label="Avg Score" Icon="graph-up"/>
-        </div>
-        <div class="col-sm-6 col-lg-3">
-            <StatCard Value="@_stats?.InProgress.ToString()" Label="In Progress" Icon="hourglass-split"/>
-        </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <StatCard Value="@(_stats?.TotalGames.ToString() ?? "0")" Label="Total games" Icon="controller"/>
+        <StatCard Value="@($"{_stats?.WinRate ?? 0:F0}%")" Label="Win rate" Icon="trophy"/>
+        <StatCard Value="@($"{_stats?.AverageScore ?? 0:F0}")" Label="Avg score" Icon="chart"/>
+        <StatCard Value="@(_stats?.InProgress.ToString() ?? "0")" Label="In progress" Icon="hourglass"/>
     </div>
 
-    <div class="card">
-        <div class="card-header d-flex align-items-center justify-content-between">
-            <h5 class="mb-0">Recent Games</h5>
-            <a href="/games" class="btn btn-sm btn-outline-primary">View All</a>
+    <div class="surface">
+        <div class="surface-head">
+            <h2 class="text-base font-semibold">Recent games</h2>
+            <a href="/app/games" class="text-sm text-accent-700 hover:text-accent-800 inline-flex items-center gap-1">
+                View all <Icon Name="arrow-right" Class="w-3.5 h-3.5"/>
+            </a>
         </div>
-        <div class="card-body p-0">
-            @if (_games is null || _games.Count == 0)
-            {
-                <div class="text-muted text-center py-4">
-                    No games recorded yet. <a href="/games/new">Record your first game!</a>
-                </div>
-            }
-            else
-            {
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Adversary</th>
-                            <th>Players</th>
-                            <th>Difficulty</th>
-                            <th>Result</th>
-                            <th>Score</th>
+
+        @if (_games is null || _games.Count == 0)
+        {
+            <div class="px-6 py-12 text-center">
+                <p class="text-ink-600">No games recorded yet.</p>
+                <a href="/app/games/new" class="btn btn-primary mt-4">Record your first game</a>
+            </div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table class="table table-hover">
+                    <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Adversary</th>
+                        <th>Players</th>
+                        <th>Difficulty</th>
+                        <th>Result</th>
+                        <th class="text-right">Score</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var g in _games.Take(5))
+                    {
+                        <tr @onclick='() => Nav.NavigateTo($"/app/games/{g.Id}")'>
+                            <td class="text-ink-600">@g.StartedAt.LocalDateTime.ToString("MMM dd, yyyy")</td>
+                            <td class="font-medium text-ink-900">@(g.AdversaryNames.Count > 0 ? string.Join(" + ", g.AdversaryNames) : "—")</td>
+                            <td>@g.PlayerCount</td>
+                            <td>@g.Difficulty</td>
+                            <td><GameStatusBadge IsCompleted="g.IsCompleted" Win="g.Win"/></td>
+                            <td class="text-right font-medium">@(g.Score?.ToString() ?? "—")</td>
                         </tr>
-                        </thead>
-                        <tbody>
-                        @foreach (var g in _games.Take(5))
-                        {
-                            <tr class="cursor-pointer" @onclick="() => NavigateToGame(g.Id)">
-                                <td>@g.StartedAt.LocalDateTime.ToString("MMM dd, yyyy")</td>
-                                <td>@string.Join(" + ", g.AdversaryNames)</td>
-                                <td>@g.PlayerCount</td>
-                                <td>@g.Difficulty</td>
-                                <td><GameStatusBadge IsCompleted="g.IsCompleted" Win="g.Win"/></td>
-                                <td>@(g.Score?.ToString() ?? "-")</td>
-                            </tr>
-                        }
-                        </tbody>
-                    </table>
-                </div>
-            }
-        </div>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
     </div>
 }
 
 @code {
-    [Inject] private NavigationManager Nav { get; set; } = default!;
-
     private Application.Features.Statistics.StatisticsResponse? _stats;
     private List<Application.Features.Games.ListGamesResponse>? _games;
     private int _pendingCount;
@@ -108,6 +109,4 @@ else
 
         _loading = false;
     }
-
-    private void NavigateToGame(Guid id) => Nav.NavigateTo($"/games/{id}");
 }

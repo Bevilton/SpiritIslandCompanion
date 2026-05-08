@@ -1,0 +1,92 @@
+@* Two-way bound island-setup picker. Trigger button shows the current selection with its
+   diagram; click expands a panel grouped by player count where each option is a clickable
+   card with the layout diagram. Use as <IslandSetupPicker @bind-Value="_islandSetupId"/>. *@
+
+<div class="relative">
+    <button type="button"
+            @onclick="Toggle"
+            class="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg border border-ink-200 bg-white hover:bg-ink-50 transition-colors text-left
+                   focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/30">
+        @if (_selected is not null)
+        {
+            <div class="flex items-center gap-3 min-w-0">
+                <div class="h-12 w-12 shrink-0 flex items-center justify-center">
+                    <IslandSetupDiagram Setup="_selected" Class="max-h-full max-w-full"/>
+                </div>
+                <div class="min-w-0">
+                    <div class="text-sm font-medium text-ink-900 truncate">@_selected.Name</div>
+                    <div class="text-xs text-ink-500">@_selected.NumberOfPlayers @(_selected.NumberOfPlayers == 1 ? "player" : "players")</div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <span class="text-sm text-ink-500">Select an island setup…</span>
+        }
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none"
+             class="w-4 h-4 text-ink-500 shrink-0 transition-transform @(_open ? "rotate-180" : "")">
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+                  stroke-width="1.5" d="m6 8 4 4 4-4"/>
+        </svg>
+    </button>
+
+    @if (_open)
+    {
+        <div class="mt-2 surface p-4 space-y-5">
+            @foreach (var grp in _groups)
+            {
+                <div>
+                    <div class="text-[11px] font-medium uppercase tracking-wider text-ink-500 mb-2">
+                        @grp.Key @(grp.Key == 1 ? "player" : "players")
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                        @foreach (var setup in grp)
+                        {
+                            var isSelected = Value == setup.Id.Value;
+                            <button type="button"
+                                    @onclick="() => Select(setup)"
+                                    class="@(isSelected
+                                              ? "border-accent-500 bg-accent-50/60 ring-2 ring-accent-500/30"
+                                              : "border-ink-200 hover:bg-ink-50 hover:border-ink-300")
+                                           flex flex-col items-center text-center p-3 rounded-lg border transition-all">
+                                <div class="h-20 w-full flex items-center justify-center">
+                                    <IslandSetupDiagram Setup="setup" Class="max-h-full max-w-full"/>
+                                </div>
+                                <div class="mt-2 text-xs font-medium text-ink-900 leading-tight">@setup.Name</div>
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+
+    private bool _open;
+
+    private static readonly IReadOnlyList<IGrouping<int, IslandSetup>> _groups =
+        GameData.IslandSetups
+            .OrderBy(s => s.NumberOfPlayers)
+            .ThenBy(s => s.Name)
+            .GroupBy(s => s.NumberOfPlayers)
+            .ToList();
+
+    private IslandSetup? _selected =>
+        string.IsNullOrEmpty(Value) ? null
+        : GameData.IslandSetups.FirstOrDefault(s => s.Id.Value == Value);
+
+    private void Toggle() => _open = !_open;
+
+    private async Task Select(IslandSetup setup)
+    {
+        if (Value != setup.Id.Value)
+        {
+            await ValueChanged.InvokeAsync(setup.Id.Value);
+        }
+        _open = false;
+    }
+}

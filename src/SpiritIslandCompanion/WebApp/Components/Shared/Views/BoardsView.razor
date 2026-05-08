@@ -1,0 +1,94 @@
+@* Reference content for boards. Used from /boards (public) and /app/boards. *@
+
+<div class="page-head">
+    <div>
+        <span class="eyebrow">Reference</span>
+        <h1 class="page-title mt-2">Island boards</h1>
+        <p class="page-sub">@GameData.Boards.Count boards used to assemble the island, plus @GameData.IslandSetups.Count standard setups.</p>
+    </div>
+</div>
+
+@* === BOARDS === *@
+<section>
+    <span class="eyebrow">Boards</span>
+    <h2 class="mt-2 mb-5 text-2xl font-semibold" style="font-family: var(--font-serif);">Individual boards</h2>
+
+    <div class="space-y-10">
+        @foreach (var grp in _boardsByExpansion)
+        {
+            <div>
+                <h3 class="text-base font-medium text-ink-700 mb-3">@grp.Expansion.Name</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    @foreach (var b in grp.Boards)
+                    {
+                        var detail = BoardDetails.For(b.Id);
+                        var color = detail?.ColorHex ?? "#78716c";
+                        var letter = detail?.Letter ?? b.Name[^1..];
+
+                        <article class="surface p-5 flex items-center gap-4"
+                                 style="border-top: 3px solid @color;">
+                            <span class="inline-flex h-12 w-12 items-center justify-center rounded-xl text-white text-xl font-semibold shrink-0 shadow-sm"
+                                  style="background-color: @color; font-family: var(--font-serif);">
+                                @letter
+                            </span>
+                            <div class="min-w-0 flex-1">
+                                <h4 class="text-base font-semibold text-ink-900">@b.Name</h4>
+                                @if (detail is not null)
+                                {
+                                    <p class="mt-0.5 text-xs text-ink-500">@detail.ThematicName</p>
+                                }
+                            </div>
+                        </article>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</section>
+
+@* === SETUPS === *@
+<section class="mt-16">
+    <span class="eyebrow">Layouts</span>
+    <h2 class="mt-2 mb-2 text-2xl md:text-3xl font-semibold" style="font-family: var(--font-serif);">Standard island setups</h2>
+    <p class="text-sm text-ink-500 mb-6">How boards are arranged for different player counts.</p>
+
+    <div class="space-y-10">
+        @foreach (var byPlayers in _setupsByPlayerCount)
+        {
+            <div>
+                <h3 class="text-sm font-medium uppercase tracking-wide text-ink-500 mb-3">@byPlayers.Key player@(byPlayers.Key == 1 ? "" : "s")</h3>
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                    @foreach (var setup in byPlayers)
+                    {
+                        <div class="surface p-4 flex flex-col items-center text-center">
+                            <div class="h-32 md:h-40 w-full flex items-center justify-center">
+                                <IslandSetupDiagram Setup="setup" Class="max-h-full max-w-full"/>
+                            </div>
+                            <div class="mt-3 text-sm font-semibold text-ink-900">@setup.Name</div>
+                            <div class="text-xs text-ink-500">@setup.NumberOfPlayers @(setup.NumberOfPlayers == 1 ? "player" : "players")</div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</section>
+
+@code {
+    private record ExpansionBoardGroup(Expansion Expansion, IReadOnlyList<Board> Boards);
+
+    private static readonly IReadOnlyList<ExpansionBoardGroup> _boardsByExpansion =
+        GameData.Expansions
+            .Select(e => new ExpansionBoardGroup(
+                e,
+                GameData.Boards.Where(b => b.ExpansionId == e.Id).ToList()))
+            .Where(g => g.Boards.Count > 0)
+            .ToList();
+
+    private static readonly IReadOnlyList<IGrouping<int, IslandSetup>> _setupsByPlayerCount =
+        GameData.IslandSetups
+            .OrderBy(s => s.NumberOfPlayers)
+            .ThenBy(s => s.Name)
+            .GroupBy(s => s.NumberOfPlayers)
+            .ToList();
+}

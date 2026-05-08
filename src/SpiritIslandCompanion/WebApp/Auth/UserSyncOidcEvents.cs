@@ -9,7 +9,7 @@ namespace WebApp.Auth;
 /// OIDC event handler that syncs the authenticated user to the local database on each sign-in.
 /// Matches users by email. After sync, the local database UserId is added as a claim.
 /// </summary>
-public sealed class UserSyncOidcEvents(IServiceProvider serviceProvider) : OpenIdConnectEvents
+public sealed class UserSyncOidcEvents(IServiceProvider serviceProvider, IConfiguration configuration) : OpenIdConnectEvents
 {
     public override async Task TokenValidated(TokenValidatedContext context)
     {
@@ -36,5 +36,30 @@ public sealed class UserSyncOidcEvents(IServiceProvider serviceProvider) : OpenI
         {
             identity.AddClaim(new Claim("db_user_id", result.Value.UserId.ToString()));
         }
+    }
+
+    public override Task RedirectToIdentityProviderForSignOut(RedirectContext context)
+    {
+        var oidc = configuration.GetSection("Oidc");
+        var authority = oidc["Authority"]?.TrimEnd('/');
+        var clientId = oidc["ClientId"];
+
+        var logoutUri = $"{authority}/v2/logout?client_id={clientId}";
+
+        var postLogoutUri = context.Properties.RedirectUri;
+        if (!string.IsNullOrEmpty(postLogoutUri))
+        {
+            if (postLogoutUri.StartsWith('/'))
+            {
+                var request = context.Request;
+                postLogoutUri = $"{request.Scheme}://{request.Host}{request.PathBase}{postLogoutUri}";
+            }
+
+            logoutUri += $"&returnTo={Uri.EscapeDataString(postLogoutUri)}";
+        }
+
+        context.Response.Redirect(logoutUri);
+        context.HandleResponse();
+        return Task.CompletedTask;
     }
 }

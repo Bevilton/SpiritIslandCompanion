@@ -1,4 +1,4 @@
-@page "/games/new"
+@page "/app/games/new"
 @attribute [Authorize]
 @rendermode InteractiveServer
 @inject IMediator Mediator
@@ -7,8 +7,14 @@
 
 <PageTitle>New Game</PageTitle>
 
-<div class="page-header">
-    <h1>Record New Game</h1>
+<div class="page-head">
+    <div>
+        <span class="eyebrow">Record a match</span>
+        <h1 class="page-title mt-2">New game</h1>
+    </div>
+    <a href="/app/games" class="btn btn-ghost">
+        <Icon Name="arrow-left" Class="w-4 h-4"/> Back to games
+    </a>
 </div>
 
 <Alert Message="@_message" Type="@_alertType"/>
@@ -19,28 +25,22 @@
 }
 else
 {
-    @* === SETUP SECTION === *@
-    <div class="card mb-4">
-        <div class="card-header"><h5 class="mb-0">Game Setup</h5></div>
-        <div class="card-body">
-            <div class="row g-3">
-                <div class="col-md-4">
-                    <label class="form-label">Island Setup</label>
-                    <select class="form-select" @bind="_islandSetupId">
-                        <option value="">Select...</option>
-                        @foreach (var setup in GameData.IslandSetups)
-                        {
-                            <option value="@setup.Id.Value">@setup.Name (@setup.NumberOfPlayers players)</option>
-                        }
-                    </select>
+    @* === SETUP === *@
+    <section class="surface mb-5">
+        <div class="surface-head"><h2 class="text-base font-semibold">Game setup</h2></div>
+        <div class="surface-body space-y-4">
+            <div>
+                <label class="label">Island setup</label>
+                <IslandSetupPicker @bind-Value="_islandSetupId"/>
+            </div>
+            <div class="grid md:grid-cols-3 gap-4">
+                <div>
+                    <label class="label">Difficulty</label>
+                    <input type="number" class="input" @bind="_difficulty" min="0" max="20"/>
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label">Difficulty</label>
-                    <input type="number" class="form-control" @bind="_difficulty" min="0" max="20"/>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Scenario (optional)</label>
-                    <select class="form-select" @bind="_scenarioId">
+                <div>
+                    <label class="label">Scenario</label>
+                    <select class="select" @bind="_scenarioId">
                         <option value="">None</option>
                         @foreach (var s in GameData.Scenarios)
                         {
@@ -48,41 +48,41 @@ else
                         }
                     </select>
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label">Date Played</label>
-                    <input type="date" class="form-control" @bind="_datePlayed"/>
+                <div>
+                    <label class="label">Date played</label>
+                    <input type="date" class="input" @bind="_datePlayed"/>
                 </div>
             </div>
         </div>
-    </div>
+    </section>
 
-    @* === PLAYERS SECTION === *@
-    <div class="card mb-4">
-        <div class="card-header d-flex align-items-center justify-content-between">
-            <h5 class="mb-0">Players</h5>
-            <button class="btn btn-sm btn-outline-primary" @onclick="AddPlayer">
-                <i class="bi bi-plus-lg me-1"></i> Add Player
+    @* === PLAYERS === *@
+    <section class="surface mb-5">
+        <div class="surface-head">
+            <h2 class="text-base font-semibold">Players</h2>
+            <button class="btn btn-sm btn-secondary" @onclick="AddPlayer">
+                <Icon Name="plus" Class="w-3.5 h-3.5"/> Add player
             </button>
         </div>
-        <div class="card-body">
+        <div class="surface-body space-y-4">
             @for (var i = 0; i < _players.Count; i++)
             {
                 var idx = i;
-                <div class="row g-2 mb-3 align-items-end border-bottom pb-3">
-                    <div class="col-md-3">
-                        <label class="form-label">Spirit</label>
-                        <select class="form-select" value="@_players[idx].SpiritId"
+                <div class="grid md:grid-cols-12 gap-3 items-end pb-4 border-b border-ink-100 last:border-0 last:pb-0">
+                    <div class="md:col-span-3">
+                        <label class="label">Spirit</label>
+                        <select class="select" value="@_players[idx].SpiritId"
                                 @onchange="e => OnSpiritChanged(idx, e.Value?.ToString())">
-                            <option value="">Select...</option>
+                            <option value="">Select…</option>
                             @foreach (var s in GameData.Spirits)
                             {
                                 <option value="@s.Id.Value">@s.Name</option>
                             }
                         </select>
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label">Aspect</label>
-                        <select class="form-select" @bind="_players[idx].AspectId">
+                    <div class="md:col-span-2">
+                        <label class="label">Aspect</label>
+                        <select class="select" @bind="_players[idx].AspectId">
                             <option value="">None</option>
                             @foreach (var a in GetAspectsForSpirit(_players[idx].SpiritId))
                             {
@@ -90,19 +90,19 @@ else
                             }
                         </select>
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label">Board</label>
-                        <select class="form-select" @bind="_players[idx].BoardId">
-                            <option value="">Select...</option>
+                    <div class="md:col-span-2">
+                        <label class="label">Board</label>
+                        <select class="select" @bind="_players[idx].BoardId">
+                            <option value="">Select…</option>
                             @foreach (var b in GameData.Boards)
                             {
                                 <option value="@b.Id.Value">@b.Name</option>
                             }
                         </select>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Assigned To</label>
-                        <select class="form-select" @bind="_players[idx].AssignedTo">
+                    <div class="md:col-span-3">
+                        <label class="label">Assigned to</label>
+                        <select class="select" @bind="_players[idx].AssignedTo">
                             <option value="me">Me</option>
                             @foreach (var f in _friends)
                             {
@@ -114,162 +114,158 @@ else
                             }
                         </select>
                     </div>
-                    <div class="col-md-2">
+                    <div class="md:col-span-2 flex justify-end">
                         @if (_players.Count > 1)
                         {
-                            <button class="btn btn-outline-danger btn-sm" @onclick="() => RemovePlayer(idx)">
-                                <i class="bi bi-trash"></i>
+                            <button class="btn btn-sm btn-danger-outline" @onclick="() => RemovePlayer(idx)">
+                                <Icon Name="trash" Class="w-3.5 h-3.5"/>
                             </button>
                         }
                     </div>
                 </div>
             }
         </div>
-    </div>
+    </section>
 
-    @* === ADVERSARIES SECTION === *@
-    <div class="card mb-4">
-        <div class="card-header d-flex align-items-center justify-content-between">
-            <h5 class="mb-0">Adversaries</h5>
-            <button class="btn btn-sm btn-outline-primary" @onclick="AddAdversary">
-                <i class="bi bi-plus-lg me-1"></i> Add Adversary
+    @* === ADVERSARIES === *@
+    <section class="surface mb-5">
+        <div class="surface-head">
+            <h2 class="text-base font-semibold">Adversaries</h2>
+            <button class="btn btn-sm btn-secondary" @onclick="AddAdversary">
+                <Icon Name="plus" Class="w-3.5 h-3.5"/> Add adversary
             </button>
         </div>
-        <div class="card-body">
+        <div class="surface-body">
             @if (_adversaries.Count == 0)
             {
-                <p class="text-muted mb-0">No adversary (tutorial game)</p>
+                <p class="text-sm text-ink-500 m-0">No adversary — tutorial / freeplay game.</p>
             }
-            @for (var i = 0; i < _adversaries.Count; i++)
-            {
-                var idx = i;
-                <div class="row g-2 mb-2 align-items-end">
-                    <div class="col-md-5">
-                        <label class="form-label">Adversary</label>
-                        <select class="form-select" @bind="_adversaries[idx].AdversaryId">
-                            <option value="">Select...</option>
-                            @foreach (var a in GameData.Adversaries)
-                            {
-                                <option value="@a.Id.Value">@a.Name</option>
-                            }
-                        </select>
+            <div class="space-y-3">
+                @for (var i = 0; i < _adversaries.Count; i++)
+                {
+                    var idx = i;
+                    <div class="grid md:grid-cols-12 gap-3 items-end">
+                        <div class="md:col-span-7">
+                            <label class="label">Adversary</label>
+                            <select class="select" @bind="_adversaries[idx].AdversaryId">
+                                <option value="">Select…</option>
+                                @foreach (var a in GameData.Adversaries)
+                                {
+                                    <option value="@a.Id.Value">@a.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="md:col-span-3">
+                            <label class="label">Level</label>
+                            <input type="number" class="input" @bind="_adversaries[idx].Level" min="0" max="6"/>
+                        </div>
+                        <div class="md:col-span-2 flex justify-end">
+                            <button class="btn btn-sm btn-danger-outline" @onclick="() => _adversaries.RemoveAt(idx)">
+                                <Icon Name="trash" Class="w-3.5 h-3.5"/>
+                            </button>
+                        </div>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Level</label>
-                        <input type="number" class="form-control" @bind="_adversaries[idx].Level" min="0" max="6"/>
-                    </div>
-                    <div class="col-md-2">
-                        <button class="btn btn-outline-danger btn-sm" @onclick="() => _adversaries.RemoveAt(idx)">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            }
-        </div>
-    </div>
-
-    @* === RESULT SECTION (optional) === *@
-    <div class="card mb-4">
-        <div class="card-header d-flex align-items-center justify-content-between">
-            <h5 class="mb-0">Result</h5>
-            <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" @bind="_includeResult"/>
-                <label class="form-check-label">Include result</label>
+                }
             </div>
+        </div>
+    </section>
+
+    @* === RESULT (optional) === *@
+    <section class="surface mb-5">
+        <div class="surface-head">
+            <h2 class="text-base font-semibold">Result</h2>
+            <label class="inline-flex items-center gap-2 text-sm text-ink-700">
+                <input type="checkbox" class="checkbox" @bind="_includeResult"/>
+                Include result
+            </label>
         </div>
         @if (_includeResult)
         {
-            <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-md-3">
-                        <label class="form-label">Outcome</label>
-                        <select class="form-select" @bind="_resultWin">
+            <div class="surface-body">
+                <div class="grid md:grid-cols-4 gap-4">
+                    <div>
+                        <label class="label">Outcome</label>
+                        <select class="select" @bind="_resultWin">
                             <option value="true">Victory</option>
                             <option value="false">Defeat</option>
                         </select>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Terror Level</label>
-                        <select class="form-select" @bind="_resultTerror">
+                    <div>
+                        <label class="label">Terror level</label>
+                        <select class="select" @bind="_resultTerror">
                             @foreach (var t in Enum.GetValues<TerrorLevel>())
                             {
                                 <option value="@t">@t</option>
                             }
                         </select>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Duration (min)</label>
-                        <input type="number" class="form-control" @bind="_resultDuration" min="0"/>
+                    <div>
+                        <label class="label">Duration (min)</label>
+                        <input type="number" class="input" @bind="_resultDuration" min="0"/>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Dahan Remaining</label>
-                        <input type="number" class="form-control" @bind="_resultDahan" min="0"/>
+                    <div>
+                        <label class="label">Dahan remaining</label>
+                        <input type="number" class="input" @bind="_resultDahan" min="0"/>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Blight on Island</label>
-                        <input type="number" class="form-control" @bind="_resultBlight" min="0"/>
+                    <div>
+                        <label class="label">Blight on island</label>
+                        <input type="number" class="input" @bind="_resultBlight" min="0"/>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Cards in Invader Deck</label>
-                        <input type="number" class="form-control" @bind="_resultCards" min="0"/>
+                    <div>
+                        <label class="label">Cards in invader deck</label>
+                        <input type="number" class="input" @bind="_resultCards" min="0"/>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Score Modifier</label>
-                        <input type="number" class="form-control" @bind="_resultScoreMod"/>
+                    <div>
+                        <label class="label">Score modifier</label>
+                        <input type="number" class="input" @bind="_resultScoreMod"/>
                     </div>
                 </div>
             </div>
         }
-    </div>
+    </section>
 
     @* === NOTE === *@
-    <div class="card mb-4">
-        <div class="card-header"><h5 class="mb-0">Note</h5></div>
-        <div class="card-body">
-            <textarea class="form-control" rows="3" @bind="_note" placeholder="Optional game notes..."></textarea>
+    <section class="surface mb-6">
+        <div class="surface-head"><h2 class="text-base font-semibold">Note</h2></div>
+        <div class="surface-body">
+            <textarea class="textarea" rows="3" @bind="_note" placeholder="Optional game notes…"></textarea>
         </div>
-    </div>
+    </section>
 
-    @* === ACTIONS === *@
-    <div class="d-flex gap-2">
+    <div class="flex flex-wrap items-center gap-2">
         @if (_includeResult)
         {
-            <button class="btn btn-success" @onclick="SaveCompleted" disabled="@_saving">
-                <i class="bi bi-check-circle me-1"></i> Save Completed Game
+            <button class="btn btn-primary" @onclick="SaveCompleted" disabled="@_saving">
+                <Icon Name="check-circle" Class="w-4 h-4"/> Save completed game
             </button>
         }
         else
         {
             <button class="btn btn-primary" @onclick="SaveDraft" disabled="@_saving">
-                <i class="bi bi-save me-1"></i> Save as Draft
+                <Icon Name="save" Class="w-4 h-4"/> Save as draft
             </button>
         }
-        <a href="/games" class="btn btn-outline-secondary">Cancel</a>
+        <a href="/app/games" class="btn btn-ghost">Cancel</a>
     </div>
 }
 
 @code {
-    // State
     private bool _loading = true;
     private bool _saving;
     private string? _message;
     private string _alertType = "danger";
 
-    // Setup
     private string _islandSetupId = "";
     private int _difficulty;
     private string? _scenarioId;
     private DateTime _datePlayed = DateTime.Today;
 
-    // Players
     private List<PlayerFormItem> _players = [new()];
     private List<Application.Features.Friendships.FriendResponse> _friends = [];
     private List<Application.Features.Players.ListPlayersResponse> _localPlayers = [];
 
-    // Adversaries
     private List<AdversaryFormItem> _adversaries = [];
 
-    // Result
     private bool _includeResult;
     private bool _resultWin = true;
     private TerrorLevel _resultTerror = TerrorLevel.First;
@@ -344,7 +340,7 @@ else
         _saving = false;
 
         if (result.IsSuccess)
-            Nav.NavigateTo("/games");
+            Nav.NavigateTo("/app/games");
         else
         {
             _message = result.Error.Message;
@@ -372,7 +368,7 @@ else
         _saving = false;
 
         if (result.IsSuccess)
-            Nav.NavigateTo("/games");
+            Nav.NavigateTo("/app/games");
         else
         {
             _message = result.Error.Message;

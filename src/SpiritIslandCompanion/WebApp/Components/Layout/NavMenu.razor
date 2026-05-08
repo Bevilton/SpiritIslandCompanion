@@ -1,23 +1,39 @@
-<nav class="nav flex-column">
-    <NavLink class="nav-link text-light" href="" Match="NavLinkMatch.All">
-        <i class="bi bi-speedometer2 me-2"></i> Dashboard
+<nav class="flex flex-col gap-1">
+    <div class="px-3 pt-1 pb-2 text-[11px] font-medium uppercase tracking-wider text-ink-400">App</div>
+    <NavLink class="nav-item" ActiveClass="active" href="/app/dashboard" Match="NavLinkMatch.All">
+        <Icon Name="dashboard" Class="w-4 h-4"/> Dashboard
     </NavLink>
-    <NavLink class="nav-link text-light" href="games">
-        <i class="bi bi-controller me-2"></i> Games
+    <NavLink class="nav-item" ActiveClass="active" href="/app/games" Match="NavLinkMatch.Prefix">
+        <Icon Name="controller" Class="w-4 h-4"/> Games
     </NavLink>
-    <NavLink class="nav-link text-light" href="games/new">
-        <i class="bi bi-plus-circle me-2"></i> New Game
+    <NavLink class="nav-item" ActiveClass="active" href="/app/statistics">
+        <Icon Name="chart" Class="w-4 h-4"/> Statistics
     </NavLink>
-    <NavLink class="nav-link text-light" href="statistics">
-        <i class="bi bi-bar-chart me-2"></i> Statistics
+
+    <div class="px-3 pt-4 pb-2 text-[11px] font-medium uppercase tracking-wider text-ink-400">People</div>
+    <NavLink class="nav-item" ActiveClass="active" href="/app/friends">
+        <Icon Name="users" Class="w-4 h-4"/> Friends
     </NavLink>
-    <NavLink class="nav-link text-light" href="friends">
-        <i class="bi bi-people me-2"></i> Friends
+    <NavLink class="nav-item" ActiveClass="active" href="/app/players">
+        <Icon Name="user" Class="w-4 h-4"/> Players
     </NavLink>
-    <NavLink class="nav-link text-light" href="players">
-        <i class="bi bi-person-badge me-2"></i> Players
+
+    <div class="px-3 pt-4 pb-2 text-[11px] font-medium uppercase tracking-wider text-ink-400">Reference</div>
+    <NavLink class="nav-item" ActiveClass="active" href="/app/spirits">
+        <Icon Name="sparkles" Class="w-4 h-4"/> Spirits
     </NavLink>
-    <NavLink class="nav-link text-light" href="settings">
-        <i class="bi bi-gear me-2"></i> Settings
+    <NavLink class="nav-item" ActiveClass="active" href="/app/adversaries">
+        <Icon Name="shield" Class="w-4 h-4"/> Adversaries
+    </NavLink>
+    <NavLink class="nav-item" ActiveClass="active" href="/app/scenarios">
+        <Icon Name="book" Class="w-4 h-4"/> Scenarios
+    </NavLink>
+    <NavLink class="nav-item" ActiveClass="active" href="/app/boards">
+        <Icon Name="map" Class="w-4 h-4"/> Boards
+    </NavLink>
+
+    <div class="px-3 pt-4 pb-2 text-[11px] font-medium uppercase tracking-wider text-ink-400">Account</div>
+    <NavLink class="nav-item" ActiveClass="active" href="/app/settings">
+        <Icon Name="settings" Class="w-4 h-4"/> Settings
     </NavLink>
 </nav>

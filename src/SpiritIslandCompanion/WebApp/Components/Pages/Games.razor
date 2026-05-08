@@ -1,4 +1,4 @@
-@page "/games"
+@page "/app/games"
 @attribute [Authorize]
 @rendermode InteractiveServer
 @inject IMediator Mediator
@@ -7,10 +7,13 @@
 
 <PageTitle>Games</PageTitle>
 
-<div class="page-header d-flex align-items-center justify-content-between">
-    <h1>Games</h1>
-    <a href="/games/new" class="btn btn-primary">
-        <i class="bi bi-plus-lg me-1"></i> New Game
+<div class="page-head">
+    <div>
+        <h1 class="page-title">Games</h1>
+        <p class="page-sub">Every match you've recorded.</p>
+    </div>
+    <a href="/app/games/new" class="btn btn-primary">
+        <Icon Name="plus" Class="w-4 h-4"/> New game
     </a>
 </div>
 
@@ -20,55 +23,55 @@
 }
 else
 {
-    <div class="card mb-3">
-        <div class="card-body py-2">
-            <div class="btn-group btn-group-sm">
-                <button class="btn @(_filter == "all" ? "btn-primary" : "btn-outline-secondary")" @onclick='() => SetFilter("all")'>All</button>
-                <button class="btn @(_filter == "completed" ? "btn-primary" : "btn-outline-secondary")" @onclick='() => SetFilter("completed")'>Completed</button>
-                <button class="btn @(_filter == "draft" ? "btn-primary" : "btn-outline-secondary")" @onclick='() => SetFilter("draft")'>Drafts</button>
-            </div>
-        </div>
+    <div class="flex items-center gap-2 mb-4">
+        <button class="btn btn-sm @(_filter == "all" ? "btn-primary" : "btn-secondary")" @onclick='() => SetFilter("all")'>All</button>
+        <button class="btn btn-sm @(_filter == "completed" ? "btn-primary" : "btn-secondary")" @onclick='() => SetFilter("completed")'>Completed</button>
+        <button class="btn btn-sm @(_filter == "draft" ? "btn-primary" : "btn-secondary")" @onclick='() => SetFilter("draft")'>Drafts</button>
     </div>
 
-    <div class="card">
-        <div class="card-body p-0">
-            @if (FilteredGames.Count == 0)
-            {
-                <div class="text-muted text-center py-4">No games found.</div>
-            }
-            else
-            {
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Adversary</th>
-                            <th>Scenario</th>
-                            <th>Players</th>
-                            <th>Difficulty</th>
-                            <th>Result</th>
-                            <th>Score</th>
+    <div class="surface">
+        @if (FilteredGames.Count == 0)
+        {
+            <div class="px-6 py-16 text-center text-ink-500">
+                <p>No games found.</p>
+                @if (_filter == "all")
+                {
+                    <a href="/app/games/new" class="btn btn-primary mt-4">Record your first game</a>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table class="table table-hover">
+                    <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Adversary</th>
+                        <th>Scenario</th>
+                        <th>Players</th>
+                        <th>Difficulty</th>
+                        <th>Result</th>
+                        <th class="text-right">Score</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var g in FilteredGames)
+                    {
+                        <tr @onclick='() => Nav.NavigateTo($"/app/games/{g.Id}")'>
+                            <td class="text-ink-600 whitespace-nowrap">@g.StartedAt.LocalDateTime.ToString("MMM dd, yyyy")</td>
+                            <td class="font-medium text-ink-900">@(g.AdversaryNames.Count > 0 ? string.Join(" + ", g.AdversaryNames) : "—")</td>
+                            <td class="text-ink-600">@(g.ScenarioId ?? "—")</td>
+                            <td>@g.PlayerCount</td>
+                            <td>@g.Difficulty</td>
+                            <td><GameStatusBadge IsCompleted="g.IsCompleted" Win="g.Win"/></td>
+                            <td class="text-right font-medium">@(g.Score?.ToString() ?? "—")</td>
                         </tr>
-                        </thead>
-                        <tbody>
-                        @foreach (var g in FilteredGames)
-                        {
-                            <tr class="cursor-pointer" @onclick="() => NavigateToGame(g.Id)">
-                                <td>@g.StartedAt.LocalDateTime.ToString("MMM dd, yyyy")</td>
-                                <td>@(g.AdversaryNames.Count > 0 ? string.Join(" + ", g.AdversaryNames) : "-")</td>
-                                <td>@(g.ScenarioId ?? "-")</td>
-                                <td>@g.PlayerCount</td>
-                                <td>@g.Difficulty</td>
-                                <td><GameStatusBadge IsCompleted="g.IsCompleted" Win="g.Win"/></td>
-                                <td>@(g.Score?.ToString() ?? "-")</td>
-                            </tr>
-                        }
-                        </tbody>
-                    </table>
-                </div>
-            }
-        </div>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
     </div>
 }
 
@@ -93,5 +96,4 @@ else
     }
 
     private void SetFilter(string filter) => _filter = filter;
-    private void NavigateToGame(Guid id) => Nav.NavigateTo("/games/" + id);
 }

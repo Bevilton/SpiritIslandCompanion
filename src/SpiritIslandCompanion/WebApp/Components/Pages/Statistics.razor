@@ -1,4 +1,4 @@
-@page "/statistics"
+@page "/app/statistics"
 @attribute [Authorize]
 @rendermode InteractiveServer
 @inject IMediator Mediator
@@ -6,147 +6,159 @@
 
 <PageTitle>Statistics</PageTitle>
 
-<div class="page-header">
-    <h1>Statistics</h1>
+<div class="page-head">
+    <div>
+        <h1 class="page-title">Statistics</h1>
+        <p class="page-sub">Your game history, distilled.</p>
+    </div>
 </div>
 
 @if (_loading)
 {
     <LoadingSpinner/>
 }
-else if (_stats is null)
+else if (_stats is null || _stats.TotalGames == 0)
 {
-    <div class="text-muted">No statistics available yet. Play some games first!</div>
+    <div class="surface text-center py-16">
+        <p class="text-ink-600">No statistics yet — record some games to see them here.</p>
+        <a href="/app/games/new" class="btn btn-primary mt-4">Record a game</a>
+    </div>
 }
 else
 {
-    <div class="row g-3 mb-4">
-        <div class="col-sm-6 col-lg-3">
-            <StatCard Value="@_stats.TotalGames.ToString()" Label="Total Games" Icon="controller"/>
-        </div>
-        <div class="col-sm-6 col-lg-3">
-            <StatCard Value="@($"{_stats.WinRate:F0}%")" Label="Win Rate" Icon="trophy"/>
-        </div>
-        <div class="col-sm-6 col-lg-3">
-            <StatCard Value="@($"{_stats.AverageScore:F0}")" Label="Avg Score" Icon="graph-up"/>
-        </div>
-        <div class="col-sm-6 col-lg-3">
-            <StatCard Value="@_stats.AverageDuration.ToString(@"h\:mm")" Label="Avg Duration" Icon="clock"/>
-        </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <StatCard Value="@_stats.TotalGames.ToString()" Label="Total games" Icon="controller"/>
+        <StatCard Value="@($"{_stats.WinRate:F0}%")" Label="Win rate" Icon="trophy"/>
+        <StatCard Value="@($"{_stats.AverageScore:F0}")" Label="Avg score" Icon="chart"/>
+        <StatCard Value="@_stats.AverageDuration.ToString(@"h\:mm")" Label="Avg duration" Icon="clock"/>
     </div>
 
-    @* Tabs *@
-    <ul class="nav nav-tabs mb-3">
-        <li class="nav-item">
-            <button class="nav-link @(_tab == "spirits" ? "active" : "")" @onclick='() => _tab = "spirits"'>Spirits</button>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link @(_tab == "adversaries" ? "active" : "")" @onclick='() => _tab = "adversaries"'>Adversaries</button>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link @(_tab == "players" ? "active" : "")" @onclick='() => _tab = "players"'>Players</button>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link @(_tab == "scenarios" ? "active" : "")" @onclick='() => _tab = "scenarios"'>Scenarios</button>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link @(_tab == "monthly" ? "active" : "")" @onclick='() => _tab = "monthly"'>Monthly</button>
-        </li>
-    </ul>
+    @* Tab strip *@
+    <div class="flex items-center gap-1 border-b border-ink-200 mb-6 overflow-x-auto">
+        @foreach (var t in _tabs)
+        {
+            <button @onclick="() => _tab = t.Key"
+                    class="@TabClass(t.Key)">
+                @t.Label
+            </button>
+        }
+    </div>
 
-    <div class="card">
-        <div class="card-body p-0">
-            @switch (_tab)
-            {
-                case "spirits":
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead><tr><th>Spirit</th><th>Games</th><th>Wins</th><th>Losses</th><th>Win Rate</th></tr></thead>
-                            <tbody>
-                            @foreach (var s in _stats.SpiritStatistics)
-                            {
-                                <tr>
-                                    <td>@s.SpiritId</td><td>@s.GamesPlayed</td><td>@s.Wins</td><td>@s.Losses</td>
-                                    <td><div class="progress" style="min-width:80px"><div class="progress-bar bg-success" style="width:@(s.WinRate)%">@($"{s.WinRate:F0}%")</div></div></td>
-                                </tr>
-                            }
-                            </tbody>
-                        </table>
-                    </div>
-                    break;
+    <div class="surface">
+        @switch (_tab)
+        {
+            case "spirits":
+                <div class="table-wrap">
+                    <table class="table">
+                        <thead><tr><th>Spirit</th><th class="text-right">Games</th><th class="text-right">W</th><th class="text-right">L</th><th>Win rate</th></tr></thead>
+                        <tbody>
+                        @foreach (var s in _stats.SpiritStatistics)
+                        {
+                            <tr>
+                                <td class="font-medium text-ink-900">@SpiritName(s.SpiritId)</td>
+                                <td class="text-right">@s.GamesPlayed</td>
+                                <td class="text-right text-accent-700">@s.Wins</td>
+                                <td class="text-right text-red-600">@s.Losses</td>
+                                <td><WinRateBar Pct="s.WinRate"/></td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+                break;
 
-                case "adversaries":
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead><tr><th>Adversary</th><th>Games</th><th>Wins</th><th>Losses</th><th>Avg Level</th><th>Win Rate</th></tr></thead>
-                            <tbody>
-                            @foreach (var a in _stats.AdversaryStatistics)
-                            {
-                                <tr>
-                                    <td>@a.AdversaryId</td><td>@a.GamesPlayed</td><td>@a.Wins</td><td>@a.Losses</td>
-                                    <td>@($"{a.AverageLevel:F1}")</td>
-                                    <td><div class="progress" style="min-width:80px"><div class="progress-bar bg-success" style="width:@(a.WinRate)%">@($"{a.WinRate:F0}%")</div></div></td>
-                                </tr>
-                            }
-                            </tbody>
-                        </table>
-                    </div>
-                    break;
+            case "adversaries":
+                <div class="table-wrap">
+                    <table class="table">
+                        <thead><tr><th>Adversary</th><th class="text-right">Games</th><th class="text-right">W</th><th class="text-right">L</th><th class="text-right">Avg level</th><th>Win rate</th></tr></thead>
+                        <tbody>
+                        @foreach (var a in _stats.AdversaryStatistics)
+                        {
+                            <tr>
+                                <td class="font-medium text-ink-900">@AdversaryName(a.AdversaryId)</td>
+                                <td class="text-right">@a.GamesPlayed</td>
+                                <td class="text-right text-accent-700">@a.Wins</td>
+                                <td class="text-right text-red-600">@a.Losses</td>
+                                <td class="text-right">@($"{a.AverageLevel:F1}")</td>
+                                <td><WinRateBar Pct="a.WinRate"/></td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+                break;
 
-                case "players":
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead><tr><th>Player</th><th>Games</th><th>Wins</th><th>Win Rate</th><th>Top Spirits</th></tr></thead>
-                            <tbody>
-                            @foreach (var p in _stats.PlayerStatistics)
-                            {
-                                <tr>
-                                    <td>@(p.UserId?.ToString("N")[..8] ?? p.PlayerId?.ToString("N")[..8] ?? "Unknown")</td>
-                                    <td>@p.GamesPlayed</td><td>@p.Wins</td>
-                                    <td>@($"{p.WinRate:F0}%")</td>
-                                    <td>@string.Join(", ", p.MostPlayedSpirits)</td>
-                                </tr>
-                            }
-                            </tbody>
-                        </table>
-                    </div>
-                    break;
+            case "players":
+                <div class="table-wrap">
+                    <table class="table">
+                        <thead><tr><th>Player</th><th class="text-right">Games</th><th class="text-right">W</th><th>Win rate</th><th>Top spirits</th></tr></thead>
+                        <tbody>
+                        @foreach (var p in _stats.PlayerStatistics)
+                        {
+                            <tr>
+                                <td class="font-medium text-ink-900">@(p.UserId?.ToString("N")[..8] ?? p.PlayerId?.ToString("N")[..8] ?? "Unknown")</td>
+                                <td class="text-right">@p.GamesPlayed</td>
+                                <td class="text-right text-accent-700">@p.Wins</td>
+                                <td><WinRateBar Pct="p.WinRate"/></td>
+                                <td class="text-ink-600">@string.Join(", ", p.MostPlayedSpirits.Select(SpiritName))</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+                break;
 
-                case "scenarios":
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead><tr><th>Scenario</th><th>Games</th><th>Wins</th><th>Losses</th><th>Win Rate</th></tr></thead>
-                            <tbody>
-                            @foreach (var s in _stats.ScenarioStatistics)
-                            {
-                                <tr>
-                                    <td>@s.ScenarioId</td><td>@s.GamesPlayed</td><td>@s.Wins</td><td>@s.Losses</td>
-                                    <td>@($"{s.WinRate:F0}%")</td>
-                                </tr>
-                            }
-                            </tbody>
-                        </table>
-                    </div>
-                    break;
+            case "scenarios":
+                <div class="table-wrap">
+                    <table class="table">
+                        <thead><tr><th>Scenario</th><th class="text-right">Games</th><th class="text-right">W</th><th class="text-right">L</th><th>Win rate</th></tr></thead>
+                        <tbody>
+                        @foreach (var s in _stats.ScenarioStatistics)
+                        {
+                            <tr>
+                                <td class="font-medium text-ink-900">@ScenarioName(s.ScenarioId)</td>
+                                <td class="text-right">@s.GamesPlayed</td>
+                                <td class="text-right text-accent-700">@s.Wins</td>
+                                <td class="text-right text-red-600">@s.Losses</td>
+                                <td><WinRateBar Pct="s.WinRate"/></td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+                break;
 
-                case "monthly":
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead><tr><th>Month</th><th>Games</th><th>Wins</th></tr></thead>
-                            <tbody>
-                            @foreach (var m in _stats.MonthlyStatistics)
-                            {
-                                <tr>
-                                    <td>@(new DateTime(m.Year, m.Month, 1).ToString("MMM yyyy"))</td>
-                                    <td>@m.GamesPlayed</td><td>@m.Wins</td>
-                                </tr>
-                            }
-                            </tbody>
-                        </table>
+            case "monthly":
+                <div class="surface-body">
+                    @{
+                        var months = _stats.MonthlyStatistics.OrderBy(m => m.Year).ThenBy(m => m.Month).ToList();
+                        var maxGames = months.Count > 0 ? months.Max(m => m.GamesPlayed) : 1;
+                    }
+                    <div class="flex items-end gap-1.5 h-44 border-b border-ink-200 pb-2">
+                        @foreach (var m in months)
+                        {
+                            var heightPct = maxGames > 0 ? (int)Math.Round((double)m.GamesPlayed / maxGames * 100) : 0;
+                            var winShare = m.GamesPlayed > 0 ? (double)m.Wins / m.GamesPlayed * 100 : 0;
+                            <div class="group relative flex-1 flex flex-col justify-end" title="@($"{m.Year}-{m.Month:00}: {m.GamesPlayed} games, {m.Wins} wins")">
+                                <div class="bg-ink-200 rounded-t-sm relative" style="height:@(heightPct)%; min-height: 4px;">
+                                    <div class="absolute bottom-0 inset-x-0 bg-accent-600 rounded-t-sm" style="height:@(winShare)%;"></div>
+                                </div>
+                            </div>
+                        }
                     </div>
-                    break;
-            }
-        </div>
+                    <div class="flex items-center justify-between text-[10px] text-ink-500 mt-2">
+                        @foreach (var m in months)
+                        {
+                            <div class="flex-1 text-center">@(new DateTime(m.Year, m.Month, 1).ToString("MMM"))</div>
+                        }
+                    </div>
+                    <div class="flex items-center gap-4 mt-4 text-xs text-ink-500">
+                        <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-sm bg-accent-600"></span>Wins</span>
+                        <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-sm bg-ink-200"></span>Total games</span>
+                    </div>
+                </div>
+                break;
+        }
     </div>
 }
 
@@ -155,6 +167,28 @@ else
     private bool _loading = true;
     private string _tab = "spirits";
 
+    private record TabDef(string Key, string Label);
+    private readonly TabDef[] _tabs =
+    [
+        new("spirits", "Spirits"),
+        new("adversaries", "Adversaries"),
+        new("players", "Players"),
+        new("scenarios", "Scenarios"),
+        new("monthly", "Monthly"),
+    ];
+
+    private static readonly Dictionary<string, string> _spiritNames =
+        GameData.Spirits.ToDictionary(s => s.Id.Value, s => s.Name);
+    private static readonly Dictionary<string, string> _adversaryNames =
+        GameData.Adversaries.ToDictionary(a => a.Id.Value, a => a.Name);
+    private static readonly Dictionary<string, string> _scenarioNames =
+        GameData.Scenarios.ToDictionary(s => s.Id.Value, s => s.Name);
+
+    private string TabClass(string key)
+        => key == _tab
+            ? "px-4 py-2.5 text-sm font-medium text-accent-800 border-b-2 border-accent-600 -mb-px whitespace-nowrap"
+            : "px-4 py-2.5 text-sm text-ink-500 hover:text-ink-800 border-b-2 border-transparent -mb-px whitespace-nowrap";
+
     protected override async Task OnInitializedAsync()
     {
         if (CurrentUser.UserId is not { } userId) return;
@@ -162,4 +196,8 @@ else
         if (result.IsSuccess) _stats = result.Value;
         _loading = false;
     }
+
+    private static string SpiritName(string id) => _spiritNames.GetValueOrDefault(id, id);
+    private static string AdversaryName(string id) => _adversaryNames.GetValueOrDefault(id, id);
+    private static string ScenarioName(string id) => _scenarioNames.GetValueOrDefault(id, id);
 }

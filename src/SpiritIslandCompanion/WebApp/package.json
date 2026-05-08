@@ -1,0 +1,13 @@
+{
+  "name": "spirit-island-companion-webapp",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build:css": "tailwindcss -i ./Styles/site.css -o ./wwwroot/app.css --minify",
+    "watch:css": "tailwindcss -i ./Styles/site.css -o ./wwwroot/app.css --watch"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.13",
+    "tailwindcss": "^4.1.13"
+  }
+}

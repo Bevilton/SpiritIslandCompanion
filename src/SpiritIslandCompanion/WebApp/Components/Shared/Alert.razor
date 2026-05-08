@@ -1,8 +1,11 @@
 @if (!string.IsNullOrEmpty(Message))
 {
-    <div class="alert alert-@Type alert-dismissible fade show" role="alert">
-        @Message
-        <button type="button" class="btn-close" @onclick="Dismiss"></button>
+    <div class="alert @CssClass mb-4" role="alert">
+        <Icon Name="@IconForType" Class="w-5 h-5 shrink-0 mt-0.5"/>
+        <div class="flex-1">@Message</div>
+        <button type="button" @onclick="Dismiss" class="text-current opacity-60 hover:opacity-100 transition-opacity" aria-label="Dismiss">
+            <Icon Name="x" Class="w-4 h-4"/>
+        </button>
     </div>
 }
 
@@ -10,6 +13,21 @@
     [Parameter] public string? Message { get; set; }
     [Parameter] public string Type { get; set; } = "info";
     [Parameter] public EventCallback OnDismiss { get; set; }
+
+    private string CssClass => Type switch
+    {
+        "success" => "alert-success",
+        "danger"  => "alert-danger",
+        "warn" or "warning" => "alert-warn",
+        _ => "alert-info"
+    };
+
+    private string IconForType => Type switch
+    {
+        "success" => "check-circle",
+        "danger"  => "x",
+        _ => "sparkles"
+    };
 
     private async Task Dismiss()
     {

@@ -1,0 +1,70 @@
+@* Top-nav + footer chrome. Used by PublicLayout and ReferenceLayout (anonymous branch).
+   Wraps page content in ChildContent. Page content is responsible for its own padding. *@
+
+<div class="min-h-screen flex flex-col">
+    <header class="sticky top-0 z-30 bg-white/85 backdrop-blur border-b border-ink-200">
+        <div class="mx-auto max-w-6xl px-4 md:px-6 h-16 flex items-center justify-between">
+            <Logo Href="/"/>
+
+            <nav class="hidden md:flex items-center gap-6">
+                <NavLink class="top-nav-link" ActiveClass="active" href="/" Match="NavLinkMatch.All">Home</NavLink>
+                <NavLink class="top-nav-link" ActiveClass="active" href="/spirits">Spirits</NavLink>
+                <NavLink class="top-nav-link" ActiveClass="active" href="/adversaries">Adversaries</NavLink>
+                <NavLink class="top-nav-link" ActiveClass="active" href="/scenarios">Scenarios</NavLink>
+                <NavLink class="top-nav-link" ActiveClass="active" href="/boards">Boards</NavLink>
+            </nav>
+
+            <div class="flex items-center gap-2">
+                <AuthorizeView>
+                    <Authorized>
+                        <a href="/app/dashboard" class="btn btn-sm btn-ghost">Dashboard</a>
+                        <a href="/app/games/new" class="btn btn-sm btn-primary">
+                            <Icon Name="plus" Class="w-4 h-4"/> New Game
+                        </a>
+                    </Authorized>
+                    <NotAuthorized>
+                        <a href="/login" class="btn btn-sm btn-secondary">Sign in</a>
+                        <a href="/login" class="btn btn-sm btn-primary hidden sm:inline-flex">Get started</a>
+                    </NotAuthorized>
+                </AuthorizeView>
+            </div>
+        </div>
+
+        <nav class="md:hidden flex items-center gap-5 px-4 pb-3 overflow-x-auto text-sm">
+            <NavLink class="top-nav-link" ActiveClass="active" href="/" Match="NavLinkMatch.All">Home</NavLink>
+            <NavLink class="top-nav-link" ActiveClass="active" href="/spirits">Spirits</NavLink>
+            <NavLink class="top-nav-link" ActiveClass="active" href="/adversaries">Adversaries</NavLink>
+            <NavLink class="top-nav-link" ActiveClass="active" href="/scenarios">Scenarios</NavLink>
+            <NavLink class="top-nav-link" ActiveClass="active" href="/boards">Boards</NavLink>
+        </nav>
+    </header>
+
+    <main class="flex-1">
+        @ChildContent
+    </main>
+
+    <footer class="border-t border-ink-200 mt-16">
+        <div class="mx-auto max-w-6xl px-4 md:px-6 py-8 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-ink-500">
+            <div class="flex items-center gap-3">
+                <Logo Href="/"/>
+                <span class="text-ink-300">·</span>
+                <span>An unofficial companion for the Spirit Island board game.</span>
+            </div>
+            <div class="flex items-center gap-5">
+                <a href="/spirits" class="hover:text-ink-700">Spirits</a>
+                <a href="/adversaries" class="hover:text-ink-700">Adversaries</a>
+                <a href="https://spiritislandwiki.com" target="_blank" rel="noopener" class="hover:text-ink-700">Wiki</a>
+            </div>
+        </div>
+    </footer>
+</div>
+
+<div id="blazor-error-ui">
+    An unhandled error has occurred.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">🗙</a>
+</div>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

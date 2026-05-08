@@ -1,0 +1,235 @@
+@page "/"
+@layout PublicLayout
+@rendermode InteractiveServer
+@inject IMediator Mediator
+
+<PageTitle>Spirit Island Companion</PageTitle>
+
+@* === HERO === *@
+<section class="relative overflow-hidden">
+    <div class="absolute inset-0 -z-10 bg-gradient-to-b from-accent-50/60 via-ink-50 to-ink-50"></div>
+    <div class="mx-auto max-w-6xl px-4 md:px-6 pt-20 md:pt-28 pb-16 md:pb-24">
+        <div class="max-w-3xl">
+            <span class="eyebrow">
+                <span class="h-1.5 w-1.5 rounded-full bg-accent-500"></span>
+                Companion app for Spirit Island
+            </span>
+            <h1 class="mt-5 text-4xl md:text-6xl font-semibold leading-[1.05] text-ink-900" style="font-family: var(--font-serif);">
+                Track every match.
+                <span class="text-accent-700">Defend the island.</span>
+            </h1>
+            <p class="mt-6 text-lg md:text-xl text-ink-600 max-w-2xl">
+                Log your games, study your stats, and keep your group's history in one calm, unhurried place — built for the cooperative board game by R. Eric Reuss.
+            </p>
+            <div class="mt-8 flex flex-wrap items-center gap-3">
+                <AuthorizeView>
+                    <NotAuthorized>
+                        <a href="/login" class="btn btn-primary btn-lg">
+                            Get started
+                            <Icon Name="arrow-right" Class="w-4 h-4"/>
+                        </a>
+                        <a href="/spirits" class="btn btn-secondary btn-lg">Browse spirits</a>
+                    </NotAuthorized>
+                    <Authorized>
+                        <a href="/app/dashboard" class="btn btn-primary btn-lg">
+                            Go to dashboard
+                            <Icon Name="arrow-right" Class="w-4 h-4"/>
+                        </a>
+                        <a href="/app/games/new" class="btn btn-secondary btn-lg">Record a game</a>
+                    </Authorized>
+                </AuthorizeView>
+            </div>
+        </div>
+    </div>
+</section>
+
+@* === GLOBAL STATS === *@
+<section class="border-y border-ink-200 bg-white">
+    <div class="mx-auto max-w-6xl px-4 md:px-6 py-10 md:py-14">
+        <div class="flex items-end justify-between flex-wrap gap-4 mb-8">
+            <div>
+                <span class="eyebrow">Across the community</span>
+                <h2 class="mt-2 text-2xl md:text-3xl font-semibold" style="font-family: var(--font-serif);">
+                    Every island, every defeat, every victory.
+                </h2>
+            </div>
+            <a href="/login" class="text-sm text-accent-700 hover:text-accent-800 inline-flex items-center gap-1">
+                Add your games <Icon Name="arrow-right" Class="w-3.5 h-3.5"/>
+            </a>
+        </div>
+
+        @if (_loading)
+        {
+            <LoadingSpinner/>
+        }
+        else if (_stats is null || _stats.TotalGames == 0)
+        {
+            <div class="surface text-center py-12 px-4">
+                <p class="text-ink-600">No games tracked yet — be the first to log one.</p>
+                <a href="/login" class="btn btn-primary mt-4">Sign in to record a game</a>
+            </div>
+        }
+        else
+        {
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="stat-tile">
+                    <div class="stat-tile-value">@_stats.TotalGames</div>
+                    <div class="stat-tile-label">Games tracked</div>
+                </div>
+                <div class="stat-tile">
+                    <div class="stat-tile-value">@_stats.CompletedGames</div>
+                    <div class="stat-tile-label">Completed</div>
+                </div>
+                <div class="stat-tile">
+                    <div class="stat-tile-value">@_stats.TotalPlayers</div>
+                    <div class="stat-tile-label">Players</div>
+                </div>
+                <div class="stat-tile">
+                    <div class="stat-tile-value">@($"{_stats.WinRate:F0}%")</div>
+                    <div class="stat-tile-label">Community win rate</div>
+                </div>
+            </div>
+
+            @if (_stats.TopSpirits.Count > 0)
+            {
+                <div class="grid md:grid-cols-2 gap-4 mt-6">
+                    <div class="surface">
+                        <div class="surface-head">
+                            <h3 class="text-base font-semibold">Most-played spirits</h3>
+                            <a href="/spirits" class="text-xs text-accent-700">See all</a>
+                        </div>
+                        <ul class="divide-y divide-ink-100">
+                            @foreach (var s in _stats.TopSpirits)
+                            {
+                                <li class="px-5 py-3 flex items-center justify-between">
+                                    <span class="text-sm font-medium text-ink-800">@SpiritName(s.SpiritId)</span>
+                                    <span class="flex items-center gap-3 text-xs text-ink-500">
+                                        <span>@s.GamesPlayed games</span>
+                                        <span class="badge badge-success">@($"{s.WinRate:F0}%") win</span>
+                                    </span>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+
+                    <div class="surface">
+                        <div class="surface-head">
+                            <h3 class="text-base font-semibold">Most-faced adversaries</h3>
+                            <a href="/adversaries" class="text-xs text-accent-700">See all</a>
+                        </div>
+                        <ul class="divide-y divide-ink-100">
+                            @foreach (var a in _stats.TopAdversaries)
+                            {
+                                <li class="px-5 py-3 flex items-center justify-between">
+                                    <span class="text-sm font-medium text-ink-800">@AdversaryName(a.AdversaryId)</span>
+                                    <span class="flex items-center gap-3 text-xs text-ink-500">
+                                        <span>@a.GamesPlayed games</span>
+                                        <span class="badge badge-success">@($"{a.WinRate:F0}%") win</span>
+                                    </span>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</section>
+
+@* === FEATURES === *@
+<section class="mx-auto max-w-6xl px-4 md:px-6 py-16 md:py-24">
+    <div class="max-w-2xl">
+        <span class="eyebrow">What's inside</span>
+        <h2 class="mt-2 text-2xl md:text-3xl font-semibold" style="font-family: var(--font-serif);">
+            Built for groups who play often.
+        </h2>
+    </div>
+    <div class="mt-10 grid md:grid-cols-3 gap-6">
+        <div class="surface p-6">
+            <span class="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-accent-50 text-accent-700">
+                <Icon Name="controller" Class="w-5 h-5"/>
+            </span>
+            <h3 class="mt-4 text-lg font-semibold">Match logging</h3>
+            <p class="mt-2 text-sm text-ink-600 leading-relaxed">
+                Capture spirits, aspects, boards, adversaries, and the result. Save drafts mid-game and finish them later.
+            </p>
+        </div>
+        <div class="surface p-6">
+            <span class="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-accent-50 text-accent-700">
+                <Icon Name="chart" Class="w-5 h-5"/>
+            </span>
+            <h3 class="mt-4 text-lg font-semibold">Deep statistics</h3>
+            <p class="mt-2 text-sm text-ink-600 leading-relaxed">
+                Win rates per spirit, adversary, scenario, and player. See trends month over month.
+            </p>
+        </div>
+        <div class="surface p-6">
+            <span class="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-accent-50 text-accent-700">
+                <Icon Name="users" Class="w-5 h-5"/>
+            </span>
+            <h3 class="mt-4 text-lg font-semibold">Friends &amp; players</h3>
+            <p class="mt-2 text-sm text-ink-600 leading-relaxed">
+                Add friends to track shared games. Add local players for the regulars who don't have an account.
+            </p>
+        </div>
+    </div>
+</section>
+
+@* === BROWSE === *@
+<section class="bg-white border-t border-ink-200">
+    <div class="mx-auto max-w-6xl px-4 md:px-6 py-16 md:py-20">
+        <div class="flex items-end justify-between flex-wrap gap-4 mb-10">
+            <div>
+                <span class="eyebrow">Reference</span>
+                <h2 class="mt-2 text-2xl md:text-3xl font-semibold" style="font-family: var(--font-serif);">
+                    Browse the game.
+                </h2>
+                <p class="mt-2 text-ink-600 max-w-xl">
+                    Every spirit, adversary, scenario, and board across the base game and expansions — no account required.
+                </p>
+            </div>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <a href="/spirits" class="surface p-6 hover:border-accent-300 hover:bg-accent-50/40 transition-colors group">
+                <Icon Name="sparkles" Class="w-6 h-6 text-accent-700"/>
+                <div class="mt-4 text-base font-semibold text-ink-900">Spirits</div>
+                <div class="mt-1 text-xs text-ink-500">@GameData.Spirits.Count entries</div>
+            </a>
+            <a href="/adversaries" class="surface p-6 hover:border-accent-300 hover:bg-accent-50/40 transition-colors group">
+                <Icon Name="shield" Class="w-6 h-6 text-accent-700"/>
+                <div class="mt-4 text-base font-semibold text-ink-900">Adversaries</div>
+                <div class="mt-1 text-xs text-ink-500">@GameData.Adversaries.Count entries</div>
+            </a>
+            <a href="/scenarios" class="surface p-6 hover:border-accent-300 hover:bg-accent-50/40 transition-colors group">
+                <Icon Name="book" Class="w-6 h-6 text-accent-700"/>
+                <div class="mt-4 text-base font-semibold text-ink-900">Scenarios</div>
+                <div class="mt-1 text-xs text-ink-500">@GameData.Scenarios.Count entries</div>
+            </a>
+            <a href="/boards" class="surface p-6 hover:border-accent-300 hover:bg-accent-50/40 transition-colors group">
+                <Icon Name="map" Class="w-6 h-6 text-accent-700"/>
+                <div class="mt-4 text-base font-semibold text-ink-900">Boards</div>
+                <div class="mt-1 text-xs text-ink-500">@GameData.Boards.Count entries</div>
+            </a>
+        </div>
+    </div>
+</section>
+
+@code {
+    private Application.Features.Statistics.GlobalStatisticsResponse? _stats;
+    private bool _loading = true;
+
+    private static readonly Dictionary<string, string> _spiritNames =
+        GameData.Spirits.ToDictionary(s => s.Id.Value, s => s.Name);
+    private static readonly Dictionary<string, string> _adversaryNames =
+        GameData.Adversaries.ToDictionary(a => a.Id.Value, a => a.Name);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Mediator.Send(new Application.Features.Statistics.GetGlobalStatisticsQuery());
+        if (result.IsSuccess) _stats = result.Value;
+        _loading = false;
+    }
+
+    private static string SpiritName(string id) => _spiritNames.GetValueOrDefault(id, id);
+    private static string AdversaryName(string id) => _adversaryNames.GetValueOrDefault(id, id);
+}

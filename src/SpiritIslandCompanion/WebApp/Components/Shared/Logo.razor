@@ -1,0 +1,20 @@
+@* Inline mark + wordmark. Pass Compact="true" for icon-only. *@
+<a href="@Href" class="inline-flex items-center gap-2 text-ink-900 hover:text-ink-900">
+    <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-accent-700 text-white">
+        <svg viewBox="0 0 24 24" fill="none" class="h-5 w-5" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M4 16c1.5-1 3-1.5 4.5-1.5S11.5 15 13 16s3 1.5 4.5 1.5 3-.5 4.5-1.5"/>
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M12 4c1.8 2.5 3 4.8 3 7.5 0 1.6-1.3 2.5-3 2.5s-3-.9-3-2.5C9 8.8 10.2 6.5 12 4Z"/>
+        </svg>
+    </span>
+    @if (!Compact)
+    {
+        <span class="font-semibold tracking-tight" style="font-family: var(--font-serif);">Spirit Island</span>
+    }
+</a>
+
+@code {
+    [Parameter] public bool Compact { get; set; }
+    [Parameter] public string Href { get; set; } = "/";
+}

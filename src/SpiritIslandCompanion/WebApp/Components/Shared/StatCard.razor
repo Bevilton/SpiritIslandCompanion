@@ -1,17 +1,17 @@
-<div class="card stat-card h-100">
-    <div class="card-body d-flex align-items-center justify-content-between">
+<div class="stat-tile">
+    <div class="flex items-start justify-between gap-3">
         <div>
-            <div class="stat-value">@Value</div>
-            <div class="stat-label">@Label</div>
+            <div class="stat-tile-value">@Value</div>
+            <div class="stat-tile-label">@Label</div>
         </div>
-        <div class="stat-icon">
-            <i class="bi bi-@Icon"></i>
-        </div>
+        <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-accent-50 text-accent-700">
+            <Icon Name="@Icon" Class="w-4 h-4"/>
+        </span>
     </div>
 </div>
 
 @code {
     [Parameter, EditorRequired] public string Value { get; set; } = "";
     [Parameter, EditorRequired] public string Label { get; set; } = "";
-    [Parameter] public string Icon { get; set; } = "graph-up";
+    [Parameter] public string Icon { get; set; } = "chart";
 }

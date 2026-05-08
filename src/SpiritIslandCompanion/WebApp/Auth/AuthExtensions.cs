@@ -65,36 +65,8 @@ public static class AuthExtensions
                 // Map OIDC claims to well-known .NET claim types
                 options.TokenValidationParameters.NameClaimType = "name";
 
-                // Let Auth0 know where to redirect after logout
-                options.Events = new OpenIdConnectEvents
-                {
-                    OnRedirectToIdentityProviderForSignOut = context =>
-                    {
-                        var logoutUri = $"{options.Authority}/v2/logout?client_id={options.ClientId}";
-                        var postLogoutUri = context.Properties.RedirectUri;
-
-                        if (!string.IsNullOrEmpty(postLogoutUri))
-                        {
-                            if (postLogoutUri.StartsWith('/'))
-                            {
-                                var request = context.Request;
-                                postLogoutUri = $"{request.Scheme}://{request.Host}{request.PathBase}{postLogoutUri}";
-                            }
-
-                            logoutUri += $"&returnTo={Uri.EscapeDataString(postLogoutUri)}";
-                        }
-
-                        context.Response.Redirect(logoutUri);
-                        context.HandleResponse();
-                        return Task.CompletedTask;
-                    }
-                };
-            });
-
-        // Override OIDC events with the DI-resolved UserSyncOidcEvents that syncs users to the DB
-        services.AddOptions<OpenIdConnectOptions>(OpenIdConnectDefaults.AuthenticationScheme)
-            .Configure<IServiceProvider>((options, _) =>
-            {
+                // UserSyncOidcEvents (resolved from DI) handles both user sync on sign-in
+                // and the Auth0-specific /v2/logout redirect on sign-out.
                 options.EventsType = typeof(UserSyncOidcEvents);
             });
 

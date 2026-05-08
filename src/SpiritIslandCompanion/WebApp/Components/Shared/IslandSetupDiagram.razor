@@ -1,0 +1,48 @@
+@* Renders an image of an island setup from /img/layouts/{setup-id}.png.
+   The standard 1-player setup has no image — falls back to a small placeholder. *@
+
+@if (Setup is null)
+{
+    <div class="@PlaceholderClass">—</div>
+}
+else if (_hasImage)
+{
+    <img src="@_src"
+         alt="@Setup.Name layout, @Setup.NumberOfPlayers @(Setup.NumberOfPlayers == 1 ? "player" : "players")"
+         class="@Class object-contain"
+         loading="lazy"/>
+}
+else
+{
+    <div class="@PlaceholderClass" title="@Setup.Name (@Setup.NumberOfPlayers player)">
+        @Setup.NumberOfPlayers<span class="text-[0.65em] align-top">p</span>
+    </div>
+}
+
+@code {
+    [Parameter] public IslandSetup? Setup { get; set; }
+    [Parameter] public string Class { get; set; } = "h-16 w-auto";
+
+    /// Setups for which we don't ship an image (fall back to placeholder).
+    private static readonly HashSet<string> _imagelessSetups = new(StringComparer.Ordinal)
+    {
+        "standard-1p",
+    };
+
+    private string PlaceholderClass =>
+        $"{Class} flex items-center justify-center text-ink-500 font-semibold rounded-lg border border-dashed border-ink-200 bg-ink-50 px-3 aspect-square";
+
+    private string _src = "";
+    private bool _hasImage;
+
+    protected override void OnParametersSet()
+    {
+        if (Setup is null)
+        {
+            _hasImage = false;
+            return;
+        }
+        _hasImage = !_imagelessSetups.Contains(Setup.Id.Value);
+        _src = $"/img/layouts/{Setup.Id.Value}.png";
+    }
+}

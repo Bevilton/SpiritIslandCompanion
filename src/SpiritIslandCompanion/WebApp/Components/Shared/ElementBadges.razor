@@ -1,0 +1,60 @@
+@* Renders a horizontal row of element chips for a spirit.
+   Pass Size="sm" for compact card display, Size="md" for the modal header. *@
+
+@if (Elements is { Count: > 0 })
+{
+    <div class="inline-flex items-center @Gap">
+        @foreach (var el in Elements)
+        {
+            var (bg, fg) = ColorFor(el);
+            <span class="inline-flex items-center justify-center rounded-full font-semibold leading-none @SizeClasses"
+                  style="background-color: @bg; color: @fg;"
+                  title="@el">
+                @Glyph(el)
+            </span>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<Element>? Elements { get; set; }
+    [Parameter] public string Size { get; set; } = "sm";
+
+    private string SizeClasses => Size switch
+    {
+        "md" => "h-7 w-7 text-xs",
+        _    => "h-6 w-6 text-[10px]",
+    };
+
+    private string Gap => Size switch
+    {
+        "md" => "gap-1.5",
+        _    => "gap-1",
+    };
+
+    private static string Glyph(Element e) => e switch
+    {
+        Element.Sun    => "Su",
+        Element.Moon   => "Mo",
+        Element.Fire   => "Fi",
+        Element.Air    => "Ai",
+        Element.Water  => "Wa",
+        Element.Earth  => "Ea",
+        Element.Plant  => "Pl",
+        Element.Animal => "An",
+        _ => "?",
+    };
+
+    private static (string bg, string fg) ColorFor(Element e) => e switch
+    {
+        Element.Sun    => ("#FEF3C7", "#92400E"), // amber
+        Element.Moon   => ("#E0E7FF", "#3730A3"), // indigo
+        Element.Fire   => ("#FEE2E2", "#991B1B"), // red
+        Element.Air    => ("#CFFAFE", "#155E75"), // cyan
+        Element.Water  => ("#DBEAFE", "#1E40AF"), // blue
+        Element.Earth  => ("#FEF3C7", "#78350F"), // brown-amber
+        Element.Plant  => ("#DCFCE7", "#166534"), // green
+        Element.Animal => ("#FFEDD5", "#9A3412"), // orange
+        _              => ("#F5F5F4", "#44403C"),
+    };
+}

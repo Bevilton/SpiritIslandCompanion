@@ -1,14 +1,20 @@
 @if (!IsCompleted)
 {
-    <span class="badge badge-draft">Draft</span>
+    <span class="badge badge-neutral">
+        <span class="h-1.5 w-1.5 rounded-full bg-ink-400"></span>Draft
+    </span>
 }
 else if (Win == true)
 {
-    <span class="badge badge-win">Win</span>
+    <span class="badge badge-success">
+        <span class="h-1.5 w-1.5 rounded-full bg-accent-600"></span>Victory
+    </span>
 }
 else
 {
-    <span class="badge badge-loss">Loss</span>
+    <span class="badge badge-danger">
+        <span class="h-1.5 w-1.5 rounded-full bg-red-500"></span>Defeat
+    </span>
 }
 
 @code {

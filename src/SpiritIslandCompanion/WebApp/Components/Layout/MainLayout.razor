@@ -1,35 +1,3 @@
 @inherits LayoutComponentBase
 
-<div class="d-flex vh-100">
-    <nav class="sidebar d-flex flex-column flex-shrink-0 p-3 text-white bg-dark">
-        <a href="/" class="d-flex align-items-center mb-3 text-white text-decoration-none">
-            <span class="fs-5 fw-semibold">Spirit Island</span>
-        </a>
-        <hr/>
-        <NavMenu/>
-        <hr class="mt-auto"/>
-        <AuthorizeView>
-            <Authorized>
-                <div class="d-flex align-items-center">
-                    <small class="text-light me-2 text-truncate">@context.User.FindFirst("nickname")?.Value</small>
-                    <a href="/logout" class="btn btn-outline-light btn-sm ms-auto">Logout</a>
-                </div>
-            </Authorized>
-            <NotAuthorized>
-                <a href="/login" class="btn btn-outline-light btn-sm w-100">Login</a>
-            </NotAuthorized>
-        </AuthorizeView>
-    </nav>
-
-    <div class="flex-grow-1 d-flex flex-column overflow-hidden">
-        <main class="flex-grow-1 overflow-auto p-4 bg-light">
-            @Body
-        </main>
-    </div>
-</div>
-
-<div id="blazor-error-ui">
-    An unhandled error has occurred.
-    <a href="" class="reload">Reload</a>
-    <a class="dismiss">🗙</a>
-</div>
+<AppShell>@Body</AppShell>

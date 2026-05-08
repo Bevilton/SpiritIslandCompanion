@@ -1,4 +1,4 @@
-@page "/settings"
+@page "/app/settings"
 @attribute [Authorize]
 @rendermode InteractiveServer
 @inject IMediator Mediator
@@ -6,8 +6,11 @@
 
 <PageTitle>Settings</PageTitle>
 
-<div class="page-header">
-    <h1>Settings</h1>
+<div class="page-head">
+    <div>
+        <h1 class="page-title">Settings</h1>
+        <p class="page-sub">Configure your collection and preferences.</p>
+    </div>
 </div>
 
 <Alert Message="@_message" Type="@_alertType"/>
@@ -18,33 +21,49 @@
 }
 else
 {
-    <div class="card" style="max-width: 600px;">
-        <div class="card-header"><h5 class="mb-0">Owned Expansions</h5></div>
-        <div class="card-body">
-            <p class="text-muted">Select the expansions you own. This filters available spirits, adversaries, and other content throughout the app.</p>
-            @foreach (var expansion in GameData.Expansions)
-            {
-                <div class="form-check mb-2">
-                    <input class="form-check-input" type="checkbox"
-                           id="@($"exp-{expansion.Id.Value}")"
-                           checked="@_ownedExpansions.Contains(expansion.Id.Value)"
-                           @onchange="e => ToggleExpansion(expansion.Id.Value, (bool)(e.Value ?? false))"/>
-                    <label class="form-check-label" for="@($"exp-{expansion.Id.Value}")">
-                        @expansion.Name
-                    </label>
-                </div>
-            }
+    <section class="surface max-w-2xl">
+        <div class="surface-head">
+            <h2 class="text-base font-semibold">Owned expansions</h2>
         </div>
-        <div class="card-footer">
+        <div class="surface-body">
+            <p class="text-sm text-ink-500 mb-5">
+                Pick the expansions you own — content throughout the app filters to match.
+            </p>
+            <div class="space-y-2">
+                @foreach (var expansion in GameData.Expansions)
+                {
+                    var isOwned = _ownedExpansions.Contains(expansion.Id.Value);
+                    var counts = _counts[expansion.Id.Value];
+                    <label for="@($"exp-{expansion.Id.Value}")"
+                           class="flex items-center justify-between p-3 rounded-lg border @(isOwned ? "border-accent-300 bg-accent-50/40" : "border-ink-200 bg-white") cursor-pointer hover:border-accent-300 transition-colors">
+                        <div class="flex items-center gap-3">
+                            <input class="checkbox" type="checkbox"
+                                   id="@($"exp-{expansion.Id.Value}")"
+                                   checked="@isOwned"
+                                   @onchange="e => ToggleExpansion(expansion.Id.Value, (bool)(e.Value ?? false))"/>
+                            <div>
+                                <div class="font-medium text-ink-900">@expansion.Name</div>
+                                <div class="text-xs text-ink-500 mt-0.5">@counts.Spirits spirits · @counts.Adversaries adversaries · @counts.Scenarios scenarios</div>
+                            </div>
+                        </div>
+                    </label>
+                }
+            </div>
+        </div>
+        <div class="surface-foot">
             <button class="btn btn-primary" @onclick="Save" disabled="@_saving">
                 @if (_saving)
                 {
-                    <span class="spinner-border spinner-border-sm me-1"></span>
+                    <span class="inline-flex h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
                 }
-                <i class="bi bi-check-lg me-1"></i> Save
+                else
+                {
+                    <Icon Name="check" Class="w-4 h-4"/>
+                }
+                Save
             </button>
         </div>
-    </div>
+    </section>
 }
 
 @code {
@@ -53,6 +72,16 @@ else
     private bool _saving;
     private string? _message;
     private string _alertType = "success";
+
+    private record ExpansionCounts(int Spirits, int Adversaries, int Scenarios);
+
+    private static readonly Dictionary<string, ExpansionCounts> _counts =
+        GameData.Expansions.ToDictionary(
+            e => e.Id.Value,
+            e => new ExpansionCounts(
+                GameData.Spirits.Count(s => s.ExpansionId == e.Id),
+                GameData.Adversaries.Count(a => a.ExpansionId == e.Id),
+                GameData.Scenarios.Count(s => s.ExpansionId == e.Id)));
 
     protected override async Task OnInitializedAsync()
     {
@@ -78,7 +107,7 @@ else
 
         if (result.IsSuccess)
         {
-            _message = "Settings saved!";
+            _message = "Settings saved.";
             _alertType = "success";
         }
         else

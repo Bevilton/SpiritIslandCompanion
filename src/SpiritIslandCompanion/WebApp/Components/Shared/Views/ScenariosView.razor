@@ -1,0 +1,58 @@
+@* Reference content for scenarios. Used from /scenarios (public) and /app/scenarios. *@
+
+<div class="page-head">
+    <div>
+        <span class="eyebrow">Reference</span>
+        <h1 class="page-title mt-2">Scenarios</h1>
+        <p class="page-sub">@GameData.Scenarios.Count special scenarios that change how the game plays.</p>
+    </div>
+    <input type="search" class="input md:w-64" placeholder="Filter by name…" @bind="_query" @bind:event="oninput"/>
+</div>
+
+<div class="surface">
+    <div class="table-wrap">
+        <table class="table">
+            <thead>
+            <tr>
+                <th>Scenario</th>
+                <th>Expansion</th>
+                <th class="text-right">Difficulty</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var s in _filtered)
+            {
+                <tr>
+                    <td class="font-medium text-ink-900">@s.Name</td>
+                    <td class="text-ink-500">@ExpansionName(s.ExpansionId)</td>
+                    <td class="text-right">
+                        <span class="badge @(s.Difficulty >= 3 ? "badge-warn" : s.Difficulty >= 1 ? "badge-info" : "badge-neutral")">
+                            +@s.Difficulty
+                        </span>
+                    </td>
+                </tr>
+            }
+            @if (!_filtered.Any())
+            {
+                <tr><td colspan="3" class="text-center text-ink-500 py-6">No scenarios match.</td></tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    private string _query = "";
+
+    private static readonly Dictionary<string, string> _expansionNames =
+        GameData.Expansions.ToDictionary(e => e.Id.Value, e => e.Name);
+
+    private IEnumerable<Scenario> _filtered =>
+        GameData.Scenarios
+            .Where(s => string.IsNullOrWhiteSpace(_query) || s.Name.Contains(_query, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(s => s.Difficulty)
+            .ThenBy(s => s.Name);
+
+    private static string ExpansionName(ExpansionId id)
+        => _expansionNames.GetValueOrDefault(id.Value, id.Value);
+}

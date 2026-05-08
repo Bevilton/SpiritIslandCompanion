@@ -1,4 +1,4 @@
-@page "/friends"
+@page "/app/friends"
 @attribute [Authorize]
 @rendermode InteractiveServer
 @inject IMediator Mediator
@@ -6,8 +6,11 @@
 
 <PageTitle>Friends</PageTitle>
 
-<div class="page-header">
-    <h1>Friends</h1>
+<div class="page-head">
+    <div>
+        <h1 class="page-title">Friends</h1>
+        <p class="page-sub">Connect with players who have their own account.</p>
+    </div>
 </div>
 
 <Alert Message="@_message" Type="@_alertType"/>
@@ -18,103 +21,100 @@
 }
 else
 {
-    @* Send Request *@
-    <div class="card mb-4">
-        <div class="card-header"><h5 class="mb-0">Send Friend Request</h5></div>
-        <div class="card-body">
-            <div class="input-group" style="max-width: 500px;">
-                <input type="email" class="form-control" placeholder="Enter email address..."
+    <section class="surface mb-5">
+        <div class="surface-head"><h2 class="text-base font-semibold">Send a friend request</h2></div>
+        <div class="surface-body">
+            <div class="flex flex-col sm:flex-row gap-2 max-w-xl">
+                <input type="email" class="input flex-1" placeholder="friend@example.com"
                        @bind="_friendEmail" @bind:event="oninput"/>
                 <button class="btn btn-primary" @onclick="SendRequest" disabled="@string.IsNullOrWhiteSpace(_friendEmail)">
-                    <i class="bi bi-send me-1"></i> Send
+                    <Icon Name="send" Class="w-4 h-4"/> Send
                 </button>
             </div>
         </div>
-    </div>
+    </section>
 
-    @* Incoming Requests *@
     @if (_pending?.Incoming.Count > 0)
     {
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">Incoming Requests <span class="badge bg-primary ms-2">@_pending.Incoming.Count</span></h5>
+        <section class="surface mb-5">
+            <div class="surface-head">
+                <h2 class="text-base font-semibold inline-flex items-center gap-2">
+                    Incoming requests
+                    <span class="badge badge-info">@_pending.Incoming.Count</span>
+                </h2>
             </div>
-            <div class="card-body p-0">
-                <div class="list-group list-group-flush">
-                    @foreach (var r in _pending.Incoming)
-                    {
-                        <div class="list-group-item d-flex align-items-center justify-content-between">
-                            <div>
-                                <strong>@r.Nickname</strong>
-                                <small class="text-muted ms-2">@r.Email</small>
-                                <small class="text-muted ms-2">@r.SentAt.LocalDateTime.ToString("MMM dd")</small>
-                            </div>
-                            <div class="d-flex gap-2">
-                                <button class="btn btn-sm btn-success" @onclick="() => AcceptRequest(r.FriendshipId)">
-                                    <i class="bi bi-check-lg"></i> Accept
-                                </button>
-                                <button class="btn btn-sm btn-outline-danger" @onclick="() => RejectRequest(r.FriendshipId)">
-                                    <i class="bi bi-x-lg"></i> Reject
-                                </button>
-                            </div>
+            <ul class="divide-y divide-ink-100">
+                @foreach (var r in _pending.Incoming)
+                {
+                    <li class="px-5 md:px-6 py-3 flex items-center justify-between gap-4">
+                        <div class="min-w-0">
+                            <div class="font-medium text-ink-900 truncate">@r.Nickname</div>
+                            <div class="text-xs text-ink-500 truncate">@r.Email · @r.SentAt.LocalDateTime.ToString("MMM dd")</div>
                         </div>
-                    }
-                </div>
-            </div>
-        </div>
-    }
-
-    @* Outgoing Requests *@
-    @if (_pending?.Outgoing.Count > 0)
-    {
-        <div class="card mb-4">
-            <div class="card-header"><h5 class="mb-0">Outgoing Requests</h5></div>
-            <div class="card-body p-0">
-                <div class="list-group list-group-flush">
-                    @foreach (var r in _pending.Outgoing)
-                    {
-                        <div class="list-group-item d-flex align-items-center justify-content-between">
-                            <div>
-                                <strong>@r.Nickname</strong>
-                                <small class="text-muted ms-2">@r.Email</small>
-                            </div>
-                            <span class="badge bg-secondary">Pending</span>
-                        </div>
-                    }
-                </div>
-            </div>
-        </div>
-    }
-
-    @* Friends List *@
-    <div class="card">
-        <div class="card-header"><h5 class="mb-0">My Friends</h5></div>
-        <div class="card-body p-0">
-            @if (_friends.Count == 0)
-            {
-                <div class="text-muted text-center py-4">No friends yet. Send a request to get started!</div>
-            }
-            else
-            {
-                <div class="list-group list-group-flush">
-                    @foreach (var f in _friends)
-                    {
-                        <div class="list-group-item d-flex align-items-center justify-content-between">
-                            <div>
-                                <strong>@f.Nickname</strong>
-                                <small class="text-muted ms-2">@f.Email</small>
-                            </div>
-                            <button class="btn btn-sm btn-outline-danger" @onclick="() => RemoveFriend(f.FriendshipId)">
-                                <i class="bi bi-person-x"></i> Remove
+                        <div class="flex gap-2 shrink-0">
+                            <button class="btn btn-sm btn-primary" @onclick="() => AcceptRequest(r.FriendshipId)">
+                                <Icon Name="check" Class="w-3.5 h-3.5"/> Accept
+                            </button>
+                            <button class="btn btn-sm btn-danger-outline" @onclick="() => RejectRequest(r.FriendshipId)">
+                                <Icon Name="x" Class="w-3.5 h-3.5"/> Reject
                             </button>
                         </div>
-                    }
-                </div>
-            }
-        </div>
-    </div>
+                    </li>
+                }
+            </ul>
+        </section>
+    }
 
-    <ConfirmDialog @ref="_confirmDialog" Title="Remove Friend" Message="Are you sure you want to remove this friend?"/>
+    @if (_pending?.Outgoing.Count > 0)
+    {
+        <section class="surface mb-5">
+            <div class="surface-head"><h2 class="text-base font-semibold">Sent requests</h2></div>
+            <ul class="divide-y divide-ink-100">
+                @foreach (var r in _pending.Outgoing)
+                {
+                    <li class="px-5 md:px-6 py-3 flex items-center justify-between gap-4">
+                        <div class="min-w-0">
+                            <div class="font-medium text-ink-900 truncate">@r.Nickname</div>
+                            <div class="text-xs text-ink-500 truncate">@r.Email</div>
+                        </div>
+                        <span class="badge badge-neutral">Pending</span>
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+
+    <section class="surface">
+        <div class="surface-head"><h2 class="text-base font-semibold">Your friends</h2></div>
+        @if (_friends.Count == 0)
+        {
+            <div class="px-6 py-12 text-center text-ink-500">No friends yet — send a request to get started.</div>
+        }
+        else
+        {
+            <ul class="divide-y divide-ink-100">
+                @foreach (var f in _friends)
+                {
+                    <li class="px-5 md:px-6 py-3 flex items-center justify-between gap-4">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-accent-100 text-accent-800 text-sm font-medium shrink-0">
+                                @(string.IsNullOrEmpty(f.Nickname) ? "?" : char.ToUpperInvariant(f.Nickname[0]).ToString())
+                            </span>
+                            <div class="min-w-0">
+                                <div class="font-medium text-ink-900 truncate">@f.Nickname</div>
+                                <div class="text-xs text-ink-500 truncate">@f.Email</div>
+                            </div>
+                        </div>
+                        <button class="btn btn-sm btn-danger-outline" @onclick="() => RemoveFriend(f.FriendshipId)">
+                            <Icon Name="trash" Class="w-3.5 h-3.5"/>
+                        </button>
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+
+    <ConfirmDialog @ref="_confirmDialog" Title="Remove friend" Message="Are you sure you want to remove this friend?"/>
 }
 
 @code {
@@ -164,7 +164,7 @@ else
     {
         var result = await Mediator.Send(new Application.Features.Friendships.AcceptFriendRequestCommand(
             friendshipId, CurrentUser.UserId!.Value));
-        _message = result.IsSuccess ? "Friend request accepted!" : result.Error.Message;
+        _message = result.IsSuccess ? "Friend request accepted." : result.Error.Message;
         _alertType = result.IsSuccess ? "success" : "danger";
         await LoadData();
     }

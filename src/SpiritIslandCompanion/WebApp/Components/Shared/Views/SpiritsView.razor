@@ -1,0 +1,96 @@
+@* Reference content for spirits browse page. Used from both the public route
+   (/spirits) and the authenticated route (/app/spirits). *@
+
+<div class="page-head">
+    <div>
+        <span class="eyebrow">Reference</span>
+        <h1 class="page-title mt-2">Spirits</h1>
+        <p class="page-sub">@GameData.Spirits.Count spirits across @_byExpansion.Count expansions.</p>
+    </div>
+    <input type="search" class="input md:w-64" placeholder="Filter by name…" @bind="_query" @bind:event="oninput"/>
+</div>
+
+@foreach (var grp in _byExpansion)
+{
+    var visible = grp.Spirits.Where(s => Match(s.Name)).ToList();
+    if (visible.Count == 0) { continue; }
+
+    <section class="mt-10 first:mt-0">
+        <div class="flex items-baseline justify-between mb-4">
+            <h2 class="text-xl font-semibold" style="font-family: var(--font-serif);">@grp.Expansion.Name</h2>
+            <span class="text-xs text-ink-500">@visible.Count of @grp.Spirits.Count</span>
+        </div>
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            @foreach (var s in visible)
+            {
+                var detail = SpiritDetails.For(s.Id);
+                var color = detail?.ColorHex ?? "#78716c";
+                var aspects = GameData.GetAspectsForSpirit(s.Id);
+
+                <button type="button"
+                        @onclick="() => OpenDetail(s)"
+                        class="text-left bg-white border border-ink-200 rounded-xl p-5 transition-all hover:shadow-sm hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40"
+                        style="border-top: 3px solid @color;">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <h3 class="text-base font-semibold leading-snug text-ink-900">@s.Name</h3>
+                            @if (detail is not null)
+                            {
+                                <div class="mt-1 text-xs text-ink-500">@detail.PlayStyle</div>
+                            }
+                        </div>
+                        @if (detail is not null)
+                        {
+                            <ElementBadges Elements="detail.Elements" Size="sm"/>
+                        }
+                    </div>
+
+                    <div class="mt-4 flex items-center gap-2 text-xs flex-wrap">
+                        @if (detail is not null)
+                        {
+                            <span class="badge" style="background-color: @(color)1f; color: @color;">
+                                @ComplexityLabel(detail.Complexity)
+                            </span>
+                        }
+                        @if (aspects.Count > 0)
+                        {
+                            <span class="text-ink-500">@aspects.Count aspect@(aspects.Count == 1 ? "" : "s")</span>
+                        }
+                    </div>
+                </button>
+            }
+        </div>
+    </section>
+}
+
+<SpiritDetailModal @ref="_modal"/>
+
+@code {
+    private string _query = "";
+    private SpiritDetailModal _modal = default!;
+
+    private record ExpansionGroup(Expansion Expansion, IReadOnlyList<Spirit> Spirits);
+
+    private static readonly IReadOnlyList<ExpansionGroup> _byExpansion =
+        GameData.Expansions
+            .Select(e => new ExpansionGroup(
+                e,
+                GameData.Spirits.Where(s => s.ExpansionId == e.Id).ToList()))
+            .Where(g => g.Spirits.Count > 0)
+            .ToList();
+
+    private bool Match(string name)
+        => string.IsNullOrWhiteSpace(_query) ||
+           name.Contains(_query, StringComparison.OrdinalIgnoreCase);
+
+    private void OpenDetail(Spirit s) => _modal.Show(s);
+
+    private static string ComplexityLabel(Complexity c) => c switch
+    {
+        Complexity.Low      => "Low",
+        Complexity.Moderate => "Moderate",
+        Complexity.High     => "High",
+        Complexity.VeryHigh => "Very high",
+        _ => c.ToString()
+    };
+}
