@@ -5,17 +5,103 @@
     <div>
         <span class="eyebrow">Reference</span>
         <h1 class="page-title mt-2">Spirits</h1>
-        <p class="page-sub">@GameData.Spirits.Count spirits across @_byExpansion.Count expansions.</p>
+        <p class="page-sub">@_visibleCount of @GameData.Spirits.Count spirits across @_byExpansion.Count expansions.</p>
     </div>
     <input type="search" class="input md:w-64" placeholder="Filter by name…" @bind="_query" @bind:event="oninput"/>
 </div>
 
+<div class="surface mt-4 overflow-hidden">
+    <button type="button"
+            class="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-ink-50/60 transition-colors text-left"
+            @onclick="() => _filtersOpen = !_filtersOpen">
+        <span class="flex items-center gap-2">
+            <Icon Name="settings" Class="w-4 h-4 text-ink-500"/>
+            <span class="text-sm font-medium text-ink-900">Filters</span>
+            @if (ActiveFilterCount > 0)
+            {
+                <span class="badge badge-info">@ActiveFilterCount active</span>
+            }
+        </span>
+        <span class="flex items-center gap-2">
+            @if (HasActiveFilters)
+            {
+                <span role="button" tabindex="0" class="text-xs text-accent-700 hover:text-accent-800 hover:underline cursor-pointer"
+                      @onclick="ClearFilters" @onclick:stopPropagation="true">
+                    Clear
+                </span>
+            }
+            <span class="text-ink-400 transition-transform @(_filtersOpen ? "rotate-180" : "")">
+                <Icon Name="arrow-right" Class="w-4 h-4 rotate-90"/>
+            </span>
+        </span>
+    </button>
+
+    @if (_filtersOpen)
+    {
+        <div class="px-4 pb-4 pt-1 space-y-3 border-t border-ink-100">
+            <div class="flex items-start gap-3 flex-wrap pt-3">
+                <span class="text-[11px] uppercase tracking-wide text-ink-500 w-20 shrink-0 mt-1">Expansion</span>
+                <div class="flex flex-wrap gap-1.5 flex-1">
+                    @foreach (var e in GameData.Expansions)
+                    {
+                        <FilterPill Active="@_selectedExpansions.Contains(e.Id.Value)"
+                                    OnToggle="() => ToggleExpansion(e.Id.Value)">
+                            @e.Name
+                        </FilterPill>
+                    }
+                </div>
+            </div>
+
+            <div class="flex items-start gap-3 flex-wrap">
+                <span class="text-[11px] uppercase tracking-wide text-ink-500 w-20 shrink-0 mt-1">Complexity</span>
+                <div class="flex flex-wrap gap-1.5 flex-1">
+                    @foreach (var c in _allComplexities)
+                    {
+                        <FilterPill Active="@_selectedComplexities.Contains(c)"
+                                    OnToggle="() => ToggleComplexity(c)">
+                            @ComplexityLabel(c)
+                        </FilterPill>
+                    }
+                </div>
+            </div>
+
+            <div class="flex items-start gap-3 flex-wrap">
+                <span class="text-[11px] uppercase tracking-wide text-ink-500 w-20 shrink-0 mt-1">Elements</span>
+                <div class="flex flex-wrap gap-1.5 flex-1">
+                    @foreach (var el in _allElements)
+                    {
+                        <FilterPill Active="@_selectedElements.Contains(el)"
+                                    OnToggle="() => ToggleElement(el)">
+                            <ElementBadges Elements="@(new[] { el })" Size="sm"/>
+                            <span>@el</span>
+                        </FilterPill>
+                    }
+                </div>
+            </div>
+
+            <div class="flex items-start gap-3 flex-wrap">
+                <span class="text-[11px] uppercase tracking-wide text-ink-500 w-20 shrink-0 mt-1">Tokens</span>
+                <div class="flex flex-wrap gap-1.5 flex-1">
+                    @foreach (var t in _allTokens)
+                    {
+                        <FilterPill Active="@_selectedTokens.Contains(t)"
+                                    OnToggle="() => ToggleToken(t)">
+                            <TokenBadges Tokens="@(new[] { t })" Size="sm"/>
+                            <span>@t</span>
+                        </FilterPill>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
 @foreach (var grp in _byExpansion)
 {
-    var visible = grp.Spirits.Where(s => Match(s.Name)).ToList();
+    var visible = grp.Spirits.Where(MatchesFilters).ToList();
     if (visible.Count == 0) { continue; }
 
-    <section class="mt-10 first:mt-0">
+    <section class="mt-10 first:mt-10">
         <div class="flex items-baseline justify-between mb-4">
             <h2 class="text-xl font-semibold" style="font-family: var(--font-serif);">@grp.Expansion.Name</h2>
             <span class="text-xs text-ink-500">@visible.Count of @grp.Spirits.Count</span>
@@ -52,6 +138,10 @@
                                 @ComplexityLabel(detail.Complexity)
                             </span>
                         }
+                        @if (detail is { Tokens.Count: > 0 })
+                        {
+                            <TokenBadges Tokens="detail.Tokens" Size="sm"/>
+                        }
                         @if (aspects.Count > 0)
                         {
                             <span class="text-ink-500">@aspects.Count aspect@(aspects.Count == 1 ? "" : "s")</span>
@@ -63,11 +153,26 @@
     </section>
 }
 
+@if (_visibleCount == 0)
+{
+    <div class="surface text-center py-10 mt-6 text-ink-500">No spirits match the current filters.</div>
+}
+
 <SpiritDetailModal @ref="_modal"/>
 
 @code {
     private string _query = "";
     private SpiritDetailModal _modal = default!;
+    private bool _filtersOpen;
+
+    private readonly HashSet<string> _selectedExpansions = new();
+    private readonly HashSet<Complexity> _selectedComplexities = new();
+    private readonly HashSet<Element> _selectedElements = new();
+    private readonly HashSet<Token> _selectedTokens = new();
+
+    private int ActiveFilterCount =>
+        _selectedExpansions.Count + _selectedComplexities.Count
+        + _selectedElements.Count + _selectedTokens.Count;
 
     private record ExpansionGroup(Expansion Expansion, IReadOnlyList<Spirit> Spirits);
 
@@ -79,9 +184,75 @@
             .Where(g => g.Spirits.Count > 0)
             .ToList();
 
-    private bool Match(string name)
-        => string.IsNullOrWhiteSpace(_query) ||
-           name.Contains(_query, StringComparison.OrdinalIgnoreCase);
+    private static readonly Complexity[] _allComplexities =
+        [Complexity.Low, Complexity.Moderate, Complexity.High, Complexity.VeryHigh];
+
+    private static readonly Element[] _allElements =
+        [Element.Sun, Element.Moon, Element.Fire, Element.Air, Element.Water, Element.Earth, Element.Plant, Element.Animal];
+
+    private static readonly Token[] _allTokens =
+        [Token.Dahan, Token.Beasts, Token.Wilds, Token.Disease, Token.Strife, Token.Badlands];
+
+    private int _visibleCount =>
+        _byExpansion.Sum(g => g.Spirits.Count(MatchesFilters));
+
+    private bool HasActiveFilters =>
+        _selectedExpansions.Count > 0 || _selectedComplexities.Count > 0
+        || _selectedElements.Count > 0 || _selectedTokens.Count > 0;
+
+    private bool MatchesFilters(Spirit s)
+    {
+        if (!string.IsNullOrWhiteSpace(_query) && !s.Name.Contains(_query, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (_selectedExpansions.Count > 0 && !_selectedExpansions.Contains(s.ExpansionId.Value))
+        {
+            return false;
+        }
+
+        var detail = SpiritDetails.For(s.Id);
+        if (detail is null)
+        {
+            return _selectedComplexities.Count == 0 && _selectedElements.Count == 0 && _selectedTokens.Count == 0;
+        }
+
+        if (_selectedComplexities.Count > 0 && !_selectedComplexities.Contains(detail.Complexity))
+        {
+            return false;
+        }
+
+        if (_selectedElements.Count > 0 && !detail.Elements.Any(_selectedElements.Contains))
+        {
+            return false;
+        }
+
+        if (_selectedTokens.Count > 0 && !detail.Tokens.Any(_selectedTokens.Contains))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private void ToggleExpansion(string id) => Toggle(_selectedExpansions, id);
+    private void ToggleComplexity(Complexity c) => Toggle(_selectedComplexities, c);
+    private void ToggleElement(Element e) => Toggle(_selectedElements, e);
+    private void ToggleToken(Token t) => Toggle(_selectedTokens, t);
+
+    private static void Toggle<T>(HashSet<T> set, T value)
+    {
+        if (!set.Add(value)) { set.Remove(value); }
+    }
+
+    private void ClearFilters()
+    {
+        _selectedExpansions.Clear();
+        _selectedComplexities.Clear();
+        _selectedElements.Clear();
+        _selectedTokens.Clear();
+    }
 
     private void OpenDetail(Spirit s) => _modal.Show(s);
 

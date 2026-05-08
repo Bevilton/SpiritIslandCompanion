@@ -1,0 +1,76 @@
+@* Renders a horizontal row of token chips for a spirit (Dahan, Beasts, Wilds, etc.).
+   Pass Size="sm" for compact card display, Size="md" for the modal header. *@
+
+@if (Tokens is { Count: > 0 })
+{
+    <div class="inline-flex items-center @Gap">
+        @foreach (var t in Tokens)
+        {
+            var (bg, fg) = ColorFor(t);
+            <span class="inline-flex items-center justify-center rounded-full @SizeClasses"
+                  style="background-color: @bg; color: @fg;"
+                  title="@t">
+                @Glyph(t)
+            </span>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<Token>? Tokens { get; set; }
+    [Parameter] public string Size { get; set; } = "sm";
+
+    private string SizeClasses => Size switch
+    {
+        "md" => "h-7 w-7",
+        _    => "h-6 w-6",
+    };
+
+    private string IconClass => Size switch
+    {
+        "md" => "w-4 h-4",
+        _    => "w-3.5 h-3.5",
+    };
+
+    private string Gap => Size switch
+    {
+        "md" => "gap-1.5",
+        _    => "gap-1",
+    };
+
+    private RenderFragment Glyph(Token t) => builder =>
+    {
+        switch (t)
+        {
+            case Token.Dahan:
+                builder.AddMarkupContent(0, $@"<svg viewBox=""0 0 24 24"" fill=""currentColor"" class=""{IconClass}"" aria-hidden=""true""><circle cx=""12"" cy=""6"" r=""3""/><path d=""M5 21a7 7 0 1 1 14 0Z""/></svg>");
+                break;
+            case Token.Beasts:
+                builder.AddMarkupContent(0, $@"<svg viewBox=""0 0 24 24"" fill=""currentColor"" class=""{IconClass}"" aria-hidden=""true""><path d=""M7 4 L9 19 L11 5 Z M13 5 L15 19 L17 4 Z""/></svg>");
+                break;
+            case Token.Wilds:
+                builder.AddMarkupContent(0, $@"<svg viewBox=""0 0 24 24"" fill=""currentColor"" class=""{IconClass}"" aria-hidden=""true""><path d=""M12 2 L6 10 L9 10 L4 17 L10 17 L10 22 L14 22 L14 17 L20 17 L15 10 L18 10 Z""/></svg>");
+                break;
+            case Token.Disease:
+                builder.AddMarkupContent(0, $@"<svg viewBox=""0 0 24 24"" fill=""none"" stroke=""currentColor"" stroke-width=""2.4"" stroke-linecap=""round"" stroke-linejoin=""round"" class=""{IconClass}"" aria-hidden=""true""><path d=""M6 6 c-3.5 4 -2 11 4.5 12.5 c5.5 1.2 10.5-3 10.5-9 c0-4-3.5-6.5-7.5-5.5 c-3 .8-5 4-3 7 c1 1.8 4 1.8 5 0""/><circle cx=""6"" cy=""6"" r=""1.4"" fill=""currentColor"" stroke=""none""/></svg>");
+                break;
+            case Token.Strife:
+                builder.AddMarkupContent(0, $@"<svg viewBox=""0 0 24 24"" fill=""currentColor"" class=""{IconClass}"" aria-hidden=""true""><path d=""M6 11 a1.5 1.5 0 0 1 3 0 a1.5 1.5 0 0 1 3 0 a1.5 1.5 0 0 1 3 0 a1.5 1.5 0 0 1 3 0 v5 a3 3 0 0 1-3 3 h-6 a3 3 0 0 1-3-3 z""/></svg>");
+                break;
+            case Token.Badlands:
+                builder.AddMarkupContent(0, $@"<svg viewBox=""0 0 24 24"" fill=""none"" stroke=""currentColor"" stroke-width=""2"" stroke-linecap=""round"" stroke-linejoin=""round"" class=""{IconClass}"" aria-hidden=""true""><path d=""M3 19h18""/><path d=""M4 19 L8 8 L12 14 L16 6 L20 19""/><path d=""M9 19v3M14 19v2.5""/></svg>");
+                break;
+        }
+    };
+
+    private static (string bg, string fg) ColorFor(Token t) => t switch
+    {
+        Token.Dahan    => ("#FEF3C7", "#92400E"), // tan / brown — islanders
+        Token.Beasts   => ("#FEE2E2", "#B91C1C"), // red — predators
+        Token.Wilds    => ("#DCFCE7", "#166534"), // green — overgrowth
+        Token.Disease  => ("#FEF3C7", "#A16207"), // yellow — sickness (matches game token)
+        Token.Strife   => ("#DBEAFE", "#1D4ED8"), // blue — discord (matches game token)
+        Token.Badlands => ("#FED7AA", "#7C2D12"), // burnt orange — scorched earth
+        _              => ("#F5F5F4", "#44403C"),
+    };
+}

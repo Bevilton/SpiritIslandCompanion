@@ -27,10 +27,23 @@
                                 <span class="text-ink-600">· @detail.PlayStyle</span>
                             }
                         </div>
-                        @if (detail is not null && detail.Elements.Count > 0)
+                        @if (detail is not null && (detail.Elements.Count > 0 || detail.Tokens.Count > 0))
                         {
-                            <div class="mt-3">
-                                <ElementBadges Elements="detail.Elements" Size="md"/>
+                            <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+                                @if (detail.Elements.Count > 0)
+                                {
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-[10px] uppercase tracking-wide text-ink-500">Elements</span>
+                                        <ElementBadges Elements="detail.Elements" Size="md"/>
+                                    </div>
+                                }
+                                @if (detail.Tokens.Count > 0)
+                                {
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-[10px] uppercase tracking-wide text-ink-500">Tokens</span>
+                                        <TokenBadges Tokens="detail.Tokens" Size="md"/>
+                                    </div>
+                                }
                             </div>
                         }
                     </div>

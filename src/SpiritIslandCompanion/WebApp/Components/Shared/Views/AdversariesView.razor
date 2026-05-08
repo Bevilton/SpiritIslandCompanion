@@ -9,7 +9,28 @@
     <input type="search" class="input md:w-64" placeholder="Filter by name…" @bind="_query" @bind:event="oninput"/>
 </div>
 
-<div class="grid lg:grid-cols-2 gap-4">
+<div class="surface p-4 mt-4">
+    <div class="flex items-start gap-3 flex-wrap">
+        <span class="text-[11px] uppercase tracking-wide text-ink-500 w-20 shrink-0 mt-1">Expansion</span>
+        <div class="flex flex-wrap gap-1.5 flex-1">
+            @foreach (var e in GameData.Expansions)
+            {
+                <FilterPill Active="@_selectedExpansions.Contains(e.Id.Value)"
+                            OnToggle="() => ToggleExpansion(e.Id.Value)">
+                    @e.Name
+                </FilterPill>
+            }
+        </div>
+        @if (_selectedExpansions.Count > 0)
+        {
+            <button type="button" class="text-xs text-accent-700 hover:text-accent-800 hover:underline mt-1" @onclick="() => _selectedExpansions.Clear()">
+                Clear
+            </button>
+        }
+    </div>
+</div>
+
+<div class="grid lg:grid-cols-2 gap-4 mt-6">
     @foreach (var a in _filtered)
     {
         var modes = a.Modes.OrderBy(m => m.Level).ToList();
@@ -40,19 +61,33 @@
 
 @if (!_filtered.Any())
 {
-    <div class="surface text-center py-10 mt-6 text-ink-500">No adversaries match "@_query".</div>
+    <div class="surface text-center py-10 mt-6 text-ink-500">No adversaries match the current filters.</div>
 }
 
 @code {
     private string _query = "";
+    private readonly HashSet<string> _selectedExpansions = new();
 
     private static readonly Dictionary<string, string> _expansionNames =
         GameData.Expansions.ToDictionary(e => e.Id.Value, e => e.Name);
 
+    private static readonly Dictionary<string, int> _expansionOrder =
+        GameData.Expansions
+            .Select((e, i) => (e.Id.Value, i))
+            .ToDictionary(x => x.Value, x => x.i);
+
     private IEnumerable<Adversary> _filtered =>
-        GameData.Adversaries.Where(a =>
-            string.IsNullOrWhiteSpace(_query) ||
-            a.Name.Contains(_query, StringComparison.OrdinalIgnoreCase));
+        GameData.Adversaries
+            .Where(a =>
+                (string.IsNullOrWhiteSpace(_query) || a.Name.Contains(_query, StringComparison.OrdinalIgnoreCase))
+                && (_selectedExpansions.Count == 0 || _selectedExpansions.Contains(a.ExpansionId.Value)))
+            .OrderBy(a => _expansionOrder.GetValueOrDefault(a.ExpansionId.Value, int.MaxValue))
+            .ThenBy(a => a.Name);
+
+    private void ToggleExpansion(string id)
+    {
+        if (!_selectedExpansions.Add(id)) { _selectedExpansions.Remove(id); }
+    }
 
     private static string ExpansionName(ExpansionId id)
         => _expansionNames.GetValueOrDefault(id.Value, id.Value);

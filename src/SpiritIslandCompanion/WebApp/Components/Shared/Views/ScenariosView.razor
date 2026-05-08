@@ -9,7 +9,28 @@
     <input type="search" class="input md:w-64" placeholder="Filter by name…" @bind="_query" @bind:event="oninput"/>
 </div>
 
-<div class="surface">
+<div class="surface p-4 mt-4">
+    <div class="flex items-start gap-3 flex-wrap">
+        <span class="text-[11px] uppercase tracking-wide text-ink-500 w-20 shrink-0 mt-1">Expansion</span>
+        <div class="flex flex-wrap gap-1.5 flex-1">
+            @foreach (var e in GameData.Expansions)
+            {
+                <FilterPill Active="@_selectedExpansions.Contains(e.Id.Value)"
+                            OnToggle="() => ToggleExpansion(e.Id.Value)">
+                    @e.Name
+                </FilterPill>
+            }
+        </div>
+        @if (_selectedExpansions.Count > 0)
+        {
+            <button type="button" class="text-xs text-accent-700 hover:text-accent-800 hover:underline mt-1" @onclick="() => _selectedExpansions.Clear()">
+                Clear
+            </button>
+        }
+    </div>
+</div>
+
+<div class="surface mt-6">
     <div class="table-wrap">
         <table class="table">
             <thead>
@@ -43,15 +64,29 @@
 
 @code {
     private string _query = "";
+    private readonly HashSet<string> _selectedExpansions = new();
 
     private static readonly Dictionary<string, string> _expansionNames =
         GameData.Expansions.ToDictionary(e => e.Id.Value, e => e.Name);
 
+    private static readonly Dictionary<string, int> _expansionOrder =
+        GameData.Expansions
+            .Select((e, i) => (e.Id.Value, i))
+            .ToDictionary(x => x.Value, x => x.i);
+
     private IEnumerable<Scenario> _filtered =>
         GameData.Scenarios
-            .Where(s => string.IsNullOrWhiteSpace(_query) || s.Name.Contains(_query, StringComparison.OrdinalIgnoreCase))
-            .OrderBy(s => s.Difficulty)
+            .Where(s =>
+                (string.IsNullOrWhiteSpace(_query) || s.Name.Contains(_query, StringComparison.OrdinalIgnoreCase))
+                && (_selectedExpansions.Count == 0 || _selectedExpansions.Contains(s.ExpansionId.Value)))
+            .OrderBy(s => _expansionOrder.GetValueOrDefault(s.ExpansionId.Value, int.MaxValue))
+            .ThenBy(s => s.Difficulty)
             .ThenBy(s => s.Name);
+
+    private void ToggleExpansion(string id)
+    {
+        if (!_selectedExpansions.Add(id)) { _selectedExpansions.Remove(id); }
+    }
 
     private static string ExpansionName(ExpansionId id)
         => _expansionNames.GetValueOrDefault(id.Value, id.Value);

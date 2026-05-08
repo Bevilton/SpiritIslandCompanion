@@ -1,0 +1,18 @@
+@* Toggleable filter pill — clean active/inactive states.
+   Usage: <FilterPill Active="@isActive" OnToggle="() => Toggle(value)">Label</FilterPill> *@
+
+<button type="button"
+        @onclick="OnToggle"
+        class="@CssClass">
+    @ChildContent
+</button>
+
+@code {
+    [Parameter, EditorRequired] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public bool Active { get; set; }
+    [Parameter] public EventCallback OnToggle { get; set; }
+
+    private string CssClass => Active
+        ? "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-accent-100 text-accent-800 border border-accent-300 transition-colors"
+        : "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-white text-ink-600 border border-ink-200 hover:border-ink-300 hover:text-ink-800 transition-colors";
+}
