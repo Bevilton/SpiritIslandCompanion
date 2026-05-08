@@ -43,7 +43,7 @@
             <tbody>
             @foreach (var s in _filtered)
             {
-                <tr>
+                <tr class="cursor-pointer hover:bg-ink-50/60 transition-colors" @onclick="() => OpenDetail(s)">
                     <td class="font-medium text-ink-900">@s.Name</td>
                     <td class="text-ink-500">@ExpansionName(s.ExpansionId)</td>
                     <td class="text-right">
@@ -62,9 +62,14 @@
     </div>
 </div>
 
+<ScenarioDetailModal @ref="_modal"/>
+
 @code {
     private string _query = "";
     private readonly HashSet<string> _selectedExpansions = new();
+    private ScenarioDetailModal _modal = default!;
+
+    private void OpenDetail(Scenario s) => _modal.Show(s);
 
     private static readonly Dictionary<string, string> _expansionNames =
         GameData.Expansions.ToDictionary(e => e.Id.Value, e => e.Name);

@@ -1,0 +1,99 @@
+@if (_adversary is not null)
+{
+    var detail = _detail;
+    var modes = _adversary.Modes.OrderBy(m => m.Level).ToList();
+
+    <div class="fixed inset-0 z-50 flex items-end md:items-center justify-center px-0 md:px-4 py-0 md:py-8" role="dialog" aria-modal="true">
+        <div class="absolute inset-0 bg-ink-900/40 backdrop-blur-sm" @onclick="Close"></div>
+
+        <div class="relative bg-white w-full md:max-w-2xl md:rounded-2xl shadow-2xl border border-ink-200 overflow-hidden max-h-[92vh] flex flex-col">
+            <div class="px-6 pt-6 pb-5 relative bg-ink-50/60 border-b border-ink-200">
+                <button class="absolute top-4 right-4 inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-500 hover:bg-white/60 hover:text-ink-900 transition-colors" @onclick="Close" aria-label="Close">
+                    <Icon Name="x" Class="w-5 h-5"/>
+                </button>
+
+                <div class="flex items-start gap-3 pr-10">
+                    <Icon Name="shield" Class="w-6 h-6 text-accent-700 shrink-0 mt-1"/>
+                    <div class="min-w-0 flex-1">
+                        <h2 class="text-2xl font-semibold text-ink-900 leading-tight" style="font-family: var(--font-serif);">@_adversary.Name</h2>
+                        <div class="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
+                            <span class="badge badge-neutral">@ExpansionName(_adversary.ExpansionId)</span>
+                            @if (detail is not null)
+                            {
+                                <span class="text-ink-600">· @detail.Theme</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="overflow-y-auto px-6 py-5 space-y-6">
+                @if (detail is not null)
+                {
+                    <p class="text-ink-700 leading-relaxed">@detail.Summary</p>
+                }
+                else
+                {
+                    <p class="text-ink-500 italic">No additional information available.</p>
+                }
+
+                <div>
+                    <h3 class="text-sm font-medium uppercase tracking-wide text-ink-500 mb-3">Difficulty by level</h3>
+                    <div class="grid grid-cols-7 gap-1.5">
+                        @foreach (var m in modes)
+                        {
+                            <div class="rounded-md border border-ink-200 bg-ink-50/60 px-1 py-2 text-center">
+                                <div class="text-[10px] uppercase text-ink-500">L@(m.Level)</div>
+                                <div class="text-sm font-semibold text-ink-900">@m.Difficulty</div>
+                            </div>
+                        }
+                    </div>
+                    <p class="mt-2 text-xs text-ink-500">
+                        Each level adds escalation rules. See the wiki for the per-level setup and rules text.
+                    </p>
+                </div>
+
+                <div class="pt-2">
+                    <a href="@WikiLink(_adversary.Name)" target="_blank" rel="noopener"
+                       class="inline-flex items-center gap-1 text-sm text-accent-700 hover:text-accent-800">
+                        Read on the Spirit Island wiki
+                        <Icon Name="arrow-right" Class="w-3.5 h-3.5"/>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private Adversary? _adversary;
+    private AdversaryDetail? _detail;
+
+    private static readonly Dictionary<string, string> _expansionNames =
+        GameData.Expansions.ToDictionary(e => e.Id.Value, e => e.Name);
+
+    public void Show(Adversary adversary)
+    {
+        _adversary = adversary;
+        _detail = AdversaryDetails.For(adversary.Id);
+        StateHasChanged();
+    }
+
+    public void Close()
+    {
+        _adversary = null;
+        _detail = null;
+        StateHasChanged();
+    }
+
+    private static string ExpansionName(ExpansionId id)
+        => _expansionNames.GetValueOrDefault(id.Value, id.Value);
+
+    private static string WikiLink(string name)
+    {
+        // Strip parenthesised qualifier (e.g. "France (Plantation Colony)" → "France (Plantation Colony)" maps fine,
+        // but the wiki uses underscores in titles).
+        var slug = name.Replace("'", "%27").Replace(" ", "_");
+        return $"https://spiritislandwiki.com/index.php?title={slug}";
+    }
+}

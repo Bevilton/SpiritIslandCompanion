@@ -34,11 +34,21 @@
     @foreach (var a in _filtered)
     {
         var modes = a.Modes.OrderBy(m => m.Level).ToList();
-        <article class="surface p-5 md:p-6">
+        var detail = AdversaryDetails.For(a.Id);
+        <button type="button"
+                @onclick="() => OpenDetail(a)"
+                class="text-left surface p-5 md:p-6 transition-all hover:shadow-sm hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
             <div class="flex items-start justify-between gap-3">
-                <div>
+                <div class="min-w-0">
                     <h3 class="text-lg font-semibold leading-tight">@a.Name</h3>
-                    <span class="text-xs text-ink-500 mt-1 block">@ExpansionName(a.ExpansionId)</span>
+                    <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-500">
+                        <span>@ExpansionName(a.ExpansionId)</span>
+                        @if (detail is not null)
+                        {
+                            <span>·</span>
+                            <span>@detail.Theme</span>
+                        }
+                    </div>
                 </div>
                 <Icon Name="shield" Class="w-5 h-5 text-accent-600 shrink-0"/>
             </div>
@@ -55,7 +65,7 @@
                     }
                 </div>
             </div>
-        </article>
+        </button>
     }
 </div>
 
@@ -64,9 +74,14 @@
     <div class="surface text-center py-10 mt-6 text-ink-500">No adversaries match the current filters.</div>
 }
 
+<AdversaryDetailModal @ref="_modal"/>
+
 @code {
     private string _query = "";
     private readonly HashSet<string> _selectedExpansions = new();
+    private AdversaryDetailModal _modal = default!;
+
+    private void OpenDetail(Adversary a) => _modal.Show(a);
 
     private static readonly Dictionary<string, string> _expansionNames =
         GameData.Expansions.ToDictionary(e => e.Id.Value, e => e.Name);
