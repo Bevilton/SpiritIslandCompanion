@@ -1,6 +1,7 @@
 using Application.Extensions;
 using Infrastructure.Database;
 using Infrastructure.Extensions;
+using Microsoft.EntityFrameworkCore;
 using WebApp.Auth;
 using WebApp.Components;
 
@@ -19,12 +20,12 @@ builder.Services.AddCascadingAuthenticationState();
 
 var app = builder.Build();
 
-// Auto-migrate database in development
-if (app.Environment.IsDevelopment())
+// Apply any pending EF Core migrations on startup. Creates the database if it
+// doesn't exist yet and brings the schema up to date with the latest migration.
+using (var scope = app.Services.CreateScope())
 {
-    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await db.Database.EnsureCreatedAsync();
+    await db.Database.MigrateAsync();
 }
 
 app.MapDefaultEndpoints();
