@@ -1,0 +1,115 @@
+@* Scenario picker modal. Filters by expansion + free-text. Selecting closes. *@
+@inject WebApp.State.OwnedExpansionsState ExpansionsState
+
+@if (_open)
+{
+    <div class="fixed inset-0 z-50 flex items-end md:items-center justify-center px-0 md:px-4 py-0 md:py-8" role="dialog" aria-modal="true">
+        <div class="absolute inset-0 bg-ink-900/40 backdrop-blur-sm" @onclick="Close"></div>
+
+        <div class="relative bg-white w-full md:max-w-2xl md:rounded-2xl shadow-2xl border border-ink-200 overflow-hidden max-h-[92vh] flex flex-col">
+            <div class="px-6 pt-5 pb-4 border-b border-ink-200 flex items-start gap-4">
+                <div class="min-w-0 flex-1">
+                    <h2 class="text-xl font-semibold text-ink-900 leading-tight" style="font-family: var(--font-serif);">
+                        Choose a scenario
+                    </h2>
+                    <p class="text-xs text-ink-500 mt-1">Optional rules twist that adds difficulty.</p>
+                </div>
+                <input type="search" class="input md:w-56" placeholder="Search by name…" @bind="_query" @bind:event="oninput"/>
+                <button class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-500 hover:bg-ink-100 hover:text-ink-900 transition-colors shrink-0" @onclick="Close" aria-label="Close">
+                    <Icon Name="x" Class="w-5 h-5"/>
+                </button>
+            </div>
+
+            <div class="overflow-y-auto px-6 py-5 flex-1 space-y-2">
+                <button type="button"
+                        @onclick="() => Pick(null)"
+                        class="@(_currentScenarioId is null ? "ring-2 ring-accent-500 border-accent-300" : "border-ink-200 hover:border-ink-300")
+                               w-full flex items-center justify-between gap-3 bg-white border rounded-xl p-3 transition-all hover:shadow-sm text-left">
+                    <div>
+                        <div class="text-sm font-semibold text-ink-900">No scenario</div>
+                        <div class="text-[11px] text-ink-500">Standard game</div>
+                    </div>
+                    <span class="text-[10px] uppercase tracking-wider text-ink-400">Default</span>
+                </button>
+
+                @foreach (var s in _filtered)
+                {
+                    var detail = ScenarioDetails.For(s.Id);
+                    var isSelected = _currentScenarioId == s.Id.Value;
+
+                    <button type="button"
+                            @onclick="() => Pick(s)"
+                            class="@(isSelected ? "ring-2 ring-accent-500 border-accent-300" : "border-ink-200 hover:border-ink-300")
+                                   w-full flex items-start justify-between gap-3 bg-white border rounded-xl p-3 transition-all hover:shadow-sm text-left">
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2">
+                                <Icon Name="book" Class="w-4 h-4 text-accent-700 shrink-0"/>
+                                <div class="text-sm font-semibold text-ink-900">@s.Name</div>
+                            </div>
+                            <div class="text-[11px] text-ink-500 mt-0.5">@ExpansionName(s.ExpansionId)</div>
+                            @if (detail is not null)
+                            {
+                                <p class="mt-1.5 text-xs text-ink-600 leading-snug line-clamp-2">@detail.Summary</p>
+                            }
+                        </div>
+                        <span class="badge shrink-0 @(s.Difficulty >= 3 ? "badge-warn" : s.Difficulty >= 1 ? "badge-info" : "badge-neutral")">
+                            +@s.Difficulty
+                        </span>
+                    </button>
+                }
+
+                @if (!_filtered.Any())
+                {
+                    <div class="text-center py-10 text-ink-500 text-sm">No scenarios match.</div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public EventCallback<Scenario?> OnSelected { get; set; }
+
+    private bool _open;
+    private string? _currentScenarioId;
+    private string _query = "";
+
+    private static readonly Dictionary<string, string> _expansionNames =
+        GameData.Expansions.ToDictionary(e => e.Id.Value, e => e.Name);
+
+    private IReadOnlyList<ExpansionId>? OwnedExpansions => ExpansionsState.Current;
+
+    public async Task ShowAsync(string? currentScenarioId = null)
+    {
+        await ExpansionsState.EnsureLoadedAsync();
+        _currentScenarioId = currentScenarioId;
+        _query = "";
+        _open = true;
+        StateHasChanged();
+    }
+
+    public void Show(string? currentScenarioId = null) => _ = ShowAsync(currentScenarioId);
+
+    private void Close()
+    {
+        _open = false;
+        StateHasChanged();
+    }
+
+    private async Task Pick(Scenario? s)
+    {
+        _open = false;
+        StateHasChanged();
+        await OnSelected.InvokeAsync(s);
+    }
+
+    private IEnumerable<Scenario> _filtered =>
+        GameData.Scenarios
+            .Where(s => OwnedExpansions is null || OwnedExpansions.Contains(s.ExpansionId))
+            .Where(s => string.IsNullOrWhiteSpace(_query) || s.Name.Contains(_query, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(s => s.Difficulty)
+            .ThenBy(s => s.Name);
+
+    private static string ExpansionName(ExpansionId id)
+        => _expansionNames.GetValueOrDefault(id.Value, id.Value);
+}

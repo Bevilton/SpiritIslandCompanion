@@ -1,0 +1,205 @@
+@* Inline picker for who plays a slot in a recorded game: yourself, a friend, or
+   a local player. Visually distinguishes the three groups via different avatar
+   colours so you can scan a game at a glance. *@
+
+<div class="relative">
+    <button type="button" @onclick="Toggle"
+            class="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-ink-200 bg-white hover:bg-ink-50 transition-colors text-left
+                   focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/30">
+        <div class="flex items-center gap-2 min-w-0">
+            @{ var info = ResolveCurrent(); }
+            <span class="@AvatarClasses(info.Kind)">
+                @AvatarGlyph(info.Kind)
+            </span>
+            <div class="min-w-0">
+                <div class="text-sm font-medium text-ink-900 truncate">@info.Label</div>
+                <div class="text-[10px] uppercase tracking-wide @KindLabelClass(info.Kind)">
+                    @KindLabel(info.Kind)
+                </div>
+            </div>
+        </div>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none"
+             class="w-4 h-4 text-ink-400 shrink-0 transition-transform @(_open ? "rotate-180" : "")">
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+                  stroke-width="1.5" d="m6 8 4 4 4-4"/>
+        </svg>
+    </button>
+
+    @if (_open)
+    {
+        <div class="absolute z-30 mt-1 left-0 right-0 surface shadow-lg p-2 max-h-72 overflow-y-auto">
+            @* === Me === *@
+            <div class="px-2 py-1 text-[10px] uppercase tracking-wider text-ink-500">You</div>
+            <button type="button" @onclick='() => Pick("me")'
+                    class="@RowClass(Value == "me")">
+                <span class="@AvatarClasses(AssigneeKind.Me)">
+                    @AvatarGlyph(AssigneeKind.Me)
+                </span>
+                <div class="flex-1 text-left min-w-0">
+                    <div class="text-sm font-medium text-ink-900 truncate">Me</div>
+                    <div class="text-[10px] text-accent-700">Signed-in account</div>
+                </div>
+                @if (Value == "me")
+                {
+                    <Icon Name="check" Class="w-4 h-4 text-accent-700"/>
+                }
+            </button>
+
+            @if (Friends.Count > 0)
+            {
+                <div class="mt-2 px-2 py-1 text-[10px] uppercase tracking-wider text-ink-500">
+                    Friends · <span class="text-ink-400">accounts</span>
+                </div>
+                @foreach (var f in Friends)
+                {
+                    var key = $"friend:{f.FriendUserId}";
+                    <button type="button" @onclick="() => Pick(key)" class="@RowClass(Value == key)">
+                        <span class="@AvatarClasses(AssigneeKind.Friend)">
+                            @AvatarGlyph(AssigneeKind.Friend)
+                        </span>
+                        <div class="flex-1 text-left min-w-0">
+                            <div class="text-sm font-medium text-ink-900 truncate">@f.Nickname</div>
+                            <div class="text-[10px] text-ink-500 truncate">@f.Email</div>
+                        </div>
+                        @if (Value == key)
+                        {
+                            <Icon Name="check" Class="w-4 h-4 text-accent-700"/>
+                        }
+                    </button>
+                }
+            }
+
+            @if (LocalPlayers.Count > 0)
+            {
+                <div class="mt-2 px-2 py-1 text-[10px] uppercase tracking-wider text-ink-500">
+                    Local players · <span class="text-ink-400">no account</span>
+                </div>
+                @foreach (var p in LocalPlayers)
+                {
+                    var key = $"player:{p.Id}";
+                    <button type="button" @onclick="() => Pick(key)" class="@RowClass(Value == key)">
+                        <span class="@AvatarClasses(AssigneeKind.Player)">
+                            @AvatarGlyph(AssigneeKind.Player)
+                        </span>
+                        <div class="flex-1 text-left min-w-0">
+                            <div class="text-sm font-medium text-ink-900 truncate">@p.Name</div>
+                            <div class="text-[10px] text-ink-500">Local player</div>
+                        </div>
+                        @if (Value == key)
+                        {
+                            <Icon Name="check" Class="w-4 h-4 text-accent-700"/>
+                        }
+                    </button>
+                }
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string Value { get; set; } = "me";
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+
+    [Parameter] public IReadOnlyList<Application.Features.Friendships.FriendResponse> Friends { get; set; } = [];
+    [Parameter] public IReadOnlyList<Application.Features.Players.ListPlayersResponse> LocalPlayers { get; set; } = [];
+
+    private bool _open;
+
+    private enum AssigneeKind { Me, Friend, Player, Unknown }
+
+    private record AssigneeInfo(AssigneeKind Kind, string Label);
+
+    private AssigneeInfo ResolveCurrent()
+    {
+        if (Value == "me") return new(AssigneeKind.Me, "Me");
+
+        if (Value.StartsWith("friend:"))
+        {
+            var id = Value["friend:".Length..];
+            var f = Friends.FirstOrDefault(x => x.FriendUserId.ToString() == id);
+            return f is null
+                ? new(AssigneeKind.Unknown, "Unknown friend")
+                : new(AssigneeKind.Friend, f.Nickname);
+        }
+
+        if (Value.StartsWith("player:"))
+        {
+            var id = Value["player:".Length..];
+            var p = LocalPlayers.FirstOrDefault(x => x.Id.ToString() == id);
+            return p is null
+                ? new(AssigneeKind.Unknown, "Unknown player")
+                : new(AssigneeKind.Player, p.Name);
+        }
+
+        return new(AssigneeKind.Unknown, "Select…");
+    }
+
+    private void Toggle() => _open = !_open;
+
+    private async Task Pick(string key)
+    {
+        _open = false;
+        if (Value != key)
+        {
+            await ValueChanged.InvokeAsync(key);
+        }
+    }
+
+    private static string RowClass(bool active) =>
+        (active
+            ? "bg-accent-50 hover:bg-accent-100 "
+            : "hover:bg-ink-50 ")
+        + "w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg transition-colors";
+
+    private static string AvatarClasses(AssigneeKind k) => k switch
+    {
+        AssigneeKind.Me     => "inline-flex h-8 w-8 items-center justify-center rounded-full bg-accent-600 text-white shadow-sm shrink-0",
+        AssigneeKind.Friend => "inline-flex h-8 w-8 items-center justify-center rounded-full bg-sky-100 text-sky-700 ring-1 ring-sky-200 shrink-0",
+        AssigneeKind.Player => "inline-flex h-8 w-8 items-center justify-center rounded-full bg-ink-100 text-ink-600 ring-1 ring-ink-200 shrink-0",
+        _                   => "inline-flex h-8 w-8 items-center justify-center rounded-full bg-ink-100 text-ink-500 shrink-0",
+    };
+
+    private RenderFragment AvatarGlyph(AssigneeKind k) => builder =>
+    {
+        switch (k)
+        {
+            case AssigneeKind.Me:
+                builder.OpenComponent<Icon>(0);
+                builder.AddAttribute(1, nameof(Icon.Name), "star");
+                builder.AddAttribute(2, nameof(Icon.Class), "w-4 h-4");
+                builder.CloseComponent();
+                break;
+            case AssigneeKind.Friend:
+                builder.OpenComponent<Icon>(0);
+                builder.AddAttribute(1, nameof(Icon.Name), "users");
+                builder.AddAttribute(2, nameof(Icon.Class), "w-4 h-4");
+                builder.CloseComponent();
+                break;
+            case AssigneeKind.Player:
+                builder.OpenComponent<Icon>(0);
+                builder.AddAttribute(1, nameof(Icon.Name), "user");
+                builder.AddAttribute(2, nameof(Icon.Class), "w-4 h-4");
+                builder.CloseComponent();
+                break;
+            default:
+                builder.AddContent(0, "?");
+                break;
+        }
+    };
+
+    private static string KindLabel(AssigneeKind k) => k switch
+    {
+        AssigneeKind.Me     => "You",
+        AssigneeKind.Friend => "Friend",
+        AssigneeKind.Player => "Local player",
+        _                   => "—"
+    };
+
+    private static string KindLabelClass(AssigneeKind k) => k switch
+    {
+        AssigneeKind.Me     => "text-accent-700",
+        AssigneeKind.Friend => "text-sky-700",
+        AssigneeKind.Player => "text-ink-500",
+        _                   => "text-ink-400"
+    };
+}

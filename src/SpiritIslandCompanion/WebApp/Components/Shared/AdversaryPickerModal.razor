@@ -1,0 +1,134 @@
+@* Adversary picker modal: pick an adversary together with its level. The level
+   is selected inline via L0..L6 chips on the chosen adversary card. *@
+@inject WebApp.State.OwnedExpansionsState ExpansionsState
+
+@if (_open)
+{
+    <div class="fixed inset-0 z-50 flex items-end md:items-center justify-center px-0 md:px-4 py-0 md:py-8" role="dialog" aria-modal="true">
+        <div class="absolute inset-0 bg-ink-900/40 backdrop-blur-sm" @onclick="Close"></div>
+
+        <div class="relative bg-white w-full md:max-w-3xl md:rounded-2xl shadow-2xl border border-ink-200 overflow-hidden max-h-[92vh] flex flex-col">
+            <div class="px-6 pt-5 pb-4 border-b border-ink-200 flex items-start gap-4">
+                <div class="min-w-0 flex-1">
+                    <h2 class="text-xl font-semibold text-ink-900 leading-tight" style="font-family: var(--font-serif);">
+                        Choose an adversary
+                    </h2>
+                    <p class="text-xs text-ink-500 mt-1">
+                        Pick a card to expand level options, then confirm.
+                    </p>
+                </div>
+                <input type="search" class="input md:w-56" placeholder="Search by name…" @bind="_query" @bind:event="oninput"/>
+                <button class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-500 hover:bg-ink-100 hover:text-ink-900 transition-colors shrink-0" @onclick="Close" aria-label="Close">
+                    <Icon Name="x" Class="w-5 h-5"/>
+                </button>
+            </div>
+
+            <div class="overflow-y-auto px-6 py-5 flex-1">
+                <div class="grid sm:grid-cols-2 gap-3">
+                    @foreach (var a in _filtered)
+                    {
+                        var detail = AdversaryDetails.For(a.Id);
+                        var modes = a.Modes.OrderBy(m => m.Level).ToList();
+                        var isExpanded = _expandedId == a.Id.Value;
+                        var maxDifficulty = modes.LastOrDefault()?.Difficulty ?? 0;
+
+                        <div class="@(isExpanded ? "border-accent-300 ring-2 ring-accent-500/30" : "border-ink-200 hover:border-ink-300")
+                                    bg-white border rounded-xl transition-all overflow-hidden">
+                            <button type="button" @onclick="() => Expand(a)" class="w-full text-left p-4 focus:outline-none">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div class="min-w-0">
+                                        <h3 class="text-sm font-semibold text-ink-900 leading-tight">@a.Name</h3>
+                                        <div class="mt-0.5 text-[11px] text-ink-500">
+                                            @ExpansionName(a.ExpansionId)@(detail is not null ? $" · {detail.Theme}" : "")
+                                        </div>
+                                    </div>
+                                    <Icon Name="shield" Class="w-5 h-5 text-accent-600 shrink-0"/>
+                                </div>
+                                <div class="mt-3 flex items-center gap-1.5 text-[10px] text-ink-500">
+                                    <span class="uppercase tracking-wide">Difficulty</span>
+                                    <span>L0–L@(modes.Count - 1)</span>
+                                    <span class="text-ink-300">·</span>
+                                    <span>up to +@maxDifficulty</span>
+                                </div>
+                            </button>
+
+                            @if (isExpanded)
+                            {
+                                <div class="border-t border-ink-200 px-4 py-3 bg-ink-50/50">
+                                    <div class="text-[10px] uppercase tracking-wider text-ink-500 mb-2">Pick a level</div>
+                                    <div class="flex flex-wrap gap-1.5">
+                                        @foreach (var m in modes)
+                                        {
+                                            <button type="button"
+                                                    @onclick="() => Pick(a, m.Level)"
+                                                    class="inline-flex flex-col items-center justify-center min-w-[3.25rem] px-2 py-1.5 rounded-lg border border-ink-200 bg-white text-ink-800 hover:border-accent-400 hover:bg-accent-50 transition-colors">
+                                                <span class="text-[10px] uppercase tracking-wide text-ink-500">L@(m.Level)</span>
+                                                <span class="text-sm font-semibold">+@m.Difficulty</span>
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+
+                @if (!_filtered.Any())
+                {
+                    <div class="text-center py-10 text-ink-500 text-sm">No adversaries match.</div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public EventCallback<(Adversary, int)> OnSelected { get; set; }
+
+    private bool _open;
+    private string _query = "";
+    private string? _expandedId;
+
+    private static readonly Dictionary<string, string> _expansionNames =
+        GameData.Expansions.ToDictionary(e => e.Id.Value, e => e.Name);
+
+    private IReadOnlyList<ExpansionId>? OwnedExpansions => ExpansionsState.Current;
+
+    public async Task ShowAsync()
+    {
+        await ExpansionsState.EnsureLoadedAsync();
+        _query = "";
+        _expandedId = null;
+        _open = true;
+        StateHasChanged();
+    }
+
+    public void Show() => _ = ShowAsync();
+
+    private void Close()
+    {
+        _open = false;
+        StateHasChanged();
+    }
+
+    private void Expand(Adversary a)
+    {
+        _expandedId = _expandedId == a.Id.Value ? null : a.Id.Value;
+    }
+
+    private async Task Pick(Adversary a, int level)
+    {
+        _open = false;
+        StateHasChanged();
+        await OnSelected.InvokeAsync((a, level));
+    }
+
+    private IEnumerable<Adversary> _filtered =>
+        GameData.Adversaries
+            .Where(a => OwnedExpansions is null || OwnedExpansions.Contains(a.ExpansionId))
+            .Where(a => string.IsNullOrWhiteSpace(_query) || a.Name.Contains(_query, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(a => a.Name);
+
+    private static string ExpansionName(ExpansionId id)
+        => _expansionNames.GetValueOrDefault(id.Value, id.Value);
+}

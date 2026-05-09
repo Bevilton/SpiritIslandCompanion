@@ -1,0 +1,122 @@
+@* Board picker. Shows boards as colored letter tiles grouped by expansion. *@
+@inject WebApp.State.OwnedExpansionsState ExpansionsState
+
+@if (_open)
+{
+    <div class="fixed inset-0 z-50 flex items-end md:items-center justify-center px-0 md:px-4 py-0 md:py-8" role="dialog" aria-modal="true">
+        <div class="absolute inset-0 bg-ink-900/40 backdrop-blur-sm" @onclick="Close"></div>
+
+        <div class="relative bg-white w-full md:max-w-2xl md:rounded-2xl shadow-2xl border border-ink-200 overflow-hidden max-h-[92vh] flex flex-col">
+            <div class="px-6 pt-5 pb-4 border-b border-ink-200 flex items-start gap-4">
+                <div class="min-w-0 flex-1">
+                    <h2 class="text-xl font-semibold text-ink-900 leading-tight" style="font-family: var(--font-serif);">
+                        Choose a board
+                    </h2>
+                    @if (_taken > 0)
+                    {
+                        <p class="text-xs text-ink-500 mt-1">@_taken board@(_taken == 1 ? "" : "s") already in use by other players appear dimmed.</p>
+                    }
+                    else
+                    {
+                        <p class="text-xs text-ink-500 mt-1">Pick the board this player will use.</p>
+                    }
+                </div>
+                <button class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-500 hover:bg-ink-100 hover:text-ink-900 transition-colors shrink-0" @onclick="Close" aria-label="Close">
+                    <Icon Name="x" Class="w-5 h-5"/>
+                </button>
+            </div>
+
+            <div class="overflow-y-auto px-6 py-5 flex-1 space-y-6">
+                @foreach (var grp in _groupedByExpansion)
+                {
+                    <div>
+                        <div class="text-[11px] font-medium uppercase tracking-wider text-ink-500 mb-2">@grp.Expansion.Name</div>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                            @foreach (var b in grp.Boards)
+                            {
+                                var detail = BoardDetails.For(b.Id);
+                                var color = detail?.ColorHex ?? "#78716c";
+                                var letter = detail?.Letter ?? b.Name[^1..];
+                                var isSelected = _currentBoardId == b.Id.Value;
+                                var isTaken = BoardsTaken.Contains(b.Id.Value) && !isSelected;
+
+                                <button type="button"
+                                        @onclick="() => Pick(b)"
+                                        disabled="@(isTaken && !AllowReuse)"
+                                        class="@(isSelected ? "ring-2 ring-accent-500 border-accent-300" : "border-ink-200 hover:border-ink-300")
+                                               @(isTaken && !AllowReuse ? "opacity-40 cursor-not-allowed" : "")
+                                               flex items-center gap-3 bg-white border rounded-xl p-3 text-left transition-all hover:shadow-sm">
+                                    <span class="inline-flex h-11 w-11 items-center justify-center rounded-lg text-white text-lg font-semibold shrink-0 shadow-sm"
+                                          style="background-color: @color; font-family: var(--font-serif);">
+                                        @letter
+                                    </span>
+                                    <div class="min-w-0 flex-1">
+                                        <div class="text-sm font-semibold text-ink-900 truncate">@b.Name</div>
+                                        @if (detail is not null)
+                                        {
+                                            <div class="text-[11px] text-ink-500 truncate">@detail.ThematicName</div>
+                                        }
+                                        @if (isTaken)
+                                        {
+                                            <div class="text-[10px] text-ink-400 mt-0.5">In use</div>
+                                        }
+                                    </div>
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public EventCallback<Board> OnSelected { get; set; }
+
+    /// <summary>
+    /// Set of board ids already in use by other players. They are visually
+    /// dimmed but remain clickable when AllowReuse is true.
+    /// </summary>
+    [Parameter] public IReadOnlyCollection<string> BoardsTaken { get; set; } = [];
+
+    [Parameter] public bool AllowReuse { get; set; } = false;
+
+    private bool _open;
+    private string? _currentBoardId;
+    private int _taken => BoardsTaken.Count;
+
+    private IReadOnlyList<ExpansionId>? OwnedExpansions => ExpansionsState.Current;
+
+    public async Task ShowAsync(string? currentBoardId = null)
+    {
+        await ExpansionsState.EnsureLoadedAsync();
+        _currentBoardId = currentBoardId;
+        _open = true;
+        StateHasChanged();
+    }
+
+    public void Show(string? currentBoardId = null) => _ = ShowAsync(currentBoardId);
+
+    private void Close()
+    {
+        _open = false;
+        StateHasChanged();
+    }
+
+    private async Task Pick(Board b)
+    {
+        _open = false;
+        StateHasChanged();
+        await OnSelected.InvokeAsync(b);
+    }
+
+    private record BoardGroup(Expansion Expansion, IReadOnlyList<Board> Boards);
+
+    private IReadOnlyList<BoardGroup> _groupedByExpansion =>
+        GameData.Expansions
+            .Where(e => OwnedExpansions is null || OwnedExpansions.Contains(e.Id))
+            .Select(e => new BoardGroup(e, GameData.Boards.Where(b => b.ExpansionId == e.Id).ToList()))
+            .Where(g => g.Boards.Count > 0)
+            .ToList();
+}

@@ -27,145 +27,289 @@
 }
 else
 {
-    @* === PLAYERS === *@
-    <section class="surface mb-5">
-        <div class="surface-head">
-            <h2 class="text-base font-semibold">Players</h2>
-            <button class="btn btn-sm btn-secondary" @onclick="AddPlayer">
-                <Icon Name="plus" Class="w-3.5 h-3.5"/> Add player
-            </button>
+    @* === COMPACT SUMMARY (mobile + tablet only) — replaced on lg+ by the right sticky panel === *@
+    <div class="lg:hidden surface mb-6 px-5 py-4 grid grid-cols-2 gap-4 items-start">
+        <div>
+            <div class="text-[10px] uppercase tracking-wider text-ink-500">Players</div>
+            <div class="mt-0.5 text-lg font-semibold text-ink-900">@_players.Count @(_players.Count == 1 ? "player" : "players")</div>
         </div>
-        <div class="surface-body space-y-4">
+        <div class="text-right">
+            <div class="text-[10px] uppercase tracking-wider text-ink-500">Difficulty</div>
+            <div class="mt-0.5 text-2xl font-semibold text-accent-800 leading-none" style="font-family: var(--font-serif);">
+                @ComputedDifficulty
+            </div>
+        </div>
+    </div>
+
+    @* === Two-column grid on lg+: form on the left, sticky summary on the right.
+       The aside grid item stretches (default) so the inner sticky panel stays in view
+       throughout the entire page scroll. === *@
+    <div class="lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-6">
+    <div class="lg:min-w-0">
+
+    @* ============================== PLAYERS ============================== *@
+    <section class="mb-8">
+        <div class="flex items-end justify-between mb-3">
+            <div>
+                <span class="eyebrow">Step 1</span>
+                <h2 class="text-xl font-semibold mt-1" style="font-family: var(--font-serif);">Players</h2>
+                <p class="text-sm text-ink-500">Pick a spirit, board, and who's playing it. Add as many as you need.</p>
+            </div>
+        </div>
+
+        <div class="grid gap-3">
             @for (var i = 0; i < _players.Count; i++)
             {
                 var idx = i;
-                var aspects = GetAspectsForSpirit(_players[idx].SpiritId);
-                <div class="grid md:grid-cols-12 gap-3 items-end pb-4 border-b border-ink-100 last:border-0 last:pb-0">
-                    <div class="md:col-span-3">
-                        <label class="label">Spirit</label>
-                        <select class="select" value="@_players[idx].SpiritId"
-                                @onchange="e => OnSpiritChanged(idx, e.Value?.ToString())">
-                            <option value="">Select…</option>
-                            @foreach (var s in _spiritsInScope)
+                var p = _players[idx];
+                var spirit = SpiritFor(p.SpiritId);
+                var spiritDetail = spirit is null ? null : SpiritDetails.For(spirit.Id);
+                var color = spiritDetail?.ColorHex ?? "#78716c";
+                var aspects = GetAspectsForSpirit(p.SpiritId);
+                var board = BoardFor(p.BoardId);
+                var boardDetail = board is null ? null : BoardDetails.For(board.Id);
+                var hasSpirit = spirit is not null;
+
+                <article class="player-card relative border border-ink-200 rounded-2xl transition-all"
+                         style="@(hasSpirit
+                                  ? $"border-top: 4px solid {color}; background: linear-gradient(to bottom, {color}14 0%, white 96px);"
+                                  : "border-top: 4px dashed var(--color-ink-300); background: white;")">
+                    <div class="p-4 md:p-5">
+                        @* Header row: P# badge + remove *@
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="inline-flex items-center gap-2 text-xs font-medium text-ink-500">
+                                <span class="inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold"
+                                      style="@(hasSpirit ? $"background-color: {color}; color: white;" : "background-color: var(--color-ink-100); color: var(--color-ink-600);")">
+                                    @(idx + 1)
+                                </span>
+                                <span class="uppercase tracking-wide">Player @(idx + 1)</span>
+                            </span>
+                            @if (_players.Count > 1)
                             {
-                                <option value="@s.Id.Value">@s.Name</option>
+                                <button type="button"
+                                        class="inline-flex h-7 w-7 items-center justify-center rounded-lg text-ink-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                        @onclick="() => RemovePlayer(idx)"
+                                        aria-label="Remove player">
+                                    <Icon Name="trash" Class="w-4 h-4"/>
+                                </button>
                             }
-                        </select>
-                    </div>
-                    @if (aspects.Count > 0)
-                    {
-                        <div class="md:col-span-2">
-                            <label class="label">Aspect</label>
-                            <select class="select" @bind="_players[idx].AspectId">
-                                <option value="">None</option>
+                        </div>
+
+                        @* Main row: spirit | board | assignee *@
+                        <div class="grid md:grid-cols-12 gap-3">
+                            @* Spirit picker (taking more room) *@
+                            <div class="md:col-span-6">
+                                <label class="label">Spirit</label>
+                                <button type="button"
+                                        @onclick="() => OpenSpiritPicker(idx)"
+                                        class="w-full flex items-center gap-3 px-3 py-2 rounded-lg border bg-white hover:bg-ink-50 transition-colors text-left
+                                               focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/30
+                                               @(hasSpirit ? "border-ink-200" : "border-dashed border-ink-300")">
+                                    @if (spirit is not null)
+                                    {
+                                        <span class="inline-block h-9 w-1.5 rounded-full shrink-0" style="background-color: @color;"></span>
+                                        <div class="min-w-0 flex-1">
+                                            <div class="text-sm font-semibold text-ink-900 truncate">@spirit.Name</div>
+                                            @if (spiritDetail is not null)
+                                            {
+                                                <div class="text-[11px] text-ink-500 truncate">@spiritDetail.PlayStyle</div>
+                                            }
+                                        </div>
+                                        @if (spiritDetail is not null)
+                                        {
+                                            <ElementBadges Elements="spiritDetail.Elements" Size="sm"/>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-ink-100 text-ink-500 shrink-0">
+                                            <Icon Name="sparkles" Class="w-4 h-4"/>
+                                        </span>
+                                        <span class="text-sm text-ink-500 truncate min-w-0 flex-1">Choose a spirit…</span>
+                                    }
+                                </button>
+                            </div>
+
+                            @* Board picker *@
+                            <div class="md:col-span-3">
+                                <label class="label">Board</label>
+                                <button type="button"
+                                        @onclick="() => OpenBoardPicker(idx)"
+                                        class="w-full flex items-center gap-2 px-3 py-2 rounded-lg border bg-white hover:bg-ink-50 transition-colors text-left
+                                               focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/30
+                                               @(board is not null ? "border-ink-200" : "border-dashed border-ink-300")">
+                                    @if (board is not null)
+                                    {
+                                        var bColor = boardDetail?.ColorHex ?? "#78716c";
+                                        var letter = boardDetail?.Letter ?? board.Name[^1..];
+                                        <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-white text-base font-semibold shrink-0"
+                                              style="background-color: @bColor; font-family: var(--font-serif);">
+                                            @letter
+                                        </span>
+                                        <div class="min-w-0 flex-1">
+                                            <div class="text-sm font-semibold text-ink-900 truncate">@board.Name</div>
+                                            @if (boardDetail is not null)
+                                            {
+                                                <div class="text-[11px] text-ink-500 truncate">@boardDetail.ThematicName</div>
+                                            }
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-ink-100 text-ink-500 shrink-0">
+                                            <Icon Name="map" Class="w-4 h-4"/>
+                                        </span>
+                                        <span class="text-sm text-ink-500 truncate min-w-0 flex-1">Pick…</span>
+                                    }
+                                </button>
+                            </div>
+
+                            @* Assignee *@
+                            <div class="md:col-span-3">
+                                <label class="label">Assigned to</label>
+                                <PlayerAssigneePicker
+                                    Value="@p.AssignedTo"
+                                    ValueChanged="v => OnAssigneeChanged(idx, v)"
+                                    Friends="_friends"
+                                    LocalPlayers="_localPlayers"/>
+                            </div>
+                        </div>
+
+                        @* Aspects row — only when spirit has aspects *@
+                        @if (hasSpirit && aspects.Count > 0)
+                        {
+                            <div class="mt-3 pt-3 border-t border-ink-100 flex items-start gap-2 flex-wrap">
+                                <span class="text-[10px] uppercase tracking-wide text-ink-500 mt-1.5 mr-1">Aspect</span>
+                                <FilterPill Active="@(string.IsNullOrEmpty(p.AspectId))"
+                                            OnToggle="() => SelectAspect(idx, null)">
+                                    None
+                                </FilterPill>
                                 @foreach (var a in aspects)
                                 {
-                                    <option value="@a.Id.Value">@a.Name</option>
+                                    var aId = a.Id.Value;
+                                    <FilterPill Active="@(p.AspectId == aId)"
+                                                OnToggle="() => SelectAspect(idx, aId)">
+                                        @a.Name
+                                    </FilterPill>
                                 }
-                            </select>
-                        </div>
-                    }
-                    <div class="@(aspects.Count > 0 ? "md:col-span-2" : "md:col-span-4")">
-                        <label class="label">Board</label>
-                        <select class="select" @bind="_players[idx].BoardId">
-                            <option value="">Select…</option>
-                            @foreach (var b in _boardsInScope)
-                            {
-                                <option value="@b.Id.Value">@b.Name</option>
-                            }
-                        </select>
-                    </div>
-                    <div class="md:col-span-3">
-                        <label class="label">Assigned to</label>
-                        <select class="select" @bind="_players[idx].AssignedTo">
-                            <option value="me">Me</option>
-                            @foreach (var f in _friends)
-                            {
-                                <option value="friend:@f.FriendUserId">@f.Nickname</option>
-                            }
-                            @foreach (var p in _localPlayers)
-                            {
-                                <option value="player:@p.Id">@p.Name</option>
-                            }
-                        </select>
-                    </div>
-                    <div class="md:col-span-2 flex justify-end">
-                        @if (_players.Count > 1)
-                        {
-                            <button class="btn btn-sm btn-danger-outline" @onclick="() => RemovePlayer(idx)">
-                                <Icon Name="trash" Class="w-3.5 h-3.5"/>
-                            </button>
+                            </div>
                         }
                     </div>
-                </div>
+                </article>
             }
+
+            @* Add player tile *@
+            <button type="button" @onclick="AddPlayer"
+                    class="group flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-ink-300 bg-ink-50/30 hover:bg-accent-50/40 hover:border-accent-300 transition-colors py-5 text-sm font-medium text-ink-500 hover:text-accent-700">
+                <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white border border-ink-200 group-hover:border-accent-300 group-hover:bg-accent-50 transition-colors">
+                    <Icon Name="plus" Class="w-4 h-4"/>
+                </span>
+                Add another player
+            </button>
         </div>
     </section>
 
-    @* === SETUP (includes adversaries + difficulty hero) === *@
-    <section class="surface mb-5">
-        <div class="surface-head"><h2 class="text-base font-semibold">Game setup</h2></div>
-        <div class="surface-body space-y-5">
+    @* ============================== SETUP ============================== *@
+    <section class="mb-8">
+        <div class="flex items-end justify-between mb-3">
             <div>
-                <label class="label">Island setup <span class="text-ink-500 font-normal">— @_players.Count player@(_players.Count == 1 ? "" : "s")</span></label>
+                <span class="eyebrow">Step 2</span>
+                <h2 class="text-xl font-semibold mt-1" style="font-family: var(--font-serif);">Setup</h2>
+                <p class="text-sm text-ink-500">Island layout, scenario, and any adversaries you faced.</p>
+            </div>
+        </div>
+
+        <div class="surface p-5 md:p-6 space-y-5">
+            <div>
+                <label class="label">Island setup <span class="text-ink-500 font-normal normal-case tracking-normal">— @_players.Count player@(_players.Count == 1 ? "" : "s")</span></label>
                 <IslandSetupPicker @bind-Value="_islandSetupId" PlayerCount="_players.Count"/>
             </div>
+
             <div class="grid md:grid-cols-2 gap-4">
+                @* Scenario picker (button) *@
                 <div>
                     <label class="label">Scenario</label>
-                    <select class="select" @bind="_scenarioId">
-                        <option value="">None</option>
-                        @foreach (var s in _scenariosInScope)
-                        {
-                            <option value="@s.Id.Value">@s.Name (Diff +@s.Difficulty)</option>
-                        }
-                    </select>
+                    @{
+                        var scen = ScenarioFor(_scenarioId);
+                    }
+                    <button type="button"
+                            @onclick="OpenScenarioPicker"
+                            class="w-full h-12 flex items-center justify-between gap-3 px-3 rounded-lg border border-ink-200 bg-white hover:bg-ink-50 transition-colors text-left
+                                   focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/30">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg @(scen is not null ? "bg-accent-100 text-accent-700" : "bg-ink-100 text-ink-500") shrink-0">
+                                <Icon Name="book" Class="w-4 h-4"/>
+                            </span>
+                            @if (scen is not null)
+                            {
+                                <div class="min-w-0">
+                                    <div class="text-sm font-semibold text-ink-900 truncate">@scen.Name</div>
+                                    <div class="text-[11px] text-ink-500">+@scen.Difficulty difficulty</div>
+                                </div>
+                            }
+                            else
+                            {
+                                <span class="text-sm text-ink-500 truncate min-w-0 flex-1">No scenario — standard game</span>
+                            }
+                        </div>
+                        <Icon Name="edit" Class="w-3.5 h-3.5 text-ink-400 shrink-0"/>
+                    </button>
                 </div>
                 <div>
                     <label class="label">Date played</label>
-                    <input type="date" class="input" @bind="_datePlayed"/>
+                    <input type="date" class="input h-12" @bind="_datePlayed"/>
                 </div>
             </div>
 
+            @* Adversaries *@
             <div>
                 <div class="flex items-center justify-between mb-2">
                     <label class="label mb-0">Adversaries</label>
-                    <button type="button" class="btn btn-sm btn-secondary" @onclick="AddAdversary">
+                    <button type="button" class="btn btn-sm btn-secondary" @onclick="OpenAdversaryPickerForNew">
                         <Icon Name="plus" Class="w-3.5 h-3.5"/> Add adversary
                     </button>
                 </div>
+
                 @if (_adversaries.Count == 0)
                 {
-                    <p class="text-sm text-ink-500 m-0">No adversary — tutorial / freeplay game.</p>
+                    <div class="rounded-lg border border-dashed border-ink-300 px-4 py-3 text-sm text-ink-500 bg-ink-50/40">
+                        No adversary — tutorial / freeplay game.
+                    </div>
                 }
-                <div class="space-y-3">
-                    @for (var i = 0; i < _adversaries.Count; i++)
-                    {
-                        var idx = i;
-                        <div class="grid md:grid-cols-12 gap-3 items-end">
-                            <div class="md:col-span-7">
-                                <select class="select" @bind="_adversaries[idx].AdversaryId">
-                                    <option value="">Select…</option>
-                                    @foreach (var a in _adversariesInScope)
-                                    {
-                                        <option value="@a.Id.Value">@a.Name</option>
-                                    }
-                                </select>
-                            </div>
-                            <div class="md:col-span-3">
-                                <input type="number" class="input" placeholder="Level" @bind="_adversaries[idx].Level" min="0" max="6"/>
-                            </div>
-                            <div class="md:col-span-2 flex justify-end">
-                                <button class="btn btn-sm btn-danger-outline" @onclick="() => _adversaries.RemoveAt(idx)">
-                                    <Icon Name="trash" Class="w-3.5 h-3.5"/>
+                else
+                {
+                    <div class="grid sm:grid-cols-2 gap-2.5">
+                        @for (var i = 0; i < _adversaries.Count; i++)
+                        {
+                            var idx = i;
+                            var item = _adversaries[idx];
+                            var adv = AdversaryFor(item.AdversaryId);
+                            var mode = adv?.Modes.FirstOrDefault(m => m.Level == item.Level);
+
+                            <div class="flex items-center gap-3 rounded-lg border border-ink-200 bg-white p-3">
+                                <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-accent-50 text-accent-700 shrink-0">
+                                    <Icon Name="shield" Class="w-4 h-4"/>
+                                </span>
+                                <button type="button" @onclick="() => OpenAdversaryPickerFor(idx)"
+                                        class="flex-1 text-left min-w-0 hover:underline">
+                                    <div class="text-sm font-semibold text-ink-900 truncate">@(adv?.Name ?? "Select adversary…")</div>
+                                    <div class="text-[11px] text-ink-500">
+                                        Level @item.Level · +@(mode?.Difficulty ?? 0) difficulty
+                                    </div>
+                                </button>
+                                <button type="button"
+                                        class="inline-flex h-7 w-7 items-center justify-center rounded-lg text-ink-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                        @onclick="() => _adversaries.RemoveAt(idx)"
+                                        aria-label="Remove adversary">
+                                    <Icon Name="trash" Class="w-4 h-4"/>
                                 </button>
                             </div>
-                        </div>
-                    }
-                </div>
+                        }
+                    </div>
+                }
             </div>
 
-            @* === DIFFICULTY HERO === *@
+            @* Difficulty hero *@
             <div class="rounded-xl bg-gradient-to-br from-accent-50 to-accent-100/60 border border-accent-200 p-5 flex items-center justify-between gap-4">
                 <div>
                     <div class="text-[11px] uppercase tracking-wider text-accent-700 font-semibold">Total difficulty</div>
@@ -180,14 +324,14 @@ else
                     {
                         @foreach (var a in _adversaries.Where(a => !string.IsNullOrEmpty(a.AdversaryId)))
                         {
-                            var adv = GameData.Adversaries.FirstOrDefault(x => x.Id.Value == a.AdversaryId);
+                            var adv = AdversaryFor(a.AdversaryId);
                             var mode = adv?.Modes.FirstOrDefault(m => m.Level == a.Level);
                             <div>@(adv?.Name ?? "Adversary") L@(a.Level) <span class="text-accent-700/60">+@(mode?.Difficulty ?? 0)</span></div>
                         }
                         @if (!string.IsNullOrEmpty(_scenarioId))
                         {
-                            var scen = GameData.Scenarios.FirstOrDefault(s => s.Id.Value == _scenarioId);
-                            <div>@(scen?.Name ?? "Scenario") <span class="text-accent-700/60">+@(scen?.Difficulty ?? 0)</span></div>
+                            var sc = ScenarioFor(_scenarioId);
+                            <div>@(sc?.Name ?? "Scenario") <span class="text-accent-700/60">+@(sc?.Difficulty ?? 0)</span></div>
                         }
                     }
                 </div>
@@ -195,84 +339,290 @@ else
         </div>
     </section>
 
-    @* === RESULT (optional) === *@
-    <section class="surface mb-5">
-        <div class="surface-head">
-            <h2 class="text-base font-semibold">Result</h2>
-            <label class="inline-flex items-center gap-2 text-sm text-ink-700">
-                <input type="checkbox" class="checkbox" @bind="_includeResult"/>
-                Include result
-            </label>
+    @* ============================== RESULT (optional, distinct) ============================== *@
+    <section class="mb-8">
+        <div class="flex items-end justify-between mb-3">
+            <div>
+                <span class="eyebrow">Step 3 · optional</span>
+                <h2 class="text-xl font-semibold mt-1" style="font-family: var(--font-serif);">Outcome</h2>
+                <p class="text-sm text-ink-500">Skip this to save a draft, or fill it in to record a finished match.</p>
+            </div>
         </div>
-        @if (_includeResult)
-        {
-            <div class="surface-body">
-                <div class="grid md:grid-cols-4 gap-4">
+
+        <div class="result-card relative rounded-2xl border transition-all
+                    @(_includeResult
+                        ? "border-amber-300 bg-gradient-to-br from-amber-50 via-white to-amber-50/40 shadow-sm"
+                        : "border-ink-200 bg-ink-50/40")">
+            <div class="px-5 md:px-6 py-4 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl @(_includeResult ? "bg-amber-100 text-amber-700" : "bg-ink-100 text-ink-500")">
+                        <Icon Name="trophy" Class="w-5 h-5"/>
+                    </span>
                     <div>
-                        <label class="label">Outcome</label>
-                        <select class="select" @bind="_resultWin">
-                            <option value="true">Victory</option>
-                            <option value="false">Defeat</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="label">Terror level</label>
-                        <select class="select" @bind="_resultTerror">
-                            @foreach (var t in Enum.GetValues<TerrorLevel>())
-                            {
-                                <option value="@t">@t</option>
-                            }
-                        </select>
-                    </div>
-                    <div>
-                        <label class="label">Duration (min)</label>
-                        <input type="number" class="input" @bind="_resultDuration" min="0"/>
-                    </div>
-                    <div>
-                        <label class="label">Dahan remaining</label>
-                        <input type="number" class="input" @bind="_resultDahan" min="0"/>
-                    </div>
-                    <div>
-                        <label class="label">Blight on island</label>
-                        <input type="number" class="input" @bind="_resultBlight" min="0"/>
-                    </div>
-                    <div>
-                        <label class="label">Cards in invader deck</label>
-                        <input type="number" class="input" @bind="_resultCards" min="0"/>
-                    </div>
-                    <div>
-                        <label class="label">Score modifier</label>
-                        <input type="number" class="input" @bind="_resultScoreMod"/>
+                        <div class="text-sm font-semibold text-ink-900">Did you finish this game?</div>
+                        <div class="text-xs text-ink-500">@(_includeResult ? "Recording outcome below." : "Toggle on to record victory/defeat and stats.")</div>
                     </div>
                 </div>
+                @* Toggle switch *@
+                <label class="inline-flex items-center cursor-pointer select-none">
+                    <span class="text-xs font-medium text-ink-700 mr-2">@(_includeResult ? "Yes" : "Skip")</span>
+                    <span class="relative inline-flex h-6 w-11 items-center">
+                        <input type="checkbox" class="sr-only peer" @bind="_includeResult"/>
+                        <span class="absolute inset-0 rounded-full bg-ink-200 peer-checked:bg-amber-500 transition-colors"></span>
+                        <span class="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5"></span>
+                    </span>
+                </label>
             </div>
-        }
-    </section>
 
-    @* === NOTE === *@
-    <section class="surface mb-6">
-        <div class="surface-head"><h2 class="text-base font-semibold">Note</h2></div>
-        <div class="surface-body">
-            <textarea class="textarea" rows="3" @bind="_note" placeholder="Optional game notes…"></textarea>
+            @if (_includeResult)
+            {
+                <div class="border-t border-amber-200/60 bg-white/60 px-5 md:px-6 py-5 space-y-5">
+                    @* Win/Defeat hero choice *@
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" @onclick="() => _resultWin = true"
+                                class="@(_resultWin ? "border-accent-500 bg-accent-50 text-accent-800 ring-2 ring-accent-500/30" : "border-ink-200 bg-white text-ink-600 hover:border-ink-300")
+                                       flex items-center justify-center gap-2 rounded-xl border px-4 py-3 transition-all">
+                            <Icon Name="trophy" Class="w-5 h-5"/>
+                            <span class="font-semibold">Victory</span>
+                        </button>
+                        <button type="button" @onclick="() => _resultWin = false"
+                                class="@(!_resultWin ? "border-red-400 bg-red-50 text-red-800 ring-2 ring-red-300/40" : "border-ink-200 bg-white text-ink-600 hover:border-ink-300")
+                                       flex items-center justify-center gap-2 rounded-xl border px-4 py-3 transition-all">
+                            <Icon Name="x" Class="w-5 h-5"/>
+                            <span class="font-semibold">Defeat</span>
+                        </button>
+                    </div>
+
+                    @* Stats grid *@
+                    <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+                        <div>
+                            <label class="label flex items-center gap-1.5">
+                                <span>Terror level</span>
+                                <InfoHint>
+                                    <strong class="text-ink-900">Terror level reached</strong> when the game ended (1–4).
+                                    @if (_resultWin)
+                                    {
+                                        <span class="block mt-1">On a <strong>victory</strong>, gives a bonus: <span class="text-ink-900">+5 (TL1) · +10 (TL2) · +15 (TL3) · +20 (Max)</span>.</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="block mt-1">On a <strong>defeat</strong>, terror level is ignored — a flat <span class="text-ink-900">−5 penalty</span> is applied instead.</span>
+                                    }
+                                </InfoHint>
+                            </label>
+                            <select class="select" @bind="_resultTerror">
+                                @foreach (var t in Enum.GetValues<TerrorLevel>())
+                                {
+                                    <option value="@t">@t</option>
+                                }
+                            </select>
+                        </div>
+                        <div>
+                            <label class="label">Duration (min)</label>
+                            <input type="number" class="input" @bind="_resultDuration" min="0"/>
+                        </div>
+                        <div>
+                            <label class="label flex items-center gap-1.5">
+                                <span>Dahan remaining</span>
+                                <InfoHint>
+                                    <strong class="text-ink-900">Dahan tokens left on the island</strong> when the game ends. Each remaining Dahan adds <span class="text-ink-900">+1</span> to your score — protecting the natives matters whether you win or lose.
+                                </InfoHint>
+                            </label>
+                            <input type="number" class="input" @bind="_resultDahan" min="0"/>
+                        </div>
+                        <div>
+                            <label class="label flex items-center gap-1.5">
+                                <span>Blight on island</span>
+                                <InfoHint>
+                                    <strong class="text-ink-900">Total Blight tokens on the island</strong> when the game ends. Each Blight subtracts <span class="text-ink-900">−1</span> from your score. A healthier island scores higher.
+                                </InfoHint>
+                            </label>
+                            <input type="number" class="input" @bind="_resultBlight" min="0"/>
+                        </div>
+                        <div>
+                            <label class="label flex items-center gap-1.5">
+                                <span>Cards in invader deck</span>
+                                <InfoHint>
+                                    Cards <strong class="text-ink-900">left undrawn</strong> in the invader deck at the end. Each remaining card adds <span class="text-ink-900">+1</span> to your score, so ending the game faster rewards you.
+                                </InfoHint>
+                            </label>
+                            <input type="number" class="input" @bind="_resultCards" min="0"/>
+                        </div>
+                        <div>
+                            <label class="label flex items-center gap-1.5">
+                                <span>Score modifier</span>
+                                <InfoHint>
+                                    Manual <strong class="text-ink-900">+/− adjustment</strong> for unusual circumstances — homemade variants, scenario-specific bonuses, or anything the standard formula doesn't capture. Leave at 0 for ordinary games.
+                                </InfoHint>
+                            </label>
+                            <input type="number" class="input" @bind="_resultScoreMod"/>
+                        </div>
+                    </div>
+                </div>
+            }
         </div>
     </section>
 
-    <div class="flex flex-wrap items-center gap-2">
-        @if (_includeResult)
-        {
-            <button class="btn btn-primary" @onclick="SaveCompleted" disabled="@_saving">
-                <Icon Name="check-circle" Class="w-4 h-4"/> Save completed game
-            </button>
-        }
-        else
-        {
-            <button class="btn btn-primary" @onclick="SaveDraft" disabled="@_saving">
-                <Icon Name="save" Class="w-4 h-4"/> Save as draft
-            </button>
-        }
-        <a href="/app/games" class="btn btn-ghost">Cancel</a>
+    @* ============================== NOTE ============================== *@
+    <section class="mb-8">
+        <div class="surface">
+            <div class="surface-head"><h2 class="text-base font-semibold">Note</h2></div>
+            <div class="surface-body">
+                <textarea class="textarea" rows="3" @bind="_note" placeholder="Optional game notes — anything memorable from the match…"></textarea>
+            </div>
+        </div>
+    </section>
+
+    @* ============================== ACTIONS ============================== *@
+    <div class="sticky bottom-3 z-10">
+        <div class="surface px-5 py-3 flex flex-wrap items-center gap-2 shadow-sm">
+            <div class="text-xs text-ink-500 mr-auto">
+                @if (_includeResult) { <span>Saving as a <strong class="text-ink-800">finished game</strong>.</span> }
+                else { <span>Saving as a <strong class="text-ink-800">draft</strong> — fill in outcome anytime.</span> }
+            </div>
+            @if (_includeResult)
+            {
+                <button class="btn btn-primary" @onclick="SaveCompleted" disabled="@_saving">
+                    <Icon Name="check-circle" Class="w-4 h-4"/> Save completed game
+                </button>
+            }
+            else
+            {
+                <button class="btn btn-primary" @onclick="SaveDraft" disabled="@_saving">
+                    <Icon Name="save" Class="w-4 h-4"/> Save as draft
+                </button>
+            }
+            <a href="/app/games" class="btn btn-ghost">Cancel</a>
+        </div>
     </div>
+
+    </div> @* /lg:min-w-0 (form column) *@
+
+    @* ============================== STICKY SUMMARY (lg+) ============================== *@
+    @* Sticky directly on the grid item with self-start so it has room to stick within
+       the grid row (which is taller than the aside thanks to the form column). *@
+    <aside class="hidden lg:block lg:sticky lg:top-6 lg:self-start">
+            <div class="surface overflow-hidden">
+                @* Difficulty hero *@
+                <div class="bg-gradient-to-br from-accent-700 to-accent-900 text-white px-5 py-4">
+                    <div class="text-[10px] uppercase tracking-wider text-accent-100 font-semibold">Total difficulty</div>
+                    <div class="text-3xl font-bold leading-none mt-1" style="font-family: var(--font-serif);">@ComputedDifficulty</div>
+                    @if (_adversaries.Count == 0 && string.IsNullOrEmpty(_scenarioId))
+                    {
+                        <div class="text-[11px] text-accent-100/90 mt-1.5">Tutorial / freeplay</div>
+                    }
+                </div>
+
+                @* Players *@
+                <div class="px-5 py-4">
+                    <div class="text-[10px] uppercase tracking-wider text-ink-500 mb-2 font-medium">
+                        Players · @_players.Count
+                    </div>
+                    <ul class="space-y-2">
+                        @for (var i = 0; i < _players.Count; i++)
+                        {
+                            var sp = _players[i];
+                            var spirit = SpiritFor(sp.SpiritId);
+                            var spiritDetail = spirit is null ? null : SpiritDetails.For(spirit.Id);
+                            var color = spiritDetail?.ColorHex ?? "#78716c";
+                            var board = BoardFor(sp.BoardId);
+                            var boardDetail = board is null ? null : BoardDetails.For(board.Id);
+                            var aspect = string.IsNullOrEmpty(sp.AspectId)
+                                ? null
+                                : GameData.Aspects.FirstOrDefault(a => a.Id.Value == sp.AspectId);
+
+                            <li class="flex items-start gap-2 text-xs">
+                                <span class="inline-block h-7 w-1 rounded-full shrink-0 mt-0.5" style="background-color: @color;"></span>
+                                <div class="min-w-0 flex-1">
+                                    <div class="text-ink-900 truncate font-medium">
+                                        @(spirit?.Name ?? "Spirit not chosen")@if (aspect is not null) { <span class="text-ink-500 font-normal"> · @aspect.Name</span> }
+                                    </div>
+                                    <div class="text-[11px] text-ink-500 truncate">
+                                        @if (board is not null)
+                                        {
+                                            <span>Board @(boardDetail?.Letter ?? board.Name[^1..])</span>
+                                            @if (boardDetail is not null)
+                                            {
+                                                <span> · @boardDetail.ThematicName</span>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="italic">No board</span>
+                                        }
+                                    </div>
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                </div>
+
+                @* Adversaries *@
+                @{
+                    var summaryAdvs = _adversaries
+                        .Select(a => new { Adv = AdversaryFor(a.AdversaryId), a.Level })
+                        .Where(x => x.Adv is not null)
+                        .ToList();
+                }
+                @if (summaryAdvs.Count > 0)
+                {
+                    <div class="px-5 py-4 border-t border-ink-100">
+                        <div class="text-[10px] uppercase tracking-wider text-ink-500 mb-2 font-medium">
+                            @(summaryAdvs.Count > 1 ? "Adversaries" : "Adversary")
+                        </div>
+                        <ul class="space-y-1.5">
+                            @foreach (var a in summaryAdvs)
+                            {
+                                var mode = a.Adv!.Modes.FirstOrDefault(m => m.Level == a.Level);
+                                <li class="flex items-center justify-between gap-2 text-xs">
+                                    <span class="text-ink-900 truncate">@a.Adv.Name</span>
+                                    <span class="text-ink-500 shrink-0 font-medium tabular-nums">L@a.Level · +@(mode?.Difficulty ?? 0)</span>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
+
+                @* Scenario *@
+                @if (ScenarioFor(_scenarioId) is { } summaryScenario)
+                {
+                    <div class="px-5 py-4 border-t border-ink-100">
+                        <div class="text-[10px] uppercase tracking-wider text-ink-500 mb-2 font-medium">Scenario</div>
+                        <div class="flex items-center justify-between gap-2 text-xs">
+                            <span class="text-ink-900 truncate">@summaryScenario.Name</span>
+                            <span class="text-ink-500 shrink-0 font-medium tabular-nums">+@summaryScenario.Difficulty</span>
+                        </div>
+                    </div>
+                }
+
+                @* Date played *@
+                <div class="px-5 py-4 border-t border-ink-100">
+                    <div class="text-[10px] uppercase tracking-wider text-ink-500 mb-1 font-medium">Date played</div>
+                    <div class="text-xs text-ink-700">@_datePlayed.ToString("MMMM d, yyyy")</div>
+                </div>
+
+                @* Outcome (when toggled on) *@
+                @if (_includeResult)
+                {
+                    <div class="px-5 py-4 border-t border-ink-100">
+                        <div class="text-[10px] uppercase tracking-wider text-ink-500 mb-2 font-medium">Outcome</div>
+                        <span class="badge @(_resultWin ? "badge-success" : "badge-danger")">
+                            <Icon Name="@(_resultWin ? "trophy" : "x")" Class="w-3 h-3"/>
+                            @(_resultWin ? "Victory" : "Defeat")
+                        </span>
+                    </div>
+                }
+            </div>
+    </aside>
+
+    </div> @* /lg:grid wrapper *@
 }
+
+@* ============================== MODALS ============================== *@
+<SpiritPickerModal @ref="_spiritPicker" OnSelected="OnSpiritPicked"/>
+<BoardPickerModal @ref="_boardPicker" OnSelected="OnBoardPicked" BoardsTaken="@BoardsTakenForCurrentEdit()" AllowReuse="true"/>
+<AdversaryPickerModal @ref="_adversaryPicker" OnSelected="OnAdversaryPicked"/>
+<ScenarioPickerModal @ref="_scenarioPicker" OnSelected="OnScenarioPicked"/>
 
 @code {
     private bool _loading = true;
@@ -284,19 +634,16 @@ else
     private string? _scenarioId;
     private DateTime _datePlayed = DateTime.Today;
 
+    private SpiritPickerModal _spiritPicker = default!;
+    private BoardPickerModal _boardPicker = default!;
+    private AdversaryPickerModal _adversaryPicker = default!;
+    private ScenarioPickerModal _scenarioPicker = default!;
+
+    private int _editingSpiritIndex = -1;
+    private int _editingBoardIndex = -1;
+    private int _editingAdversaryIndex = -1; // -1 means "add new"
+
     private IReadOnlyList<ExpansionId>? OwnedExpansions => ExpansionsState.Current;
-
-    private IReadOnlyList<Spirit> _spiritsInScope =>
-        GameData.Spirits.Where(s => OwnedExpansions is null || OwnedExpansions.Contains(s.ExpansionId)).ToList();
-
-    private IReadOnlyList<Board> _boardsInScope =>
-        GameData.Boards.Where(b => OwnedExpansions is null || OwnedExpansions.Contains(b.ExpansionId)).ToList();
-
-    private IReadOnlyList<Adversary> _adversariesInScope =>
-        GameData.Adversaries.Where(a => OwnedExpansions is null || OwnedExpansions.Contains(a.ExpansionId)).ToList();
-
-    private IReadOnlyList<Scenario> _scenariosInScope =>
-        GameData.Scenarios.Where(s => OwnedExpansions is null || OwnedExpansions.Contains(s.ExpansionId)).ToList();
 
     private int ComputedDifficulty
     {
@@ -307,14 +654,14 @@ else
             foreach (var a in _adversaries)
             {
                 if (string.IsNullOrEmpty(a.AdversaryId)) { continue; }
-                var adv = GameData.Adversaries.FirstOrDefault(x => x.Id.Value == a.AdversaryId);
+                var adv = AdversaryFor(a.AdversaryId);
                 var mode = adv?.Modes.FirstOrDefault(m => m.Level == a.Level);
                 total += mode?.Difficulty ?? 0;
             }
 
             if (!string.IsNullOrEmpty(_scenarioId))
             {
-                var scen = GameData.Scenarios.FirstOrDefault(s => s.Id.Value == _scenarioId);
+                var scen = ScenarioFor(_scenarioId);
                 total += scen?.Difficulty ?? 0;
             }
 
@@ -358,14 +705,18 @@ else
 
     public void Dispose() => ExpansionsState.Changed -= OnExpansionsChanged;
 
+    @* ============== Player editing ============== *@
     private void AddPlayer() => _players.Add(new PlayerFormItem());
     private void RemovePlayer(int idx) => _players.RemoveAt(idx);
-    private void AddAdversary() => _adversaries.Add(new AdversaryFormItem());
 
-    private void OnSpiritChanged(int idx, string? spiritId)
+    private void OnAssigneeChanged(int idx, string value)
     {
-        _players[idx].SpiritId = spiritId ?? "";
-        _players[idx].AspectId = "";
+        _players[idx].AssignedTo = value;
+    }
+
+    private void SelectAspect(int idx, string? aspectId)
+    {
+        _players[idx].AspectId = aspectId ?? "";
     }
 
     private IReadOnlyList<Aspect> GetAspectsForSpirit(string spiritId)
@@ -376,6 +727,111 @@ else
         return aspects.Where(a => OwnedExpansions.Contains(a.ExpansionId)).ToList();
     }
 
+    @* ============== Spirit picker ============== *@
+    private void OpenSpiritPicker(int idx)
+    {
+        _editingSpiritIndex = idx;
+        _spiritPicker.Show(_players[idx].SpiritId);
+    }
+
+    private void OnSpiritPicked(Spirit spirit)
+    {
+        if (_editingSpiritIndex < 0 || _editingSpiritIndex >= _players.Count) return;
+        var p = _players[_editingSpiritIndex];
+        if (p.SpiritId != spirit.Id.Value)
+        {
+            p.SpiritId = spirit.Id.Value;
+            p.AspectId = ""; // reset aspect when spirit changes
+        }
+        _editingSpiritIndex = -1;
+        StateHasChanged();
+    }
+
+    @* ============== Board picker ============== *@
+    private void OpenBoardPicker(int idx)
+    {
+        _editingBoardIndex = idx;
+        _boardPicker.Show(_players[idx].BoardId);
+    }
+
+    private IReadOnlyCollection<string> BoardsTakenForCurrentEdit()
+    {
+        if (_editingBoardIndex < 0) { return []; }
+        return _players
+            .Where((_, i) => i != _editingBoardIndex)
+            .Select(p => p.BoardId)
+            .Where(id => !string.IsNullOrEmpty(id))
+            .ToList();
+    }
+
+    private void OnBoardPicked(Board board)
+    {
+        if (_editingBoardIndex < 0 || _editingBoardIndex >= _players.Count) return;
+        _players[_editingBoardIndex].BoardId = board.Id.Value;
+        _editingBoardIndex = -1;
+        StateHasChanged();
+    }
+
+    @* ============== Adversary picker ============== *@
+    private void OpenAdversaryPickerForNew()
+    {
+        _editingAdversaryIndex = -1;
+        _adversaryPicker.Show();
+    }
+
+    private void OpenAdversaryPickerFor(int idx)
+    {
+        _editingAdversaryIndex = idx;
+        _adversaryPicker.Show();
+    }
+
+    private void OnAdversaryPicked((Adversary adversary, int level) pick)
+    {
+        if (_editingAdversaryIndex >= 0 && _editingAdversaryIndex < _adversaries.Count)
+        {
+            _adversaries[_editingAdversaryIndex] = new AdversaryFormItem
+            {
+                AdversaryId = pick.adversary.Id.Value,
+                Level = pick.level
+            };
+        }
+        else
+        {
+            _adversaries.Add(new AdversaryFormItem
+            {
+                AdversaryId = pick.adversary.Id.Value,
+                Level = pick.level
+            });
+        }
+        _editingAdversaryIndex = -1;
+        StateHasChanged();
+    }
+
+    @* ============== Scenario picker ============== *@
+    private void OpenScenarioPicker() => _scenarioPicker.Show(_scenarioId);
+
+    private void OnScenarioPicked(Scenario? scenario)
+    {
+        _scenarioId = scenario?.Id.Value;
+        StateHasChanged();
+    }
+
+    @* ============== Lookups ============== *@
+    private static Spirit? SpiritFor(string id) =>
+        string.IsNullOrEmpty(id) ? null : GameData.Spirits.FirstOrDefault(x => x.Id.Value == id);
+
+    private static Board? BoardFor(string id) =>
+        string.IsNullOrEmpty(id) ? null : GameData.Boards.FirstOrDefault(x => x.Id.Value == id);
+
+    private static Adversary? AdversaryFor(string id) =>
+        string.IsNullOrEmpty(id) ? null : GameData.Adversaries.FirstOrDefault(x => x.Id.Value == id);
+
+    private static Scenario? ScenarioFor(string? id) =>
+        string.IsNullOrEmpty(id) ? null : GameData.Scenarios.FirstOrDefault(x => x.Id.Value == id);
+
+    private string ScenarioName() => ScenarioFor(_scenarioId)?.Name ?? "—";
+
+    @* ============== Save ============== *@
     private List<Application.Features.Games.Dtos.GamePlayerDto> BuildPlayerDtos()
     {
         return _players.Select(p =>

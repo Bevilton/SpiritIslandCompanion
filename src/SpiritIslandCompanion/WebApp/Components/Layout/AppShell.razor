@@ -1,6 +1,9 @@
-@* Sidebar + content area chrome. Used by MainLayout and ReferenceLayout (authenticated branch). *@
+@* Sidebar + content area chrome. Used by MainLayout and ReferenceLayout (authenticated branch).
+   Outer container is locked to h-screen (not min-h-screen) so <main> below becomes the actual
+   scroll container — that's what makes sticky elements inside the page (right summary panel,
+   bottom action bar) work as expected. *@
 
-<div class="min-h-screen flex bg-ink-50">
+<div class="h-screen flex bg-ink-50">
     <aside class="hidden md:flex w-60 shrink-0 flex-col bg-white border-r border-ink-200">
         <div class="px-5 h-16 flex items-center border-b border-ink-200">
             <AuthorizeView>
