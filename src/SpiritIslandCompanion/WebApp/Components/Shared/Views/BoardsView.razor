@@ -1,10 +1,12 @@
 @* Reference content for boards. Used from /boards (public) and /app/boards. *@
+@inject WebApp.State.OwnedExpansionsState ExpansionsState
+@implements IDisposable
 
 <div class="page-head">
     <div>
         <span class="eyebrow">Reference</span>
         <h1 class="page-title mt-2">Island boards</h1>
-        <p class="page-sub">@GameData.Boards.Count boards used to assemble the island, plus @GameData.IslandSetups.Count standard setups.</p>
+        <p class="page-sub">@_boardsByExpansion.Sum(g => g.Boards.Count) boards used to assemble the island, plus @GameData.IslandSetups.Count standard setups.</p>
     </div>
 </div>
 
@@ -104,10 +106,23 @@
 @code {
     private readonly HashSet<int> _selectedPlayerCounts = new();
 
+    private IReadOnlyList<ExpansionId>? OwnedExpansions => ExpansionsState.Current;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ExpansionsState.Changed += OnExpansionsChanged;
+        await ExpansionsState.EnsureLoadedAsync();
+    }
+
+    private void OnExpansionsChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => ExpansionsState.Changed -= OnExpansionsChanged;
+
     private record ExpansionBoardGroup(Expansion Expansion, IReadOnlyList<Board> Boards);
 
-    private static readonly IReadOnlyList<ExpansionBoardGroup> _boardsByExpansion =
+    private IReadOnlyList<ExpansionBoardGroup> _boardsByExpansion =>
         GameData.Expansions
+            .Where(e => OwnedExpansions is null || OwnedExpansions.Contains(e.Id))
             .Select(e => new ExpansionBoardGroup(
                 e,
                 GameData.Boards.Where(b => b.ExpansionId == e.Id).ToList()))

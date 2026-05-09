@@ -1,11 +1,13 @@
 @* Reference content for spirits browse page. Used from both the public route
    (/spirits) and the authenticated route (/app/spirits). *@
+@inject WebApp.State.OwnedExpansionsState ExpansionsState
+@implements IDisposable
 
 <div class="page-head">
     <div>
         <span class="eyebrow">Reference</span>
         <h1 class="page-title mt-2">Spirits</h1>
-        <p class="page-sub">@_visibleCount of @GameData.Spirits.Count spirits across @_byExpansion.Count expansions.</p>
+        <p class="page-sub">@_visibleCount of @_totalSpiritsInScope spirits across @_byExpansion.Count expansions.</p>
     </div>
     <input type="search" class="input md:w-64" placeholder="Filter by name…" @bind="_query" @bind:event="oninput"/>
 </div>
@@ -42,7 +44,7 @@
             <div class="flex items-start gap-3 flex-wrap pt-3">
                 <span class="text-[11px] uppercase tracking-wide text-ink-500 w-20 shrink-0 mt-1">Expansion</span>
                 <div class="flex flex-wrap gap-1.5 flex-1">
-                    @foreach (var e in GameData.Expansions)
+                    @foreach (var e in GameData.Expansions.Where(x => OwnedExpansions is null || OwnedExpansions.Contains(x.Id)))
                     {
                         <FilterPill Active="@_selectedExpansions.Contains(e.Id.Value)"
                                     OnToggle="() => ToggleExpansion(e.Id.Value)">
@@ -174,15 +176,30 @@
         _selectedExpansions.Count + _selectedComplexities.Count
         + _selectedElements.Count + _selectedTokens.Count;
 
+    private IReadOnlyList<ExpansionId>? OwnedExpansions => ExpansionsState.Current;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ExpansionsState.Changed += OnExpansionsChanged;
+        await ExpansionsState.EnsureLoadedAsync();
+    }
+
+    private void OnExpansionsChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => ExpansionsState.Changed -= OnExpansionsChanged;
+
     private record ExpansionGroup(Expansion Expansion, IReadOnlyList<Spirit> Spirits);
 
-    private static readonly IReadOnlyList<ExpansionGroup> _byExpansion =
+    private IReadOnlyList<ExpansionGroup> _byExpansion =>
         GameData.Expansions
+            .Where(e => OwnedExpansions is null || OwnedExpansions.Contains(e.Id))
             .Select(e => new ExpansionGroup(
                 e,
                 GameData.Spirits.Where(s => s.ExpansionId == e.Id).ToList()))
             .Where(g => g.Spirits.Count > 0)
             .ToList();
+
+    private int _totalSpiritsInScope => _byExpansion.Sum(g => g.Spirits.Count);
 
     private static readonly Complexity[] _allComplexities =
         [Complexity.Low, Complexity.Moderate, Complexity.High, Complexity.VeryHigh];

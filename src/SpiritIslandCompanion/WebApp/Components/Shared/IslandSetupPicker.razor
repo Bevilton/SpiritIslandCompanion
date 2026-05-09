@@ -33,7 +33,11 @@
     @if (_open)
     {
         <div class="mt-2 surface p-4 space-y-5">
-            @foreach (var grp in _groups)
+            @if (_visibleGroups.Count == 0)
+            {
+                <p class="text-sm text-ink-500 m-0">No setups available for this player count.</p>
+            }
+            @foreach (var grp in _visibleGroups)
             {
                 <div>
                     <div class="text-[11px] font-medium uppercase tracking-wider text-ink-500 mb-2">
@@ -65,19 +69,37 @@
 @code {
     [Parameter] public string? Value { get; set; }
     [Parameter] public EventCallback<string> ValueChanged { get; set; }
+    /// <summary>
+    /// When set, the picker only shows setups that match this player count.
+    /// </summary>
+    [Parameter] public int? PlayerCount { get; set; }
 
     private bool _open;
 
-    private static readonly IReadOnlyList<IGrouping<int, IslandSetup>> _groups =
+    private static readonly IReadOnlyList<IGrouping<int, IslandSetup>> _allGroups =
         GameData.IslandSetups
             .OrderBy(s => s.NumberOfPlayers)
             .ThenBy(s => s.Name)
             .GroupBy(s => s.NumberOfPlayers)
             .ToList();
 
+    private IReadOnlyList<IGrouping<int, IslandSetup>> _visibleGroups =>
+        PlayerCount is { } n
+            ? _allGroups.Where(g => g.Key == n).ToList()
+            : _allGroups;
+
     private IslandSetup? _selected =>
         string.IsNullOrEmpty(Value) ? null
         : GameData.IslandSetups.FirstOrDefault(s => s.Id.Value == Value);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // If the current selection no longer matches the player count, clear it.
+        if (_selected is { } sel && PlayerCount is { } n && sel.NumberOfPlayers != n)
+        {
+            await ValueChanged.InvokeAsync("");
+        }
+    }
 
     private void Toggle() => _open = !_open;
 

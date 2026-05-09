@@ -3,6 +3,7 @@
 @rendermode InteractiveServer
 @inject IMediator Mediator
 @inject ICurrentUserService CurrentUser
+@inject WebApp.State.OwnedExpansionsState ExpansionsState
 
 <PageTitle>Settings</PageTitle>
 
@@ -27,22 +28,30 @@ else
         </div>
         <div class="surface-body">
             <p class="text-sm text-ink-500 mb-5">
-                Pick the expansions you own — content throughout the app filters to match.
+                Pick the expansions you own — content throughout the app filters to match. The base game is always included.
             </p>
             <div class="space-y-2">
                 @foreach (var expansion in GameData.Expansions)
                 {
-                    var isOwned = _ownedExpansions.Contains(expansion.Id.Value);
+                    var isBase = expansion.Id == Expansions.BaseGame;
+                    var isOwned = isBase || _ownedExpansions.Contains(expansion.Id.Value);
                     var counts = _counts[expansion.Id.Value];
                     <label for="@($"exp-{expansion.Id.Value}")"
-                           class="flex items-center justify-between p-3 rounded-lg border @(isOwned ? "border-accent-300 bg-accent-50/40" : "border-ink-200 bg-white") cursor-pointer hover:border-accent-300 transition-colors">
+                           class="flex items-center justify-between p-3 rounded-lg border @(isOwned ? "border-accent-300 bg-accent-50/40" : "border-ink-200 bg-white") @(isBase ? "" : "cursor-pointer hover:border-accent-300") transition-colors">
                         <div class="flex items-center gap-3">
                             <input class="checkbox" type="checkbox"
                                    id="@($"exp-{expansion.Id.Value}")"
                                    checked="@isOwned"
+                                   disabled="@isBase"
                                    @onchange="e => ToggleExpansion(expansion.Id.Value, (bool)(e.Value ?? false))"/>
                             <div>
-                                <div class="font-medium text-ink-900">@expansion.Name</div>
+                                <div class="font-medium text-ink-900 flex items-center gap-2">
+                                    @expansion.Name
+                                    @if (isBase)
+                                    {
+                                        <span class="badge badge-neutral">Required</span>
+                                    }
+                                </div>
                                 <div class="text-xs text-ink-500 mt-0.5">@counts.Spirits spirits · @counts.Adversaries adversaries · @counts.Scenarios scenarios</div>
                             </div>
                         </div>
@@ -89,11 +98,13 @@ else
         var result = await Mediator.Send(new Application.Features.Users.GetUserQuery(userId));
         if (result.IsSuccess)
             _ownedExpansions = result.Value.OwnedExpansionIds.ToHashSet();
+        _ownedExpansions.Add(Expansions.BaseGame.Value);
         _loading = false;
     }
 
     private void ToggleExpansion(string id, bool isChecked)
     {
+        if (id == Expansions.BaseGame.Value) return;
         if (isChecked) _ownedExpansions.Add(id);
         else _ownedExpansions.Remove(id);
     }
@@ -101,6 +112,7 @@ else
     private async Task Save()
     {
         _saving = true;
+        _ownedExpansions.Add(Expansions.BaseGame.Value);
         var result = await Mediator.Send(new Application.Features.Users.UpdateUserSettingsCommand(
             CurrentUser.UserId!.Value, _ownedExpansions.ToList()));
         _saving = false;
@@ -109,6 +121,7 @@ else
         {
             _message = "Settings saved.";
             _alertType = "success";
+            await ExpansionsState.ReloadAsync();
         }
         else
         {

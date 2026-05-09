@@ -1,10 +1,12 @@
 @* Reference content for scenarios. Used from /scenarios (public) and /app/scenarios. *@
+@inject WebApp.State.OwnedExpansionsState ExpansionsState
+@implements IDisposable
 
 <div class="page-head">
     <div>
         <span class="eyebrow">Reference</span>
         <h1 class="page-title mt-2">Scenarios</h1>
-        <p class="page-sub">@GameData.Scenarios.Count special scenarios that change how the game plays.</p>
+        <p class="page-sub">@_scenariosInScope.Count special scenarios that change how the game plays.</p>
     </div>
     <input type="search" class="input md:w-64" placeholder="Filter by name…" @bind="_query" @bind:event="oninput"/>
 </div>
@@ -13,7 +15,7 @@
     <div class="flex items-start gap-3 flex-wrap">
         <span class="text-[11px] uppercase tracking-wide text-ink-500 w-20 shrink-0 mt-1">Expansion</span>
         <div class="flex flex-wrap gap-1.5 flex-1">
-            @foreach (var e in GameData.Expansions)
+            @foreach (var e in GameData.Expansions.Where(x => OwnedExpansions is null || OwnedExpansions.Contains(x.Id)))
             {
                 <FilterPill Active="@_selectedExpansions.Contains(e.Id.Value)"
                             OnToggle="() => ToggleExpansion(e.Id.Value)">
@@ -69,6 +71,18 @@
     private readonly HashSet<string> _selectedExpansions = new();
     private ScenarioDetailModal _modal = default!;
 
+    private IReadOnlyList<ExpansionId>? OwnedExpansions => ExpansionsState.Current;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ExpansionsState.Changed += OnExpansionsChanged;
+        await ExpansionsState.EnsureLoadedAsync();
+    }
+
+    private void OnExpansionsChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => ExpansionsState.Changed -= OnExpansionsChanged;
+
     private void OpenDetail(Scenario s) => _modal.Show(s);
 
     private static readonly Dictionary<string, string> _expansionNames =
@@ -79,8 +93,13 @@
             .Select((e, i) => (e.Id.Value, i))
             .ToDictionary(x => x.Value, x => x.i);
 
-    private IEnumerable<Scenario> _filtered =>
+    private IReadOnlyList<Scenario> _scenariosInScope =>
         GameData.Scenarios
+            .Where(s => OwnedExpansions is null || OwnedExpansions.Contains(s.ExpansionId))
+            .ToList();
+
+    private IEnumerable<Scenario> _filtered =>
+        _scenariosInScope
             .Where(s =>
                 (string.IsNullOrWhiteSpace(_query) || s.Name.Contains(_query, StringComparison.OrdinalIgnoreCase))
                 && (_selectedExpansions.Count == 0 || _selectedExpansions.Contains(s.ExpansionId.Value)))

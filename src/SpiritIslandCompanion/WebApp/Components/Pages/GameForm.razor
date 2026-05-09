@@ -4,6 +4,8 @@
 @inject IMediator Mediator
 @inject ICurrentUserService CurrentUser
 @inject NavigationManager Nav
+@inject WebApp.State.OwnedExpansionsState ExpansionsState
+@implements IDisposable
 
 <PageTitle>New Game</PageTitle>
 
@@ -25,37 +27,6 @@
 }
 else
 {
-    @* === SETUP === *@
-    <section class="surface mb-5">
-        <div class="surface-head"><h2 class="text-base font-semibold">Game setup</h2></div>
-        <div class="surface-body space-y-4">
-            <div>
-                <label class="label">Island setup</label>
-                <IslandSetupPicker @bind-Value="_islandSetupId"/>
-            </div>
-            <div class="grid md:grid-cols-3 gap-4">
-                <div>
-                    <label class="label">Difficulty</label>
-                    <input type="number" class="input" @bind="_difficulty" min="0" max="20"/>
-                </div>
-                <div>
-                    <label class="label">Scenario</label>
-                    <select class="select" @bind="_scenarioId">
-                        <option value="">None</option>
-                        @foreach (var s in GameData.Scenarios)
-                        {
-                            <option value="@s.Id.Value">@s.Name (Diff +@s.Difficulty)</option>
-                        }
-                    </select>
-                </div>
-                <div>
-                    <label class="label">Date played</label>
-                    <input type="date" class="input" @bind="_datePlayed"/>
-                </div>
-            </div>
-        </div>
-    </section>
-
     @* === PLAYERS === *@
     <section class="surface mb-5">
         <div class="surface-head">
@@ -68,33 +39,37 @@ else
             @for (var i = 0; i < _players.Count; i++)
             {
                 var idx = i;
+                var aspects = GetAspectsForSpirit(_players[idx].SpiritId);
                 <div class="grid md:grid-cols-12 gap-3 items-end pb-4 border-b border-ink-100 last:border-0 last:pb-0">
                     <div class="md:col-span-3">
                         <label class="label">Spirit</label>
                         <select class="select" value="@_players[idx].SpiritId"
                                 @onchange="e => OnSpiritChanged(idx, e.Value?.ToString())">
                             <option value="">Select…</option>
-                            @foreach (var s in GameData.Spirits)
+                            @foreach (var s in _spiritsInScope)
                             {
                                 <option value="@s.Id.Value">@s.Name</option>
                             }
                         </select>
                     </div>
-                    <div class="md:col-span-2">
-                        <label class="label">Aspect</label>
-                        <select class="select" @bind="_players[idx].AspectId">
-                            <option value="">None</option>
-                            @foreach (var a in GetAspectsForSpirit(_players[idx].SpiritId))
-                            {
-                                <option value="@a.Id.Value">@a.Name</option>
-                            }
-                        </select>
-                    </div>
-                    <div class="md:col-span-2">
+                    @if (aspects.Count > 0)
+                    {
+                        <div class="md:col-span-2">
+                            <label class="label">Aspect</label>
+                            <select class="select" @bind="_players[idx].AspectId">
+                                <option value="">None</option>
+                                @foreach (var a in aspects)
+                                {
+                                    <option value="@a.Id.Value">@a.Name</option>
+                                }
+                            </select>
+                        </div>
+                    }
+                    <div class="@(aspects.Count > 0 ? "md:col-span-2" : "md:col-span-4")">
                         <label class="label">Board</label>
                         <select class="select" @bind="_players[idx].BoardId">
                             <option value="">Select…</option>
-                            @foreach (var b in GameData.Boards)
+                            @foreach (var b in _boardsInScope)
                             {
                                 <option value="@b.Id.Value">@b.Name</option>
                             }
@@ -127,45 +102,95 @@ else
         </div>
     </section>
 
-    @* === ADVERSARIES === *@
+    @* === SETUP (includes adversaries + difficulty hero) === *@
     <section class="surface mb-5">
-        <div class="surface-head">
-            <h2 class="text-base font-semibold">Adversaries</h2>
-            <button class="btn btn-sm btn-secondary" @onclick="AddAdversary">
-                <Icon Name="plus" Class="w-3.5 h-3.5"/> Add adversary
-            </button>
-        </div>
-        <div class="surface-body">
-            @if (_adversaries.Count == 0)
-            {
-                <p class="text-sm text-ink-500 m-0">No adversary — tutorial / freeplay game.</p>
-            }
-            <div class="space-y-3">
-                @for (var i = 0; i < _adversaries.Count; i++)
+        <div class="surface-head"><h2 class="text-base font-semibold">Game setup</h2></div>
+        <div class="surface-body space-y-5">
+            <div>
+                <label class="label">Island setup <span class="text-ink-500 font-normal">— @_players.Count player@(_players.Count == 1 ? "" : "s")</span></label>
+                <IslandSetupPicker @bind-Value="_islandSetupId" PlayerCount="_players.Count"/>
+            </div>
+            <div class="grid md:grid-cols-2 gap-4">
+                <div>
+                    <label class="label">Scenario</label>
+                    <select class="select" @bind="_scenarioId">
+                        <option value="">None</option>
+                        @foreach (var s in _scenariosInScope)
+                        {
+                            <option value="@s.Id.Value">@s.Name (Diff +@s.Difficulty)</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label class="label">Date played</label>
+                    <input type="date" class="input" @bind="_datePlayed"/>
+                </div>
+            </div>
+
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <label class="label mb-0">Adversaries</label>
+                    <button type="button" class="btn btn-sm btn-secondary" @onclick="AddAdversary">
+                        <Icon Name="plus" Class="w-3.5 h-3.5"/> Add adversary
+                    </button>
+                </div>
+                @if (_adversaries.Count == 0)
                 {
-                    var idx = i;
-                    <div class="grid md:grid-cols-12 gap-3 items-end">
-                        <div class="md:col-span-7">
-                            <label class="label">Adversary</label>
-                            <select class="select" @bind="_adversaries[idx].AdversaryId">
-                                <option value="">Select…</option>
-                                @foreach (var a in GameData.Adversaries)
-                                {
-                                    <option value="@a.Id.Value">@a.Name</option>
-                                }
-                            </select>
-                        </div>
-                        <div class="md:col-span-3">
-                            <label class="label">Level</label>
-                            <input type="number" class="input" @bind="_adversaries[idx].Level" min="0" max="6"/>
-                        </div>
-                        <div class="md:col-span-2 flex justify-end">
-                            <button class="btn btn-sm btn-danger-outline" @onclick="() => _adversaries.RemoveAt(idx)">
-                                <Icon Name="trash" Class="w-3.5 h-3.5"/>
-                            </button>
-                        </div>
-                    </div>
+                    <p class="text-sm text-ink-500 m-0">No adversary — tutorial / freeplay game.</p>
                 }
+                <div class="space-y-3">
+                    @for (var i = 0; i < _adversaries.Count; i++)
+                    {
+                        var idx = i;
+                        <div class="grid md:grid-cols-12 gap-3 items-end">
+                            <div class="md:col-span-7">
+                                <select class="select" @bind="_adversaries[idx].AdversaryId">
+                                    <option value="">Select…</option>
+                                    @foreach (var a in _adversariesInScope)
+                                    {
+                                        <option value="@a.Id.Value">@a.Name</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="md:col-span-3">
+                                <input type="number" class="input" placeholder="Level" @bind="_adversaries[idx].Level" min="0" max="6"/>
+                            </div>
+                            <div class="md:col-span-2 flex justify-end">
+                                <button class="btn btn-sm btn-danger-outline" @onclick="() => _adversaries.RemoveAt(idx)">
+                                    <Icon Name="trash" Class="w-3.5 h-3.5"/>
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            @* === DIFFICULTY HERO === *@
+            <div class="rounded-xl bg-gradient-to-br from-accent-50 to-accent-100/60 border border-accent-200 p-5 flex items-center justify-between gap-4">
+                <div>
+                    <div class="text-[11px] uppercase tracking-wider text-accent-700 font-semibold">Total difficulty</div>
+                    <div class="text-4xl font-bold text-accent-900 mt-1 leading-none" style="font-family: var(--font-serif);">@ComputedDifficulty</div>
+                </div>
+                <div class="text-xs text-accent-800/70 text-right space-y-0.5">
+                    @if (_adversaries.Count == 0 && string.IsNullOrEmpty(_scenarioId))
+                    {
+                        <div>Tutorial / freeplay</div>
+                    }
+                    else
+                    {
+                        @foreach (var a in _adversaries.Where(a => !string.IsNullOrEmpty(a.AdversaryId)))
+                        {
+                            var adv = GameData.Adversaries.FirstOrDefault(x => x.Id.Value == a.AdversaryId);
+                            var mode = adv?.Modes.FirstOrDefault(m => m.Level == a.Level);
+                            <div>@(adv?.Name ?? "Adversary") L@(a.Level) <span class="text-accent-700/60">+@(mode?.Difficulty ?? 0)</span></div>
+                        }
+                        @if (!string.IsNullOrEmpty(_scenarioId))
+                        {
+                            var scen = GameData.Scenarios.FirstOrDefault(s => s.Id.Value == _scenarioId);
+                            <div>@(scen?.Name ?? "Scenario") <span class="text-accent-700/60">+@(scen?.Difficulty ?? 0)</span></div>
+                        }
+                    }
+                </div>
             </div>
         </div>
     </section>
@@ -256,9 +281,46 @@ else
     private string _alertType = "danger";
 
     private string _islandSetupId = "";
-    private int _difficulty;
     private string? _scenarioId;
     private DateTime _datePlayed = DateTime.Today;
+
+    private IReadOnlyList<ExpansionId>? OwnedExpansions => ExpansionsState.Current;
+
+    private IReadOnlyList<Spirit> _spiritsInScope =>
+        GameData.Spirits.Where(s => OwnedExpansions is null || OwnedExpansions.Contains(s.ExpansionId)).ToList();
+
+    private IReadOnlyList<Board> _boardsInScope =>
+        GameData.Boards.Where(b => OwnedExpansions is null || OwnedExpansions.Contains(b.ExpansionId)).ToList();
+
+    private IReadOnlyList<Adversary> _adversariesInScope =>
+        GameData.Adversaries.Where(a => OwnedExpansions is null || OwnedExpansions.Contains(a.ExpansionId)).ToList();
+
+    private IReadOnlyList<Scenario> _scenariosInScope =>
+        GameData.Scenarios.Where(s => OwnedExpansions is null || OwnedExpansions.Contains(s.ExpansionId)).ToList();
+
+    private int ComputedDifficulty
+    {
+        get
+        {
+            var total = 0;
+
+            foreach (var a in _adversaries)
+            {
+                if (string.IsNullOrEmpty(a.AdversaryId)) { continue; }
+                var adv = GameData.Adversaries.FirstOrDefault(x => x.Id.Value == a.AdversaryId);
+                var mode = adv?.Modes.FirstOrDefault(m => m.Level == a.Level);
+                total += mode?.Difficulty ?? 0;
+            }
+
+            if (!string.IsNullOrEmpty(_scenarioId))
+            {
+                var scen = GameData.Scenarios.FirstOrDefault(s => s.Id.Value == _scenarioId);
+                total += scen?.Difficulty ?? 0;
+            }
+
+            return total;
+        }
+    }
 
     private List<PlayerFormItem> _players = [new()];
     private List<Application.Features.Friendships.FriendResponse> _friends = [];
@@ -278,6 +340,9 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        ExpansionsState.Changed += OnExpansionsChanged;
+        await ExpansionsState.EnsureLoadedAsync();
+
         if (CurrentUser.UserId is not { } userId) return;
 
         var friendsResult = await Mediator.Send(new Application.Features.Friendships.ListFriendsQuery(userId));
@@ -288,6 +353,10 @@ else
 
         _loading = false;
     }
+
+    private void OnExpansionsChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => ExpansionsState.Changed -= OnExpansionsChanged;
 
     private void AddPlayer() => _players.Add(new PlayerFormItem());
     private void RemovePlayer(int idx) => _players.RemoveAt(idx);
@@ -300,7 +369,12 @@ else
     }
 
     private IReadOnlyList<Aspect> GetAspectsForSpirit(string spiritId)
-        => string.IsNullOrEmpty(spiritId) ? [] : GameData.GetAspectsForSpirit(new SpiritId(spiritId));
+    {
+        if (string.IsNullOrEmpty(spiritId)) { return []; }
+        var aspects = GameData.GetAspectsForSpirit(new SpiritId(spiritId));
+        if (OwnedExpansions is null) { return aspects; }
+        return aspects.Where(a => OwnedExpansions.Contains(a.ExpansionId)).ToList();
+    }
 
     private List<Application.Features.Games.Dtos.GamePlayerDto> BuildPlayerDtos()
     {
@@ -331,7 +405,7 @@ else
         var cmd = new Application.Features.Games.DraftGameCommand(
             CurrentUser.UserId!.Value,
             new DateTimeOffset(_datePlayed, TimeSpan.Zero),
-            _islandSetupId, _difficulty,
+            _islandSetupId, ComputedDifficulty,
             BuildPlayerDtos(), BuildAdversaryDtos(),
             string.IsNullOrEmpty(_scenarioId) ? null : _scenarioId,
             string.IsNullOrEmpty(_note) ? null : _note);
@@ -358,7 +432,7 @@ else
         var cmd = new Application.Features.Games.CreateGameCommand(
             CurrentUser.UserId!.Value,
             new DateTimeOffset(_datePlayed, TimeSpan.Zero),
-            _islandSetupId, _difficulty,
+            _islandSetupId, ComputedDifficulty,
             BuildPlayerDtos(), BuildAdversaryDtos(),
             string.IsNullOrEmpty(_scenarioId) ? null : _scenarioId,
             resultDto,

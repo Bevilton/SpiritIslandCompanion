@@ -1,3 +1,5 @@
+@inject WebApp.State.OwnedExpansionsState ExpansionsState
+
 @if (_spirit is not null)
 {
     var detail = _detail;
@@ -102,6 +104,8 @@
     private SpiritDetail? _detail;
     private IReadOnlyList<Aspect> _aspects = [];
 
+    private IReadOnlyList<ExpansionId>? OwnedExpansions => ExpansionsState.Current;
+
     private static readonly Dictionary<string, string> _expansionNames =
         GameData.Expansions.ToDictionary(e => e.Id.Value, e => e.Name);
 
@@ -109,7 +113,9 @@
     {
         _spirit = spirit;
         _detail = SpiritDetails.For(spirit.Id);
-        _aspects = GameData.GetAspectsForSpirit(spirit.Id);
+        _aspects = GameData.GetAspectsForSpirit(spirit.Id)
+            .Where(a => OwnedExpansions is null || OwnedExpansions.Contains(a.ExpansionId))
+            .ToList();
         StateHasChanged();
     }
 

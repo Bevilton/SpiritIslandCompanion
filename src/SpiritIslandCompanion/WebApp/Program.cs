@@ -4,6 +4,7 @@ using Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
 using WebApp.Auth;
 using WebApp.Components;
+using WebApp.State;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +18,7 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure();
 builder.Services.AddOidcAuthentication(builder.Configuration, builder.Environment);
 builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddScoped<OwnedExpansionsState>();
 
 var app = builder.Build();
 
