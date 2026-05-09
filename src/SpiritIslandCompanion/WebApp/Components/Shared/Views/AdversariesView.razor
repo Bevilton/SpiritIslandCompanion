@@ -1,6 +1,5 @@
-@* Reference content for adversaries. Used from /adversaries (public) and /app/adversaries. *@
-@inject WebApp.State.OwnedExpansionsState ExpansionsState
-@implements IDisposable
+@* Reference content for adversaries. Used from /adversaries (public) and /app/adversaries.
+   Pass OwnedExpansions to filter; null (default) shows every adversary. *@
 
 <div class="page-head">
     <div>
@@ -79,21 +78,12 @@
 <AdversaryDetailModal @ref="_modal"/>
 
 @code {
+    /// <summary>Null (default) shows everything; non-null restricts to those expansions.</summary>
+    [Parameter] public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
+
     private string _query = "";
     private readonly HashSet<string> _selectedExpansions = new();
     private AdversaryDetailModal _modal = default!;
-
-    private IReadOnlyList<ExpansionId>? OwnedExpansions => ExpansionsState.Current;
-
-    protected override async Task OnInitializedAsync()
-    {
-        ExpansionsState.Changed += OnExpansionsChanged;
-        await ExpansionsState.EnsureLoadedAsync();
-    }
-
-    private void OnExpansionsChanged() => InvokeAsync(StateHasChanged);
-
-    public void Dispose() => ExpansionsState.Changed -= OnExpansionsChanged;
 
     private void OpenDetail(Adversary a) => _modal.Show(a);
 

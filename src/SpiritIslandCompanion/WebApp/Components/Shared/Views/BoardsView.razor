@@ -1,6 +1,5 @@
-@* Reference content for boards. Used from /boards (public) and /app/boards. *@
-@inject WebApp.State.OwnedExpansionsState ExpansionsState
-@implements IDisposable
+@* Reference content for boards. Used from /boards (public) and /app/boards.
+   Pass OwnedExpansions to filter; null (default) shows every board. *@
 
 <div class="page-head">
     <div>
@@ -104,19 +103,10 @@
 </section>
 
 @code {
+    /// <summary>Null (default) shows everything; non-null restricts to those expansions.</summary>
+    [Parameter] public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
+
     private readonly HashSet<int> _selectedPlayerCounts = new();
-
-    private IReadOnlyList<ExpansionId>? OwnedExpansions => ExpansionsState.Current;
-
-    protected override async Task OnInitializedAsync()
-    {
-        ExpansionsState.Changed += OnExpansionsChanged;
-        await ExpansionsState.EnsureLoadedAsync();
-    }
-
-    private void OnExpansionsChanged() => InvokeAsync(StateHasChanged);
-
-    public void Dispose() => ExpansionsState.Changed -= OnExpansionsChanged;
 
     private record ExpansionBoardGroup(Expansion Expansion, IReadOnlyList<Board> Boards);
 

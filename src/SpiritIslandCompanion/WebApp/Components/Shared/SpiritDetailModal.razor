@@ -1,5 +1,3 @@
-@inject WebApp.State.OwnedExpansionsState ExpansionsState
-
 @if (_spirit is not null)
 {
     var detail = _detail;
@@ -100,11 +98,16 @@
 }
 
 @code {
+    /// <summary>
+    /// Null (default) shows every aspect; a non-null list restricts to aspects
+    /// from the listed expansions. The parent view passes this in; the modal
+    /// itself doesn't read auth state.
+    /// </summary>
+    [Parameter] public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
+
     private Spirit? _spirit;
     private SpiritDetail? _detail;
     private IReadOnlyList<Aspect> _aspects = [];
-
-    private IReadOnlyList<ExpansionId>? OwnedExpansions => ExpansionsState.Current;
 
     private static readonly Dictionary<string, string> _expansionNames =
         GameData.Expansions.ToDictionary(e => e.Id.Value, e => e.Name);

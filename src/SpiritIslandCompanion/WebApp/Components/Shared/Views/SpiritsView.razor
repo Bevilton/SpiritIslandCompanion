@@ -1,7 +1,10 @@
 @* Reference content for spirits browse page. Used from both the public route
-   (/spirits) and the authenticated route (/app/spirits). *@
-@inject WebApp.State.OwnedExpansionsState ExpansionsState
-@implements IDisposable
+   (/spirits) and the authenticated route (/app/spirits).
+
+   OwnedExpansions: pass null (default) to show every spirit; pass a list to filter
+   to only those expansions. The view itself is auth-agnostic — the authenticated
+   wrapper page is responsible for resolving the user's owned expansions and
+   passing them in. *@
 
 <div class="page-head">
     <div>
@@ -144,9 +147,14 @@
                         {
                             <TokenBadges Tokens="detail.Tokens" Size="sm"/>
                         }
-                        @if (aspects.Count > 0)
+                        @{
+                            var visibleAspectCount = OwnedExpansions is null
+                                ? aspects.Count
+                                : aspects.Count(a => OwnedExpansions.Contains(a.ExpansionId));
+                        }
+                        @if (visibleAspectCount > 0)
                         {
-                            <span class="text-ink-500">@aspects.Count aspect@(aspects.Count == 1 ? "" : "s")</span>
+                            <span class="text-ink-500">@visibleAspectCount aspect@(visibleAspectCount == 1 ? "" : "s")</span>
                         }
                     </div>
                 </button>
@@ -160,9 +168,16 @@
     <div class="surface text-center py-10 mt-6 text-ink-500">No spirits match the current filters.</div>
 }
 
-<SpiritDetailModal @ref="_modal"/>
+<SpiritDetailModal @ref="_modal" OwnedExpansions="@OwnedExpansions"/>
 
 @code {
+    /// <summary>
+    /// Null (default) shows everything; a non-null list restricts the view (and
+    /// child detail modal) to those expansions. The authenticated wrapper page
+    /// passes in the user's owned expansions; public pages omit this parameter.
+    /// </summary>
+    [Parameter] public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
+
     private string _query = "";
     private SpiritDetailModal _modal = default!;
     private bool _filtersOpen;
@@ -175,18 +190,6 @@
     private int ActiveFilterCount =>
         _selectedExpansions.Count + _selectedComplexities.Count
         + _selectedElements.Count + _selectedTokens.Count;
-
-    private IReadOnlyList<ExpansionId>? OwnedExpansions => ExpansionsState.Current;
-
-    protected override async Task OnInitializedAsync()
-    {
-        ExpansionsState.Changed += OnExpansionsChanged;
-        await ExpansionsState.EnsureLoadedAsync();
-    }
-
-    private void OnExpansionsChanged() => InvokeAsync(StateHasChanged);
-
-    public void Dispose() => ExpansionsState.Changed -= OnExpansionsChanged;
 
     private record ExpansionGroup(Expansion Expansion, IReadOnlyList<Spirit> Spirits);
 
