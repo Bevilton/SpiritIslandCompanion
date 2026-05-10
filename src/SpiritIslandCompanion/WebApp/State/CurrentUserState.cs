@@ -6,24 +6,35 @@ using Microsoft.AspNetCore.Components.Authorization;
 namespace WebApp.State;
 
 /// <summary>
-/// Per-circuit cache of the current user's owned expansions. Cascaded from
-/// AppShell so that views and the game form can filter content to match the
-/// user's collection. <see cref="Current"/> is null until loaded; null also
-/// signals "no user / public context — show everything."
+/// Per-circuit cache of the signed-in user's app context. Loaded once when first
+/// observed and kept in sync via the <see cref="Changed"/> event. AppShell is the
+/// canonical consumer — it subscribes here and cascades individual properties
+/// (e.g. <see cref="OwnedExpansions"/>) down the component tree, so pages and
+/// shared components can stay auth-agnostic and just declare a
+/// <see cref="Microsoft.AspNetCore.Components.CascadingParameterAttribute"/>.
+///
+/// Use this for things that are user-scoped, read-heavy, change-rare (owned
+/// expansions, preferences, theme). Things that change often or come from
+/// other users (friends list, games list) should be queried per page instead.
 ///
 /// Resolves the user from <see cref="AuthenticationStateProvider"/> directly
 /// (async) so we don't race the synchronous claim cache in CurrentUserService.
 /// Loads via a dedicated DI scope so the EF query doesn't share the page's
 /// scoped DbContext.
 /// </summary>
-public sealed class OwnedExpansionsState(
+public sealed class CurrentUserState(
     IServiceScopeFactory scopeFactory,
     AuthenticationStateProvider authStateProvider)
 {
     private bool _loaded;
     private Task? _inFlight;
 
-    public IReadOnlyList<ExpansionId>? Current { get; private set; }
+    /// <summary>
+    /// The user's owned expansions. Null while loading or for anonymous visitors —
+    /// consumers should treat null as "no filtering, show everything."
+    /// </summary>
+    public IReadOnlyList<ExpansionId>? OwnedExpansions { get; private set; }
+
     public event Action? Changed;
 
     public Task EnsureLoadedAsync()
@@ -39,7 +50,7 @@ public sealed class OwnedExpansionsState(
             var userId = await GetUserIdAsync();
             if (userId is null)
             {
-                Current = null;
+                OwnedExpansions = null;
             }
             else
             {
@@ -48,7 +59,7 @@ public sealed class OwnedExpansionsState(
                 var result = await mediator.Send(new GetUserQuery(userId.Value));
                 if (result.IsSuccess)
                 {
-                    Current = result.Value.OwnedExpansionIds.Select(id => new ExpansionId(id)).ToList();
+                    OwnedExpansions = result.Value.OwnedExpansionIds.Select(id => new ExpansionId(id)).ToList();
                 }
             }
 
@@ -67,7 +78,4 @@ public sealed class OwnedExpansionsState(
         var claim = state.User.FindFirst("db_user_id")?.Value;
         return claim is not null && Guid.TryParse(claim, out var id) ? id : null;
     }
-
-    public bool Includes(ExpansionId id)
-        => Current is null || Current.Contains(id);
 }

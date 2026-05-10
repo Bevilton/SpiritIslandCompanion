@@ -2,8 +2,7 @@
    raises OnSelected and closes. Use as:
        <SpiritPickerModal @ref="_picker" OnSelected="HandleSelected"/>
        _picker.Show(currentSpiritId);
-*@
-@inject WebApp.State.OwnedExpansionsState ExpansionsState
+   OwnedExpansions is read from the AppShell cascade — the modal is auth-agnostic. *@
 
 @if (_open)
 {
@@ -138,7 +137,8 @@
     private readonly HashSet<Complexity> _selectedComplexities = new();
     private readonly HashSet<Element> _selectedElements = new();
 
-    private IReadOnlyList<ExpansionId>? OwnedExpansions => ExpansionsState.Current;
+    [CascadingParameter(Name = "OwnedExpansions")]
+    public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
 
     private static readonly Complexity[] _allComplexities =
         [Complexity.Low, Complexity.Moderate, Complexity.High, Complexity.VeryHigh];
@@ -146,9 +146,8 @@
     private static readonly Element[] _allElements =
         [Element.Sun, Element.Moon, Element.Fire, Element.Air, Element.Water, Element.Earth, Element.Plant, Element.Animal];
 
-    public async Task ShowAsync(string? currentSpiritId = null)
+    public void Show(string? currentSpiritId = null)
     {
-        await ExpansionsState.EnsureLoadedAsync();
         _currentSpiritId = currentSpiritId;
         _query = "";
         _selectedComplexities.Clear();
@@ -156,8 +155,6 @@
         _open = true;
         StateHasChanged();
     }
-
-    public void Show(string? currentSpiritId = null) => _ = ShowAsync(currentSpiritId);
 
     private void Close()
     {

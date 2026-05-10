@@ -3,7 +3,7 @@
 @rendermode InteractiveServer
 @inject IMediator Mediator
 @inject ICurrentUserService CurrentUser
-@inject WebApp.State.OwnedExpansionsState ExpansionsState
+@inject WebApp.State.CurrentUserState UserState
 
 <PageTitle>Settings</PageTitle>
 
@@ -121,7 +121,7 @@ else
         {
             _message = "Settings saved.";
             _alertType = "success";
-            await ExpansionsState.ReloadAsync();
+            await UserState.ReloadAsync();
         }
         else
         {

@@ -1,8 +1,16 @@
 @* Sidebar + content area chrome. Used by MainLayout and ReferenceLayout (authenticated branch).
+
    Outer container is locked to h-screen (not min-h-screen) so <main> below becomes the actual
    scroll container — that's what makes sticky elements inside the page (right summary panel,
-   bottom action bar) work as expected. *@
+   bottom action bar) work as expected.
 
+   AppShell is the single subscriber to CurrentUserState. It loads the user context once and
+   cascades the relevant pieces (currently OwnedExpansions) so descendant pages and shared
+   components can stay auth-agnostic and just pull what they need via [CascadingParameter]. *@
+@inject WebApp.State.CurrentUserState UserState
+@implements IDisposable
+
+<CascadingValue Value="@UserState.OwnedExpansions" Name="OwnedExpansions">
 <div class="h-screen flex bg-ink-50">
     <aside class="hidden md:flex w-60 shrink-0 flex-col bg-white border-r border-ink-200">
         <div class="px-5 h-16 flex items-center border-b border-ink-200">
@@ -57,6 +65,7 @@
         </main>
     </div>
 </div>
+</CascadingValue>
 
 <div id="blazor-error-ui">
     An unhandled error has occurred.
@@ -66,6 +75,16 @@
 
 @code {
     [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        UserState.Changed += OnUserStateChanged;
+        await UserState.EnsureLoadedAsync();
+    }
+
+    private void OnUserStateChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => UserState.Changed -= OnUserStateChanged;
 
     private static string GetInitial(string? name)
         => string.IsNullOrWhiteSpace(name) ? "?" : char.ToUpperInvariant(name.Trim()[0]).ToString();

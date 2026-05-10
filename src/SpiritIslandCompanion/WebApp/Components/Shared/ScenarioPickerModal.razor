@@ -1,5 +1,5 @@
-@* Scenario picker modal. Filters by expansion + free-text. Selecting closes. *@
-@inject WebApp.State.OwnedExpansionsState ExpansionsState
+@* Scenario picker modal. Filters by expansion + free-text. Selecting closes.
+   OwnedExpansions is read from the AppShell cascade — the modal is auth-agnostic. *@
 
 @if (_open)
 {
@@ -77,18 +77,16 @@
     private static readonly Dictionary<string, string> _expansionNames =
         GameData.Expansions.ToDictionary(e => e.Id.Value, e => e.Name);
 
-    private IReadOnlyList<ExpansionId>? OwnedExpansions => ExpansionsState.Current;
+    [CascadingParameter(Name = "OwnedExpansions")]
+    public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
 
-    public async Task ShowAsync(string? currentScenarioId = null)
+    public void Show(string? currentScenarioId = null)
     {
-        await ExpansionsState.EnsureLoadedAsync();
         _currentScenarioId = currentScenarioId;
         _query = "";
         _open = true;
         StateHasChanged();
     }
-
-    public void Show(string? currentScenarioId = null) => _ = ShowAsync(currentScenarioId);
 
     private void Close()
     {

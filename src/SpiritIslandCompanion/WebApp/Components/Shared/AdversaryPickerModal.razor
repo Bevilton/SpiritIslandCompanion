@@ -1,6 +1,6 @@
 @* Adversary picker modal: pick an adversary together with its level. The level
-   is selected inline via L0..L6 chips on the chosen adversary card. *@
-@inject WebApp.State.OwnedExpansionsState ExpansionsState
+   is selected inline via L0..L6 chips on the chosen adversary card.
+   OwnedExpansions is read from the AppShell cascade — the modal is auth-agnostic. *@
 
 @if (_open)
 {
@@ -92,18 +92,16 @@
     private static readonly Dictionary<string, string> _expansionNames =
         GameData.Expansions.ToDictionary(e => e.Id.Value, e => e.Name);
 
-    private IReadOnlyList<ExpansionId>? OwnedExpansions => ExpansionsState.Current;
+    [CascadingParameter(Name = "OwnedExpansions")]
+    public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
 
-    public async Task ShowAsync()
+    public void Show()
     {
-        await ExpansionsState.EnsureLoadedAsync();
         _query = "";
         _expandedId = null;
         _open = true;
         StateHasChanged();
     }
-
-    public void Show() => _ = ShowAsync();
 
     private void Close()
     {

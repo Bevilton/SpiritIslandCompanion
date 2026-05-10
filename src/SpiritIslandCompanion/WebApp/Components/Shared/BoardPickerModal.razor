@@ -1,5 +1,5 @@
-@* Board picker. Shows boards as colored letter tiles grouped by expansion. *@
-@inject WebApp.State.OwnedExpansionsState ExpansionsState
+@* Board picker. Shows boards as colored letter tiles grouped by expansion.
+   OwnedExpansions is read from the AppShell cascade — the modal is auth-agnostic. *@
 
 @if (_open)
 {
@@ -86,17 +86,15 @@
     private string? _currentBoardId;
     private int _taken => BoardsTaken.Count;
 
-    private IReadOnlyList<ExpansionId>? OwnedExpansions => ExpansionsState.Current;
+    [CascadingParameter(Name = "OwnedExpansions")]
+    public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
 
-    public async Task ShowAsync(string? currentBoardId = null)
+    public void Show(string? currentBoardId = null)
     {
-        await ExpansionsState.EnsureLoadedAsync();
         _currentBoardId = currentBoardId;
         _open = true;
         StateHasChanged();
     }
-
-    public void Show(string? currentBoardId = null) => _ = ShowAsync(currentBoardId);
 
     private void Close()
     {

@@ -4,8 +4,6 @@
 @inject IMediator Mediator
 @inject ICurrentUserService CurrentUser
 @inject NavigationManager Nav
-@inject WebApp.State.OwnedExpansionsState ExpansionsState
-@implements IDisposable
 
 <PageTitle>New Game</PageTitle>
 
@@ -643,7 +641,8 @@ else
     private int _editingBoardIndex = -1;
     private int _editingAdversaryIndex = -1; // -1 means "add new"
 
-    private IReadOnlyList<ExpansionId>? OwnedExpansions => ExpansionsState.Current;
+    [CascadingParameter(Name = "OwnedExpansions")]
+    public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
 
     private int ComputedDifficulty
     {
@@ -687,9 +686,6 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        ExpansionsState.Changed += OnExpansionsChanged;
-        await ExpansionsState.EnsureLoadedAsync();
-
         if (CurrentUser.UserId is not { } userId) return;
 
         var friendsResult = await Mediator.Send(new Application.Features.Friendships.ListFriendsQuery(userId));
@@ -700,10 +696,6 @@ else
 
         _loading = false;
     }
-
-    private void OnExpansionsChanged() => InvokeAsync(StateHasChanged);
-
-    public void Dispose() => ExpansionsState.Changed -= OnExpansionsChanged;
 
     @* ============== Player editing ============== *@
     private void AddPlayer() => _players.Add(new PlayerFormItem());

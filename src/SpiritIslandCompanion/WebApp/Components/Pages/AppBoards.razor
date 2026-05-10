@@ -1,21 +1,12 @@
 @page "/app/boards"
 @attribute [Authorize]
 @rendermode InteractiveServer
-@inject WebApp.State.OwnedExpansionsState ExpansionsState
-@implements IDisposable
 
 <PageTitle>Boards</PageTitle>
 
-<BoardsView OwnedExpansions="@ExpansionsState.Current"/>
+<BoardsView OwnedExpansions="@OwnedExpansions"/>
 
 @code {
-    protected override async Task OnInitializedAsync()
-    {
-        ExpansionsState.Changed += OnExpansionsChanged;
-        await ExpansionsState.EnsureLoadedAsync();
-    }
-
-    private void OnExpansionsChanged() => InvokeAsync(StateHasChanged);
-
-    public void Dispose() => ExpansionsState.Changed -= OnExpansionsChanged;
+    [CascadingParameter(Name = "OwnedExpansions")]
+    public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
 }

@@ -18,7 +18,7 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure();
 builder.Services.AddOidcAuthentication(builder.Configuration, builder.Environment);
 builder.Services.AddCascadingAuthenticationState();
-builder.Services.AddScoped<OwnedExpansionsState>();
+builder.Services.AddScoped<CurrentUserState>();
 
 var app = builder.Build();
 
