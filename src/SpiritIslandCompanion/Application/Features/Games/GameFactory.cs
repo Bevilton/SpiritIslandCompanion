@@ -48,7 +48,7 @@ internal static class GameFactory
             ? new PlayedScenario(new PlayedScenarioId(Guid.NewGuid()), new ScenarioId(scenarioId))
             : null;
 
-    public static Result<GameResult> BuildResult(GameResultDto dto, Difficulty difficulty)
+    public static Result<GameResult> BuildResult(GameResultDto dto, Difficulty difficulty, int playerCount)
     {
         var cards = CardsCount.Create(dto.Cards);
         var blight = BlightCount.Create(dto.Blight);
@@ -61,7 +61,7 @@ internal static class GameFactory
         if (scoreMod.IsFailure) return Result.Failure<GameResult>(scoreMod.Error);
 
         var scoreResult = ScoreCalculator.Calculate(
-            dto.Win, difficulty, dahan.Value, cards.Value, blight.Value, dto.TerrorLevel, scoreMod.Value);
+            dto.Win, difficulty, dahan.Value, cards.Value, blight.Value, playerCount, scoreMod.Value);
 
         if (scoreResult.IsFailure) return Result.Failure<GameResult>(scoreResult.Error);
 

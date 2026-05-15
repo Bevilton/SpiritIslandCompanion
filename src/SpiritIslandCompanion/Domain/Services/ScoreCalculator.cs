@@ -1,13 +1,12 @@
 using Domain.Models.Game;
-using Domain.Models.Game.Enums;
 using Domain.Results;
 
 namespace Domain.Services;
 
 /// <summary>
-/// Calculates the game score based on the official Spirit Island scoring rules.
-/// Score = Difficulty + Dahan + InvaderCards remaining in deck - Blight + TerrorLevelBonus + ScoreModifier.
-/// A loss subtracts a fixed penalty instead of adding the terror bonus.
+/// Win:  5×difficulty + 10 + 2×cardsRemaining + dahan/players − blight/players + modifier
+/// Loss: 2×difficulty + cardsUsed             + dahan/players − blight/players + modifier
+/// The cards field stores "remaining" on win and "used" on loss.
 /// </summary>
 public static class ScoreCalculator
 {
@@ -17,29 +16,30 @@ public static class ScoreCalculator
         DahanCount dahan,
         CardsCount cards,
         BlightCount blight,
-        TerrorLevel terrorLevel,
+        int playerCount,
         ScoreModifier scoreModifier)
     {
-        var terrorBonus = win ? GetTerrorLevelBonus(terrorLevel) : GetLossPenalty();
+        var players = Math.Max(1, playerCount);
 
-        var total = difficulty.Value
-                    + dahan.Value
-                    + cards.Value
-                    - blight.Value
-                    + terrorBonus
+        int total;
+        if (win)
+        {
+            total = 5 * difficulty.Value
+                    + 10
+                    + 2 * cards.Value
+                    + dahan.Value / players
+                    - blight.Value / players
                     + scoreModifier.Value;
+        }
+        else
+        {
+            total = 2 * difficulty.Value
+                    + cards.Value
+                    + dahan.Value / players
+                    - blight.Value / players
+                    + scoreModifier.Value;
+        }
 
         return Score.Create(Math.Max(0, total));
     }
-
-    private static int GetTerrorLevelBonus(TerrorLevel terrorLevel) => terrorLevel switch
-    {
-        TerrorLevel.First => 5,
-        TerrorLevel.Second => 10,
-        TerrorLevel.Third => 15,
-        TerrorLevel.Max => 20,
-        _ => 0
-    };
-
-    private static int GetLossPenalty() => -5;
 }

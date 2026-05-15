@@ -59,7 +59,7 @@ internal sealed class CreateGameHandler(IAppDbContext db) : ICommandHandler<Crea
         var adversaries = GameFactory.BuildAdversaries(request.Adversaries);
         var scenario = GameFactory.BuildScenario(request.ScenarioId);
 
-        var gameResultOrError = GameFactory.BuildResult(request.Result, difficultyResult.Value);
+        var gameResultOrError = GameFactory.BuildResult(request.Result, difficultyResult.Value, players.Count);
         if (gameResultOrError.IsFailure)
             return Result.Failure(gameResultOrError.Error);
 

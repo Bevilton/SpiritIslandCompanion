@@ -117,7 +117,7 @@ else
                         <dd class="col-span-2 text-ink-900">@_game.Result.Dahan</dd>
                         <dt class="text-ink-500">Blight</dt>
                         <dd class="col-span-2 text-ink-900">@_game.Result.Blight</dd>
-                        <dt class="text-ink-500">Cards in deck</dt>
+                        <dt class="text-ink-500">@(_game.Result.Win ? "Cards remaining" : "Cards used")</dt>
                         <dd class="col-span-2 text-ink-900">@_game.Result.Cards</dd>
                     </dl>
                 </div>
@@ -168,7 +168,7 @@ else
                         <input type="number" class="input" @bind="_resultBlight" min="0"/>
                     </div>
                     <div>
-                        <label class="label">Cards in invader deck</label>
+                        <label class="label">@(_resultWin ? "Cards remaining in deck" : "Enemy cards used")</label>
                         <input type="number" class="input" @bind="_resultCards" min="0"/>
                     </div>
                     <div>

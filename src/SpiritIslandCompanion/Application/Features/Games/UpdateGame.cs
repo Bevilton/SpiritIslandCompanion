@@ -63,7 +63,7 @@ internal sealed class UpdateGameHandler(IAppDbContext db) : ICommandHandler<Upda
         GameResult? gameResult = null;
         if (request.Result is not null)
         {
-            var resultOrError = GameFactory.BuildResult(request.Result, difficultyResult.Value);
+            var resultOrError = GameFactory.BuildResult(request.Result, difficultyResult.Value, players.Count);
             if (resultOrError.IsFailure) return Result.Failure(resultOrError.Error);
             gameResult = resultOrError.Value;
         }

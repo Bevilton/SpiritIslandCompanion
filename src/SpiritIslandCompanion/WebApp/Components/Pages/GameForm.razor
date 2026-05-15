@@ -397,15 +397,7 @@ else
                             <label class="label flex items-center gap-1.5">
                                 <span>Terror level</span>
                                 <InfoHint>
-                                    <strong class="text-ink-900">Terror level reached</strong> when the game ended (1–4).
-                                    @if (_resultWin)
-                                    {
-                                        <span class="block mt-1">On a <strong>victory</strong>, gives a bonus: <span class="text-ink-900">+5 (TL1) · +10 (TL2) · +15 (TL3) · +20 (Max)</span>.</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="block mt-1">On a <strong>defeat</strong>, terror level is ignored — a flat <span class="text-ink-900">−5 penalty</span> is applied instead.</span>
-                                    }
+                                    <strong class="text-ink-900">Terror level reached</strong> when the game ended. Tracked for reference but does not affect the score.
                                 </InfoHint>
                             </label>
                             <select class="select" @bind="_resultTerror">
@@ -423,7 +415,7 @@ else
                             <label class="label flex items-center gap-1.5">
                                 <span>Dahan remaining</span>
                                 <InfoHint>
-                                    <strong class="text-ink-900">Dahan tokens left on the island</strong> when the game ends. Each remaining Dahan adds <span class="text-ink-900">+1</span> to your score — protecting the natives matters whether you win or lose.
+                                    <strong class="text-ink-900">Dahan tokens left on the island</strong> when the game ends. Every <span class="text-ink-900">@_players.Count</span> Dahan adds <span class="text-ink-900">+1</span> to your score.
                                 </InfoHint>
                             </label>
                             <input type="number" class="input" @bind="_resultDahan" min="0"/>
@@ -432,17 +424,27 @@ else
                             <label class="label flex items-center gap-1.5">
                                 <span>Blight on island</span>
                                 <InfoHint>
-                                    <strong class="text-ink-900">Total Blight tokens on the island</strong> when the game ends. Each Blight subtracts <span class="text-ink-900">−1</span> from your score. A healthier island scores higher.
+                                    <strong class="text-ink-900">Total Blight tokens on the island</strong> when the game ends. Every <span class="text-ink-900">@_players.Count</span> Blight subtracts <span class="text-ink-900">−1</span> from your score.
                                 </InfoHint>
                             </label>
                             <input type="number" class="input" @bind="_resultBlight" min="0"/>
                         </div>
                         <div>
                             <label class="label flex items-center gap-1.5">
-                                <span>Cards in invader deck</span>
-                                <InfoHint>
-                                    Cards <strong class="text-ink-900">left undrawn</strong> in the invader deck at the end. Each remaining card adds <span class="text-ink-900">+1</span> to your score, so ending the game faster rewards you.
-                                </InfoHint>
+                                @if (_resultWin)
+                                {
+                                    <span>Cards remaining in invader deck</span>
+                                    <InfoHint>
+                                        Cards <strong class="text-ink-900">left undrawn</strong> in the invader deck at the end. Each remaining card adds <span class="text-ink-900">+2</span> to your score.
+                                    </InfoHint>
+                                }
+                                else
+                                {
+                                    <span>Enemy cards used</span>
+                                    <InfoHint>
+                                        Invader cards <strong class="text-ink-900">played or discarded</strong> during the game (not left in the deck). Each used card adds <span class="text-ink-900">+1</span> to your score.
+                                    </InfoHint>
+                                }
                             </label>
                             <input type="number" class="input" @bind="_resultCards" min="0"/>
                         </div>

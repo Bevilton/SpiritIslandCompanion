@@ -44,7 +44,7 @@ internal sealed class CompleteGameHandler(IAppDbContext db) : ICommandHandler<Co
         if (game.Result is not null)
             return Result.Failure(Error.Conflict("Game.AlreadyCompleted", "Game already has a result."));
 
-        var gameResultOrError = GameFactory.BuildResult(request.Result, game.Difficulty);
+        var gameResultOrError = GameFactory.BuildResult(request.Result, game.Difficulty, game.Players.Count);
         if (gameResultOrError.IsFailure)
             return Result.Failure(gameResultOrError.Error);
 
