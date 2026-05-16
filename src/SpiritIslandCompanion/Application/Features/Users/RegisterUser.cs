@@ -1,6 +1,9 @@
 using Application.Abstractions;
+using Application.Behaviour;
 using Application.Data;
+using Domain.Errors;
 using Domain.Models.Static;
+using Domain.Models.Static.Data;
 using Domain.Models.User;
 using Domain.Results;
 using FluentValidation;
@@ -21,8 +24,12 @@ internal sealed class RegisterUserValidator : AbstractValidator<RegisterUserComm
 {
     public RegisterUserValidator()
     {
-        RuleFor(x => x.Email).NotEmpty().EmailAddress();
-        RuleFor(x => x.Nickname).NotEmpty().MaximumLength(50);
+        RuleFor(x => x.Email)
+            .NotEmpty().WithDomainError(DomainErrors.User.EmailRequired)
+            .EmailAddress().WithDomainError(DomainErrors.User.EmailInvalid);
+        RuleFor(x => x.Nickname)
+            .NotEmpty().WithDomainError(DomainErrors.User.NicknameRequired)
+            .MaximumLength(Nickname.MaxLength).WithDomainError(DomainErrors.User.NicknameTooLong);
     }
 }
 
@@ -30,6 +37,16 @@ internal sealed class RegisterUserHandler(IAppDbContext db) : ICommandHandler<Re
 {
     public async Task<Result> Handle(RegisterUserCommand request, CancellationToken cancellationToken)
     {
+        var emailResult = Email.Create(request.Email);
+        if (emailResult.IsFailure) return Result.Failure(emailResult.Error);
+
+        var nicknameResult = Nickname.Create(request.Nickname);
+        if (nicknameResult.IsFailure) return Result.Failure(nicknameResult.Error);
+
+        if (request.OwnedExpansionIds is not null &&
+            request.OwnedExpansionIds.Any(id => GameData.Expansions.All(e => e.Id.Value != id)))
+            return Result.Failure(DomainErrors.User.UnknownExpansion);
+
         var existingUser = await db.Users
             .AsNoTracking()
             .FirstOrDefaultAsync(u => u.Email.Value == request.Email, cancellationToken);
@@ -44,8 +61,8 @@ internal sealed class RegisterUserHandler(IAppDbContext db) : ICommandHandler<Re
 
         var user = User.Create(
             new UserId(Guid.NewGuid()),
-            Email.Create(request.Email),
-            Nickname.Create(request.Nickname),
+            emailResult.Value,
+            nicknameResult.Value,
             settings,
             DateTimeOffset.UtcNow);
 

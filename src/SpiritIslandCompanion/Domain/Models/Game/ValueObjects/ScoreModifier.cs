@@ -15,7 +15,7 @@ public record ScoreModifier : ValueObject
 
     public static Result<ScoreModifier> Create(int value)
     {
-        if (value is < 0 or > GameRestrictions.MaximumScoreModifier)
+        if (value < GameRestrictions.MinimumScoreModifier || value > GameRestrictions.MaximumScoreModifier)
             return Result.Failure<ScoreModifier>(DomainErrors.Game.InvalidScoreModifier);
 
         return new ScoreModifier(value);

@@ -1,5 +1,7 @@
 using Application.Abstractions;
+using Application.Behaviour;
 using Application.Data;
+using Domain.Errors;
 using Domain.Models.Player;
 using Domain.Models.User;
 using Domain.Results;
@@ -13,8 +15,9 @@ internal sealed class CreatePlayerValidator : AbstractValidator<CreatePlayerComm
 {
     public CreatePlayerValidator()
     {
-        RuleFor(x => x.Name).NotEmpty().MaximumLength(100);
-        RuleFor(x => x.CreatedByUserId).NotEmpty();
+        RuleFor(x => x.Name)
+            .NotEmpty().WithDomainError(DomainErrors.Player.NameRequired)
+            .MaximumLength(PlayerName.MaxLength).WithDomainError(DomainErrors.Player.NameTooLong);
     }
 }
 
@@ -22,9 +25,13 @@ internal sealed class CreatePlayerHandler(IAppDbContext db) : ICommandHandler<Cr
 {
     public Task<Result> Handle(CreatePlayerCommand request, CancellationToken cancellationToken)
     {
+        var nameResult = PlayerName.Create(request.Name);
+        if (nameResult.IsFailure)
+            return Task.FromResult(Result.Failure(nameResult.Error));
+
         var player = Player.Create(
             new PlayerId(Guid.NewGuid()),
-            PlayerName.Create(request.Name),
+            nameResult.Value,
             new UserId(request.CreatedByUserId));
 
         db.Players.Add(player);

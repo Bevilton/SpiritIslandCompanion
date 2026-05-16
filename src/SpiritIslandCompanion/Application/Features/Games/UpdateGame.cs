@@ -1,6 +1,8 @@
 using Application.Abstractions;
+using Application.Behaviour;
 using Application.Data;
 using Application.Features.Games.Dtos;
+using Domain.Errors;
 using Domain.Models.Game;
 using Domain.Models.Static;
 using Domain.Results;
@@ -30,9 +32,24 @@ internal sealed class UpdateGameValidator : AbstractValidator<UpdateGameCommand>
 {
     public UpdateGameValidator()
     {
-        RuleFor(x => x.GameId).NotEmpty();
-        RuleFor(x => x.IslandSetupId).NotEmpty();
-        RuleFor(x => x.Players).NotEmpty();
+        RuleFor(x => x.IslandSetupId).NotEmpty().WithDomainError(DomainErrors.Game.IslandSetupRequired);
+        RuleFor(x => x.Players).NotEmpty().WithDomainError(DomainErrors.Game.PlayersRequired);
+        RuleForEach(x => x.Players).ChildRules(p =>
+        {
+            p.RuleFor(x => x.SpiritId).NotEmpty().WithDomainError(DomainErrors.Game.SpiritRequired);
+            p.RuleFor(x => x.BoardId).NotEmpty().WithDomainError(DomainErrors.Game.BoardRequired);
+            p.RuleFor(x => x).Must(x => x.UserId.HasValue || x.PlayerId.HasValue)
+                .WithDomainError(DomainErrors.Game.AssigneeRequired)
+                .OverridePropertyName("AssignedTo");
+        });
+        RuleFor(x => x.DifficultyModifier)
+            .InclusiveBetween(GameRestrictions.DifficultyModifierMin, GameRestrictions.DifficultyModifierMax)
+            .WithDomainError(DomainErrors.Game.InvalidDifficultyModifier);
+        RuleFor(x => x.Note!).MaximumLength(GameRestrictions.NoteLength)
+            .WithDomainError(DomainErrors.Game.NoteTooLong)
+            .When(x => x.Note is not null);
+        RuleFor(x => x.Result!).SetValidator(new GameResultDtoValidator())
+            .When(x => x.Result is not null);
     }
 }
 
@@ -49,6 +66,14 @@ internal sealed class UpdateGameHandler(IAppDbContext db) : ICommandHandler<Upda
 
         if (game is null)
             return Result.Failure(Error.NotFound("Game.NotFound", "Game not found."));
+
+        var catalogCheck = GameFactory.ValidateCatalogReferences(request.Players, request.Adversaries, request.ScenarioId);
+        if (catalogCheck.IsFailure)
+            return catalogCheck;
+
+        var duplicatesCheck = GameFactory.ValidateNoDuplicates(request.Players, request.Adversaries);
+        if (duplicatesCheck.IsFailure)
+            return duplicatesCheck;
 
         var friendshipCheck = await GameFactory.ValidatePlayerFriendships(game.OwnerId, request.Players, db, cancellationToken);
         if (friendshipCheck.IsFailure)

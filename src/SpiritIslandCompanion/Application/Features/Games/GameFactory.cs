@@ -79,6 +79,64 @@ internal static class GameFactory
     }
 
     /// <summary>
+    /// Verifies that every spirit / board / aspect / adversary / scenario id in the request
+    /// actually exists in the static catalog, and that adversary levels match a real mode
+    /// for the chosen adversary. Returns the first violation as a domain error.
+    /// </summary>
+    public static Result ValidateCatalogReferences(
+        List<GamePlayerDto> players,
+        List<GameAdversaryDto> adversaries,
+        string? scenarioId)
+    {
+        foreach (var p in players)
+        {
+            if (!string.IsNullOrEmpty(p.SpiritId) && GameData.Spirits.All(s => s.Id.Value != p.SpiritId))
+                return Result.Failure(DomainErrors.Game.UnknownSpirit);
+            if (!string.IsNullOrEmpty(p.BoardId) && GameData.Boards.All(b => b.Id.Value != p.BoardId))
+                return Result.Failure(DomainErrors.Game.UnknownBoard);
+            if (!string.IsNullOrEmpty(p.AspectId) && GameData.Aspects.All(a => a.Id.Value != p.AspectId))
+                return Result.Failure(DomainErrors.Game.UnknownAspect);
+        }
+
+        foreach (var a in adversaries)
+        {
+            var adv = GameData.Adversaries.FirstOrDefault(x => x.Id.Value == a.AdversaryId);
+            if (adv is null)
+                return Result.Failure(DomainErrors.Game.UnknownAdversary);
+            if (adv.Modes.All(m => m.Level != a.Level))
+                return Result.Failure(DomainErrors.Game.UnknownAdversaryLevel);
+        }
+
+        if (!string.IsNullOrEmpty(scenarioId) && GameData.Scenarios.All(s => s.Id.Value != scenarioId))
+            return Result.Failure(DomainErrors.Game.UnknownScenario);
+
+        return Result.Success();
+    }
+
+    /// <summary>
+    /// Rejects games where two players share a board, or the same adversary appears twice.
+    /// Both are game-rule violations that the UI prevents but a direct API call could send.
+    /// </summary>
+    public static Result ValidateNoDuplicates(List<GamePlayerDto> players, List<GameAdversaryDto> adversaries)
+    {
+        var boards = players
+            .Where(p => !string.IsNullOrEmpty(p.BoardId))
+            .Select(p => p.BoardId)
+            .ToList();
+        if (boards.Count != boards.Distinct().Count())
+            return Result.Failure(DomainErrors.Game.DuplicateBoard);
+
+        var advIds = adversaries
+            .Where(a => !string.IsNullOrEmpty(a.AdversaryId))
+            .Select(a => a.AdversaryId)
+            .ToList();
+        if (advIds.Count != advIds.Distinct().Count())
+            return Result.Failure(DomainErrors.Game.DuplicateAdversary);
+
+        return Result.Success();
+    }
+
+    /// <summary>
     /// Validates the island setup matches the player count (+ optional extra board) and the
     /// thematic-maps toggle. Returns Success if the combination is allowed.
     /// </summary>

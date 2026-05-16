@@ -1,5 +1,7 @@
 using Application.Abstractions;
+using Application.Behaviour;
 using Application.Data;
+using Domain.Errors;
 using Domain.Models.Player;
 using Domain.Results;
 using FluentValidation;
@@ -13,8 +15,9 @@ internal sealed class UpdatePlayerValidator : AbstractValidator<UpdatePlayerComm
 {
     public UpdatePlayerValidator()
     {
-        RuleFor(x => x.PlayerId).NotEmpty();
-        RuleFor(x => x.Name).NotEmpty().MaximumLength(100);
+        RuleFor(x => x.Name)
+            .NotEmpty().WithDomainError(DomainErrors.Player.NameRequired)
+            .MaximumLength(PlayerName.MaxLength).WithDomainError(DomainErrors.Player.NameTooLong);
     }
 }
 
@@ -22,13 +25,17 @@ internal sealed class UpdatePlayerHandler(IAppDbContext db) : ICommandHandler<Up
 {
     public async Task<Result> Handle(UpdatePlayerCommand request, CancellationToken cancellationToken)
     {
+        var nameResult = PlayerName.Create(request.Name);
+        if (nameResult.IsFailure)
+            return Result.Failure(nameResult.Error);
+
         var player = await db.Players
             .FirstOrDefaultAsync(p => p.Id == new PlayerId(request.PlayerId), cancellationToken);
 
         if (player is null)
             return Result.Failure(Error.NotFound("Player.NotFound", "Player not found."));
 
-        player.Rename(PlayerName.Create(request.Name));
+        player.Rename(nameResult.Value);
         return Result.Success();
     }
 }

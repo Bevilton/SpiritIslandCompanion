@@ -4,7 +4,6 @@ using Domain.Errors;
 using Domain.Models.Friendship;
 using Domain.Models.User;
 using Domain.Results;
-using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 
 namespace Application.Features.Friendships;
@@ -13,15 +12,6 @@ namespace Application.Features.Friendships;
 /// Removes an accepted friendship. Either party can remove.
 /// </summary>
 public sealed record RemoveFriendCommand(Guid FriendshipId, Guid CurrentUserId) : ICommand;
-
-internal sealed class RemoveFriendValidator : AbstractValidator<RemoveFriendCommand>
-{
-    public RemoveFriendValidator()
-    {
-        RuleFor(x => x.FriendshipId).NotEmpty();
-        RuleFor(x => x.CurrentUserId).NotEmpty();
-    }
-}
 
 internal sealed class RemoveFriendHandler(IAppDbContext db) : ICommandHandler<RemoveFriendCommand>
 {

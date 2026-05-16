@@ -1,0 +1,16 @@
+@using WebApp.Validation
+
+@if (Errors is not null && Errors.HasFor(For))
+{
+    <div class="mt-1 text-xs text-red-600">
+        @foreach (var msg in Errors.AllFor(For))
+        {
+            <div>@msg</div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public string For { get; set; } = default!;
+    [Parameter] public FormErrors? Errors { get; set; }
+}

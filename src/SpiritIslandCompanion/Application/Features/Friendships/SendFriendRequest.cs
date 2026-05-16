@@ -1,4 +1,5 @@
 using Application.Abstractions;
+using Application.Behaviour;
 using Application.Data;
 using Domain.Errors;
 using Domain.Models.Friendship;
@@ -18,8 +19,9 @@ internal sealed class SendFriendRequestValidator : AbstractValidator<SendFriendR
 {
     public SendFriendRequestValidator()
     {
-        RuleFor(x => x.RequesterId).NotEmpty();
-        RuleFor(x => x.AddresseeEmail).NotEmpty().EmailAddress();
+        RuleFor(x => x.AddresseeEmail)
+            .NotEmpty().WithDomainError(DomainErrors.User.EmailRequired)
+            .EmailAddress().WithDomainError(DomainErrors.User.EmailInvalid);
     }
 }
 

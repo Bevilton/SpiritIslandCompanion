@@ -1,27 +1,23 @@
 using Application.Abstractions;
 using Application.Data;
+using Domain.Errors;
 using Domain.Models.Static;
+using Domain.Models.Static.Data;
 using Domain.Models.User;
 using Domain.Results;
-using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 
 namespace Application.Features.Users;
 
 public sealed record UpdateUserSettingsCommand(Guid UserId, List<string> OwnedExpansionIds) : ICommand;
 
-internal sealed class UpdateUserSettingsValidator : AbstractValidator<UpdateUserSettingsCommand>
-{
-    public UpdateUserSettingsValidator()
-    {
-        RuleFor(x => x.UserId).NotEmpty();
-    }
-}
-
 internal sealed class UpdateUserSettingsHandler(IAppDbContext db) : ICommandHandler<UpdateUserSettingsCommand>
 {
     public async Task<Result> Handle(UpdateUserSettingsCommand request, CancellationToken cancellationToken)
     {
+        if (request.OwnedExpansionIds.Any(id => GameData.Expansions.All(e => e.Id.Value != id)))
+            return Result.Failure(DomainErrors.User.UnknownExpansion);
+
         var user = await db.Users
             .Include(u => u.UserSettings)
             .FirstOrDefaultAsync(u => u.Id == new UserId(request.UserId), cancellationToken);

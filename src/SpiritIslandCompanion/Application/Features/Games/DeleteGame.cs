@@ -1,21 +1,13 @@
 using Application.Abstractions;
 using Application.Data;
+using Domain.Errors;
 using Domain.Models.Game;
 using Domain.Results;
-using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 
 namespace Application.Features.Games;
 
 public sealed record DeleteGameCommand(Guid GameId) : ICommand;
-
-internal sealed class DeleteGameValidator : AbstractValidator<DeleteGameCommand>
-{
-    public DeleteGameValidator()
-    {
-        RuleFor(x => x.GameId).NotEmpty();
-    }
-}
 
 internal sealed class DeleteGameHandler(IAppDbContext db) : ICommandHandler<DeleteGameCommand>
 {

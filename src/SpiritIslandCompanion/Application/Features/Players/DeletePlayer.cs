@@ -1,21 +1,13 @@
 using Application.Abstractions;
 using Application.Data;
+using Domain.Errors;
 using Domain.Models.Player;
 using Domain.Results;
-using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 
 namespace Application.Features.Players;
 
 public sealed record DeletePlayerCommand(Guid PlayerId) : ICommand;
-
-internal sealed class DeletePlayerValidator : AbstractValidator<DeletePlayerCommand>
-{
-    public DeletePlayerValidator()
-    {
-        RuleFor(x => x.PlayerId).NotEmpty();
-    }
-}
 
 internal sealed class DeletePlayerHandler(IAppDbContext db) : ICommandHandler<DeletePlayerCommand>
 {

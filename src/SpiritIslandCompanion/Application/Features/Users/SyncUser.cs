@@ -1,5 +1,7 @@
 using Application.Abstractions;
+using Application.Behaviour;
 using Application.Data;
+using Domain.Errors;
 using Domain.Models.User;
 using Domain.Results;
 using FluentValidation;
@@ -22,8 +24,12 @@ internal sealed class SyncUserValidator : AbstractValidator<SyncUserCommand>
 {
     public SyncUserValidator()
     {
-        RuleFor(x => x.Email).NotEmpty().EmailAddress();
-        RuleFor(x => x.Nickname).NotEmpty().MaximumLength(50);
+        RuleFor(x => x.Email)
+            .NotEmpty().WithDomainError(DomainErrors.User.EmailRequired)
+            .EmailAddress().WithDomainError(DomainErrors.User.EmailInvalid);
+        RuleFor(x => x.Nickname)
+            .NotEmpty().WithDomainError(DomainErrors.User.NicknameRequired)
+            .MaximumLength(Nickname.MaxLength).WithDomainError(DomainErrors.User.NicknameTooLong);
     }
 }
 
@@ -31,13 +37,19 @@ internal sealed class SyncUserHandler(IAppDbContext db) : IQueryHandler<SyncUser
 {
     public async Task<Result<SyncUserResponse>> Handle(SyncUserCommand request, CancellationToken cancellationToken)
     {
+        var emailResult = Email.Create(request.Email);
+        if (emailResult.IsFailure) return Result.Failure<SyncUserResponse>(emailResult.Error);
+
+        var nicknameResult = Nickname.Create(request.Nickname);
+        if (nicknameResult.IsFailure) return Result.Failure<SyncUserResponse>(nicknameResult.Error);
+
         var user = await db.Users
             .Include(u => u.UserSettings)
             .FirstOrDefaultAsync(u => u.Email.Value == request.Email, cancellationToken);
 
         if (user is not null)
         {
-            user.UpdateProfile(Nickname.Create(request.Nickname));
+            user.UpdateProfile(nicknameResult.Value);
             return new SyncUserResponse(user.Id.Value);
         }
 
@@ -46,8 +58,8 @@ internal sealed class SyncUserHandler(IAppDbContext db) : IQueryHandler<SyncUser
 
         var newUser = User.Create(
             new UserId(Guid.NewGuid()),
-            Email.Create(request.Email),
-            Nickname.Create(request.Nickname),
+            emailResult.Value,
+            nicknameResult.Value,
             settings,
             DateTimeOffset.UtcNow);
 

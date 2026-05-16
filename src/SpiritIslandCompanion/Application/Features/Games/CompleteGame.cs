@@ -1,9 +1,10 @@
 using Application.Abstractions;
+using Application.Behaviour;
 using Application.Data;
 using Application.Features.Games.Dtos;
+using Domain.Errors;
 using Domain.Models.Game;
 using Domain.Results;
-using Domain.Services;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 
@@ -22,8 +23,12 @@ internal sealed class CompleteGameValidator : AbstractValidator<CompleteGameComm
 {
     public CompleteGameValidator()
     {
-        RuleFor(x => x.GameId).NotEmpty();
-        RuleFor(x => x.Result).NotNull();
+        RuleFor(x => x.Note!).MaximumLength(GameRestrictions.NoteLength)
+            .WithDomainError(DomainErrors.Game.NoteTooLong)
+            .When(x => x.Note is not null);
+        RuleFor(x => x.Result).NotNull().WithDomainError(DomainErrors.Game.ResultRequired);
+        RuleFor(x => x.Result).SetValidator(new GameResultDtoValidator())
+            .When(x => x.Result is not null);
     }
 }
 

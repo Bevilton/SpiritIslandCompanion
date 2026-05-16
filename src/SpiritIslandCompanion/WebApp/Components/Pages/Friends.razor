@@ -14,6 +14,7 @@
 </div>
 
 <Alert Message="@_message" Type="@_alertType"/>
+<FormErrorSummary Errors="@_errors"/>
 
 @if (_loading)
 {
@@ -25,9 +26,12 @@ else
         <div class="surface-head"><h2 class="text-base font-semibold">Send a friend request</h2></div>
         <div class="surface-body">
             <div class="flex flex-col sm:flex-row gap-2 max-w-xl">
-                <input type="email" class="input flex-1" placeholder="friend@example.com"
-                       @bind="_friendEmail" @bind:event="oninput"/>
-                <button class="btn btn-primary" @onclick="SendRequest" disabled="@string.IsNullOrWhiteSpace(_friendEmail)">
+                <div class="flex-1">
+                    <input type="email" class="input w-full" placeholder="friend@example.com"
+                           @bind="_friendEmail" @bind:event="oninput"/>
+                    <FieldError For="AddresseeEmail" Errors="@_errors"/>
+                </div>
+                <button class="btn btn-primary self-start" @onclick="SendRequest" disabled="@string.IsNullOrWhiteSpace(_friendEmail)">
                     <Icon Name="send" Class="w-4 h-4"/> Send
                 </button>
             </div>
@@ -124,7 +128,27 @@ else
     private string _friendEmail = "";
     private string? _message;
     private string _alertType = "success";
+    private FormErrors _errors = FormErrors.Empty;
     private ConfirmDialog _confirmDialog = default!;
+
+    private void HandleResult(Domain.Results.Result result, string successMessage, string successAlertType = "success")
+    {
+        _errors = FormErrors.FromResult(result);
+        if (result.IsSuccess)
+        {
+            _message = successMessage;
+            _alertType = successAlertType;
+        }
+        else if (_errors.Any)
+        {
+            _message = null;
+        }
+        else
+        {
+            _message = result.Error.Message;
+            _alertType = "danger";
+        }
+    }
 
     protected override async Task OnInitializedAsync() => await LoadData();
 
@@ -143,20 +167,15 @@ else
 
     private async Task SendRequest()
     {
+        var email = _friendEmail;
         var result = await Mediator.Send(new Application.Features.Friendships.SendFriendRequestCommand(
             CurrentUser.UserId!.Value, _friendEmail));
 
+        HandleResult(result, $"Friend request sent to {email}!");
         if (result.IsSuccess)
         {
-            _message = $"Friend request sent to {_friendEmail}!";
-            _alertType = "success";
             _friendEmail = "";
             await LoadData();
-        }
-        else
-        {
-            _message = result.Error.Message;
-            _alertType = "danger";
         }
     }
 
@@ -164,8 +183,7 @@ else
     {
         var result = await Mediator.Send(new Application.Features.Friendships.AcceptFriendRequestCommand(
             friendshipId, CurrentUser.UserId!.Value));
-        _message = result.IsSuccess ? "Friend request accepted." : result.Error.Message;
-        _alertType = result.IsSuccess ? "success" : "danger";
+        HandleResult(result, "Friend request accepted.");
         await LoadData();
     }
 
@@ -173,8 +191,7 @@ else
     {
         var result = await Mediator.Send(new Application.Features.Friendships.RejectFriendRequestCommand(
             friendshipId, CurrentUser.UserId!.Value));
-        _message = result.IsSuccess ? "Friend request rejected." : result.Error.Message;
-        _alertType = result.IsSuccess ? "info" : "danger";
+        HandleResult(result, "Friend request rejected.", "info");
         await LoadData();
     }
 
@@ -184,8 +201,7 @@ else
 
         var result = await Mediator.Send(new Application.Features.Friendships.RemoveFriendCommand(
             friendshipId, CurrentUser.UserId!.Value));
-        _message = result.IsSuccess ? "Friend removed." : result.Error.Message;
-        _alertType = result.IsSuccess ? "info" : "danger";
+        HandleResult(result, "Friend removed.", "info");
         await LoadData();
     }
 }

@@ -4,7 +4,6 @@ using Domain.Errors;
 using Domain.Models.Friendship;
 using Domain.Models.User;
 using Domain.Results;
-using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 
 namespace Application.Features.Friendships;
@@ -13,15 +12,6 @@ namespace Application.Features.Friendships;
 /// Accepts a pending friend request. Only the addressee can accept.
 /// </summary>
 public sealed record AcceptFriendRequestCommand(Guid FriendshipId, Guid CurrentUserId) : ICommand;
-
-internal sealed class AcceptFriendRequestValidator : AbstractValidator<AcceptFriendRequestCommand>
-{
-    public AcceptFriendRequestValidator()
-    {
-        RuleFor(x => x.FriendshipId).NotEmpty();
-        RuleFor(x => x.CurrentUserId).NotEmpty();
-    }
-}
 
 internal sealed class AcceptFriendRequestHandler(IAppDbContext db) : ICommandHandler<AcceptFriendRequestCommand>
 {

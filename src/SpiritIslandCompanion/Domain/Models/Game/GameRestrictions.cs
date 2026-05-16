@@ -8,6 +8,7 @@ public static class GameRestrictions
     public const int MaximumDahanCount = 1000;
     public const int MaximumScore = 1000;
     public const int MaximumScoreModifier = 1000;
+    public const int MinimumScoreModifier = -1000;
     public const int MaximumAdversaryLevel = 6;
     public const int MaximumDifficulty = 20;
 

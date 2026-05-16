@@ -18,6 +18,7 @@
 </div>
 
 <Alert Message="@_message" Type="@_alertType"/>
+<FormErrorSummary Errors="@_errors"/>
 
 @if (_loading)
 {
@@ -63,6 +64,8 @@ else
                 <p class="text-sm text-ink-500">Pick a spirit, board, and who's playing it. Add as many as you need.</p>
             </div>
         </div>
+
+        <FieldError For="Players" Errors="@_errors"/>
 
         <div class="grid gap-3">
             @for (var i = 0; i < _players.Count; i++)
@@ -135,6 +138,7 @@ else
                                         <span class="text-sm text-ink-500 truncate min-w-0 flex-1">Choose a spirit…</span>
                                     }
                                 </button>
+                                <FieldError For="@($"Players[{idx}].SpiritId")" Errors="@_errors"/>
                             </div>
 
                             @* Board picker *@
@@ -169,6 +173,7 @@ else
                                         <span class="text-sm text-ink-500 truncate min-w-0 flex-1">Pick…</span>
                                     }
                                 </button>
+                                <FieldError For="@($"Players[{idx}].BoardId")" Errors="@_errors"/>
                             </div>
 
                             @* Assignee *@
@@ -179,6 +184,7 @@ else
                                     ValueChanged="v => OnAssigneeChanged(idx, v)"
                                     Friends="_friends"
                                     LocalPlayers="_localPlayers"/>
+                                <FieldError For="@($"Players[{idx}].AssignedTo")" Errors="@_errors"/>
                             </div>
                         </div>
 
@@ -276,6 +282,7 @@ else
                     <span class="text-ink-500 font-normal normal-case tracking-normal">— @EffectiveBoardCount board@(EffectiveBoardCount == 1 ? "" : "s")@(_thematicMaps ? " · thematic" : "")</span>
                 </label>
                 <IslandSetupPicker @bind-Value="_islandSetupId" PlayerCount="EffectiveBoardCount" Thematic="_thematicMaps"/>
+                <FieldError For="IslandSetupId" Errors="@_errors"/>
                 @if (_thematicMaps && !ThematicAvailableForBoardCount)
                 {
                     <p class="mt-2 text-xs text-red-600">No thematic layout exists for @EffectiveBoardCount boards. Turn off <em>Thematic maps</em> or @(_extraBoard ? "disable the extra board" : "enable the extra board").</p>
@@ -377,8 +384,11 @@ else
                     </label>
                     <p class="text-[11px] text-ink-500 m-0">Added directly to total difficulty.</p>
                 </div>
-                <input type="number" class="input h-12" @bind="_difficultyModifier"
-                       min="@GameRestrictions.DifficultyModifierMin" max="@GameRestrictions.DifficultyModifierMax"/>
+                <div>
+                    <input type="number" class="input h-12 w-full" @bind="_difficultyModifier"
+                           min="@GameRestrictions.DifficultyModifierMin" max="@GameRestrictions.DifficultyModifierMax"/>
+                    <FieldError For="DifficultyModifier" Errors="@_errors"/>
+                </div>
             </div>
 
             @* Difficulty hero *@
@@ -492,10 +502,12 @@ else
                                     <option value="@t">@t</option>
                                 }
                             </select>
+                            <FieldError For="Result.TerrorLevel" Errors="@_errors"/>
                         </div>
                         <div>
                             <label class="label">Duration (min)</label>
                             <input type="number" class="input" @bind="_resultDuration" min="0"/>
+                            <FieldError For="Result.Duration" Errors="@_errors"/>
                         </div>
                         <div>
                             <label class="label flex items-center gap-1.5">
@@ -505,6 +517,7 @@ else
                                 </InfoHint>
                             </label>
                             <input type="number" class="input" @bind="_resultDahan" min="0"/>
+                            <FieldError For="Result.Dahan" Errors="@_errors"/>
                         </div>
                         <div>
                             <label class="label flex items-center gap-1.5">
@@ -514,6 +527,7 @@ else
                                 </InfoHint>
                             </label>
                             <input type="number" class="input" @bind="_resultBlight" min="0"/>
+                            <FieldError For="Result.Blight" Errors="@_errors"/>
                         </div>
                         <div>
                             <label class="label flex items-center gap-1.5">
@@ -533,6 +547,7 @@ else
                                 }
                             </label>
                             <input type="number" class="input" @bind="_resultCards" min="0"/>
+                            <FieldError For="Result.Cards" Errors="@_errors"/>
                         </div>
                         <div>
                             <label class="label flex items-center gap-1.5">
@@ -542,6 +557,7 @@ else
                                 </InfoHint>
                             </label>
                             <input type="number" class="input" @bind="_resultScoreMod"/>
+                            <FieldError For="Result.ScoreModifier" Errors="@_errors"/>
                         </div>
                     </div>
 
@@ -589,6 +605,7 @@ else
             <div class="surface-head"><h2 class="text-base font-semibold">Note</h2></div>
             <div class="surface-body">
                 <textarea class="textarea" rows="3" @bind="_note" placeholder="Optional game notes — anything memorable from the match…"></textarea>
+                <FieldError For="Note" Errors="@_errors"/>
             </div>
         </div>
     </section>
@@ -755,6 +772,21 @@ else
     private bool _saving;
     private string? _message;
     private string _alertType = "danger";
+    private FormErrors _errors = FormErrors.Empty;
+
+    private void ApplyErrors(Domain.Results.Result result)
+    {
+        _errors = FormErrors.FromResult(result);
+        if (_errors.Any)
+        {
+            _message = null;
+        }
+        else
+        {
+            _message = result.Error.Message;
+            _alertType = "danger";
+        }
+    }
 
     private string _islandSetupId = "";
     private string? _scenarioId;
@@ -1023,10 +1055,7 @@ else
         if (result.IsSuccess)
             Nav.NavigateTo("/app/games");
         else
-        {
-            _message = result.Error.Message;
-            _alertType = "danger";
-        }
+            ApplyErrors(result);
     }
 
     private async Task SaveCompleted()
@@ -1054,10 +1083,7 @@ else
         if (result.IsSuccess)
             Nav.NavigateTo("/app/games");
         else
-        {
-            _message = result.Error.Message;
-            _alertType = "danger";
-        }
+            ApplyErrors(result);
     }
 
     private class PlayerFormItem
