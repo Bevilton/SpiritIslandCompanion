@@ -1008,7 +1008,7 @@ else
         _saving = true;
         var cmd = new Application.Features.Games.DraftGameCommand(
             CurrentUser.UserId!.Value,
-            new DateTimeOffset(_datePlayed, TimeSpan.Zero),
+            new DateTimeOffset(DateTime.SpecifyKind(_datePlayed, DateTimeKind.Unspecified), TimeSpan.Zero),
             _islandSetupId,
             _extraBoard && ExtraBoardAllowed,
             _thematicMaps,
@@ -1038,7 +1038,7 @@ else
 
         var cmd = new Application.Features.Games.CreateGameCommand(
             CurrentUser.UserId!.Value,
-            new DateTimeOffset(_datePlayed, TimeSpan.Zero),
+            new DateTimeOffset(DateTime.SpecifyKind(_datePlayed, DateTimeKind.Unspecified), TimeSpan.Zero),
             _islandSetupId,
             _extraBoard && ExtraBoardAllowed,
             _thematicMaps,
