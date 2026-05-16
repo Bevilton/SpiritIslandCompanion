@@ -26,17 +26,26 @@
 else
 {
     @* === COMPACT SUMMARY (mobile + tablet only) — replaced on lg+ by the right sticky panel === *@
-    <div class="lg:hidden surface mb-6 px-5 py-4 grid grid-cols-2 gap-4 items-start">
+    <div class="lg:hidden surface mb-6 px-5 py-4 grid @(_includeResult ? "grid-cols-3" : "grid-cols-2") gap-4 items-start">
         <div>
             <div class="text-[10px] uppercase tracking-wider text-ink-500">Players</div>
             <div class="mt-0.5 text-lg font-semibold text-ink-900">@_players.Count @(_players.Count == 1 ? "player" : "players")</div>
         </div>
-        <div class="text-right">
+        <div class="@(_includeResult ? "text-center" : "text-right")">
             <div class="text-[10px] uppercase tracking-wider text-ink-500">Difficulty</div>
             <div class="mt-0.5 text-2xl font-semibold text-accent-800 leading-none" style="font-family: var(--font-serif);">
                 @ComputedDifficulty
             </div>
         </div>
+        @if (_includeResult)
+        {
+            <div class="text-right">
+                <div class="text-[10px] uppercase tracking-wider text-ink-500">Score</div>
+                <div class="mt-0.5 text-2xl font-semibold @(_resultWin ? "text-accent-800" : "text-red-700") leading-none tabular-nums" style="font-family: var(--font-serif);">
+                    @ComputedScore
+                </div>
+            </div>
+        }
     </div>
 
     @* === Two-column grid on lg+: form on the left, sticky summary on the right.
@@ -535,6 +544,40 @@ else
                             <input type="number" class="input" @bind="_resultScoreMod"/>
                         </div>
                     </div>
+
+                    @* Live score breakdown *@
+                    @{
+                        var players = Math.Max(1, _players.Count);
+                        var diffPart = _resultWin ? 5 * ComputedDifficulty : 2 * ComputedDifficulty;
+                        var cardsPart = _resultWin ? 2 * _resultCards : _resultCards;
+                        var dahanPart = _resultDahan / players;
+                        var blightPart = _resultBlight / players;
+                    }
+                    <div class="rounded-xl bg-gradient-to-br @(_resultWin ? "from-accent-50 to-accent-100/60 border-accent-200" : "from-red-50 to-red-100/40 border-red-200") border p-5 flex items-center justify-between gap-4">
+                        <div>
+                            <div class="text-[11px] uppercase tracking-wider @(_resultWin ? "text-accent-700" : "text-red-700") font-semibold">Score preview</div>
+                            <div class="text-4xl font-bold @(_resultWin ? "text-accent-900" : "text-red-900") mt-1 leading-none" style="font-family: var(--font-serif);">@ComputedScore</div>
+                            <div class="mt-1 text-[11px] @(_resultWin ? "text-accent-800/70" : "text-red-800/70")">@(_resultWin ? "Victory formula" : "Defeat formula")</div>
+                        </div>
+                        <div class="text-xs @(_resultWin ? "text-accent-800/80" : "text-red-800/80") text-right space-y-0.5 tabular-nums">
+                            <div>@(_resultWin ? "5 ×" : "2 ×") difficulty (@ComputedDifficulty) <span class="opacity-70">@FormatSigned(diffPart)</span></div>
+                            @if (_resultWin)
+                            {
+                                <div>Victory bonus <span class="opacity-70">+10</span></div>
+                                <div>2 × cards remaining (@_resultCards) <span class="opacity-70">@FormatSigned(cardsPart)</span></div>
+                            }
+                            else
+                            {
+                                <div>Cards used (@_resultCards) <span class="opacity-70">@FormatSigned(cardsPart)</span></div>
+                            }
+                            <div>Dahan @_resultDahan / @players <span class="opacity-70">@FormatSigned(dahanPart)</span></div>
+                            <div>Blight @_resultBlight / @players <span class="opacity-70">@FormatSigned(-blightPart)</span></div>
+                            @if (_resultScoreMod != 0)
+                            {
+                                <div>Modifier <span class="opacity-70">@FormatSigned(_resultScoreMod)</span></div>
+                            }
+                        </div>
+                    </div>
                 </div>
             }
         </div>
@@ -683,10 +726,16 @@ else
                 {
                     <div class="px-5 py-4 border-t border-ink-100">
                         <div class="text-[10px] uppercase tracking-wider text-ink-500 mb-2 font-medium">Outcome</div>
-                        <span class="badge @(_resultWin ? "badge-success" : "badge-danger")">
-                            <Icon Name="@(_resultWin ? "trophy" : "x")" Class="w-3 h-3"/>
-                            @(_resultWin ? "Victory" : "Defeat")
-                        </span>
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="badge @(_resultWin ? "badge-success" : "badge-danger")">
+                                <Icon Name="@(_resultWin ? "trophy" : "x")" Class="w-3 h-3"/>
+                                @(_resultWin ? "Victory" : "Defeat")
+                            </span>
+                            <div class="text-right">
+                                <div class="text-[10px] uppercase tracking-wider text-ink-500 font-medium">Score</div>
+                                <div class="text-xl font-semibold text-ink-900 leading-none tabular-nums" style="font-family: var(--font-serif);">@ComputedScore</div>
+                            </div>
+                        </div>
                     </div>
                 }
             </div>
@@ -723,33 +772,25 @@ else
     [CascadingParameter(Name = "OwnedExpansions")]
     public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
 
-    private int ComputedDifficulty
-    {
-        get
-        {
-            var total = 0;
+    private int ComputedDifficulty =>
+        Domain.Services.DifficultyCalculator.Compute(
+            scenarioDifficulty: string.IsNullOrEmpty(_scenarioId) ? 0 : ScenarioFor(_scenarioId)?.Difficulty ?? 0,
+            adversaryDifficulties: _adversaries
+                .Where(a => !string.IsNullOrEmpty(a.AdversaryId))
+                .Select(a => AdversaryFor(a.AdversaryId)?.Modes.FirstOrDefault(m => m.Level == a.Level)?.Difficulty ?? 0),
+            usesExtraBoard: _extraBoard && ExtraBoardAllowed,
+            usesThematicMaps: _thematicMaps,
+            modifier: _difficultyModifier);
 
-            foreach (var a in _adversaries)
-            {
-                if (string.IsNullOrEmpty(a.AdversaryId)) { continue; }
-                var adv = AdversaryFor(a.AdversaryId);
-                var mode = adv?.Modes.FirstOrDefault(m => m.Level == a.Level);
-                total += mode?.Difficulty ?? 0;
-            }
-
-            if (!string.IsNullOrEmpty(_scenarioId))
-            {
-                var scen = ScenarioFor(_scenarioId);
-                total += scen?.Difficulty ?? 0;
-            }
-
-            if (_extraBoard && ExtraBoardAllowed) total += GameRestrictions.ExtraBoardDifficultyBonus;
-            if (_thematicMaps) total += GameRestrictions.ThematicMapsDifficultyBonus;
-            total += _difficultyModifier;
-
-            return Math.Clamp(total, 0, GameRestrictions.MaximumDifficulty);
-        }
-    }
+    private int ComputedScore =>
+        Domain.Services.ScoreCalculator.Compute(
+            win: _resultWin,
+            difficulty: ComputedDifficulty,
+            dahan: _resultDahan,
+            cards: _resultCards,
+            blight: _resultBlight,
+            playerCount: _players.Count,
+            scoreModifier: _resultScoreMod);
 
     private bool ExtraBoardAllowed => _players.Count <= GameRestrictions.MaximumPlayersForExtraBoard;
     private int EffectiveBoardCount => _players.Count + (_extraBoard && ExtraBoardAllowed ? 1 : 0);
@@ -771,6 +812,8 @@ else
     {
         if (e.Key is " " or "Enter") _thematicMaps = !_thematicMaps;
     }
+
+    private static string FormatSigned(int n) => n >= 0 ? $"+{n}" : n.ToString();
 
     private List<PlayerFormItem> _players = [new()];
     private List<Application.Features.Friendships.FriendResponse> _friends = [];

@@ -19,27 +19,45 @@ public static class ScoreCalculator
         int playerCount,
         ScoreModifier scoreModifier)
     {
+        var total = Compute(win, difficulty.Value, dahan.Value, cards.Value, blight.Value, playerCount, scoreModifier.Value);
+        return Score.Create(total);
+    }
+
+    /// <summary>
+    /// Raw-int version of the scoring formula. Use this for UI previews where you don't
+    /// want to construct value objects (which would fail validation for transient form state).
+    /// Always clamped to <c>[0, MaximumScore]</c>, so the result is safe to display directly.
+    /// </summary>
+    public static int Compute(
+        bool win,
+        int difficulty,
+        int dahan,
+        int cards,
+        int blight,
+        int playerCount,
+        int scoreModifier)
+    {
         var players = Math.Max(1, playerCount);
 
         int total;
         if (win)
         {
-            total = 5 * difficulty.Value
+            total = 5 * difficulty
                     + 10
-                    + 2 * cards.Value
-                    + dahan.Value / players
-                    - blight.Value / players
-                    + scoreModifier.Value;
+                    + 2 * cards
+                    + dahan / players
+                    - blight / players
+                    + scoreModifier;
         }
         else
         {
-            total = 2 * difficulty.Value
-                    + cards.Value
-                    + dahan.Value / players
-                    - blight.Value / players
-                    + scoreModifier.Value;
+            total = 2 * difficulty
+                    + cards
+                    + dahan / players
+                    - blight / players
+                    + scoreModifier;
         }
 
-        return Score.Create(Math.Max(0, total));
+        return Math.Clamp(total, 0, GameRestrictions.MaximumScore);
     }
 }

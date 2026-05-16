@@ -15,13 +15,27 @@ public static class DifficultyCalculator
         bool usesThematicMaps,
         DifficultyModifier modifier)
     {
+        var total = Compute(scenarioDifficulty, adversaryDifficulties, usesExtraBoard, usesThematicMaps, modifier.Value);
+        return Difficulty.Create(total);
+    }
+
+    /// <summary>
+    /// Raw-int version of the difficulty formula. Use this for UI previews where you don't
+    /// want to construct value objects. Always clamped to <c>[0, MaximumDifficulty]</c>.
+    /// </summary>
+    public static int Compute(
+        int scenarioDifficulty,
+        IEnumerable<int> adversaryDifficulties,
+        bool usesExtraBoard,
+        bool usesThematicMaps,
+        int modifier)
+    {
         var total = scenarioDifficulty
                     + adversaryDifficulties.Sum()
                     + (usesExtraBoard ? GameRestrictions.ExtraBoardDifficultyBonus : 0)
                     + (usesThematicMaps ? GameRestrictions.ThematicMapsDifficultyBonus : 0)
-                    + modifier.Value;
+                    + modifier;
 
-        var clamped = Math.Clamp(total, 0, GameRestrictions.MaximumDifficulty);
-        return Difficulty.Create(clamped);
+        return Math.Clamp(total, 0, GameRestrictions.MaximumDifficulty);
     }
 }
