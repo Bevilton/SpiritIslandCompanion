@@ -657,6 +657,9 @@
   .max-w-6xl {
     max-width: var(--container-6xl);
   }
+  .max-w-\[8rem\] {
+    max-width: 8rem;
+  }
   .max-w-full {
     max-width: 100%;
   }

@@ -111,8 +111,18 @@ else
                                 }
                             </td>
                             <td>
-                                <div class="flex items-center gap-1.5">
-                                    <SpiritAvatarStack SpiritIds="g.SpiritIds" Max="4"/>
+                                <div class="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
+                                    @foreach (var p in g.Players.Take(3))
+                                    {
+                                        <span class="inline-flex items-center gap-1 min-w-0" title="@p.Name">
+                                            <span class="@PlayerAvatarClass(p.Kind)">@PlayerInitial(p.Name)</span>
+                                            <span class="text-sm @(p.Kind == Application.Features.Games.GamePlayerKind.Me ? "text-accent-800 font-medium" : "text-ink-700") truncate max-w-[8rem]">@p.Name</span>
+                                        </span>
+                                    }
+                                    @if (g.Players.Count > 3)
+                                    {
+                                        <span class="text-xs text-ink-500 font-medium">+@(g.Players.Count - 3)</span>
+                                    }
                                 </div>
                             </td>
                             <td class="text-center">
@@ -161,4 +171,17 @@ else
     }
 
     private void SetFilter(string filter) => _filter = filter;
+
+    private static string PlayerAvatarClass(Application.Features.Games.GamePlayerKind kind) => kind switch
+    {
+        Application.Features.Games.GamePlayerKind.Me     => "inline-flex h-5 w-5 items-center justify-center rounded-full bg-accent-600 text-white text-[10px] font-semibold shrink-0",
+        Application.Features.Games.GamePlayerKind.Friend => "inline-flex h-5 w-5 items-center justify-center rounded-full bg-sky-100 text-sky-700 text-[10px] font-semibold ring-1 ring-sky-200 shrink-0",
+        Application.Features.Games.GamePlayerKind.Local  => "inline-flex h-5 w-5 items-center justify-center rounded-full bg-ink-100 text-ink-600 text-[10px] font-semibold ring-1 ring-ink-200 shrink-0",
+        _                                                => "inline-flex h-5 w-5 items-center justify-center rounded-full bg-ink-100 text-ink-400 text-[10px] font-semibold shrink-0",
+    };
+
+    private static string PlayerInitial(string name) =>
+        string.IsNullOrWhiteSpace(name)
+            ? "?"
+            : char.ToUpperInvariant(name.TrimStart()[0]).ToString();
 }
