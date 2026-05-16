@@ -1,0 +1,73 @@
+@* Read-only avatar + name pair for an assignee on a recorded game.
+   The interactive variant (with dropdown) lives in PlayerAssigneePicker. *@
+
+<span class="@ContainerClass">
+    <span class="@AvatarClass">
+        <Icon Name="@IconName()" Class="@IconClass"/>
+    </span>
+    @if (!Compact)
+    {
+        <span class="min-w-0">
+            <span class="block text-sm font-medium text-ink-900 truncate">@Name</span>
+            @if (!string.IsNullOrEmpty(DetailLabel) || ShowKindLabel)
+            {
+                <span class="block text-[10px] uppercase tracking-wide @KindLabelClass()">
+                    @(DetailLabel ?? KindLabel())
+                </span>
+            }
+        </span>
+    }
+</span>
+
+@code {
+    public enum AssigneeKind { Me, Friend, Player, Unknown }
+
+    [Parameter, EditorRequired] public AssigneeKind Kind { get; set; }
+    [Parameter, EditorRequired] public string Name { get; set; } = "";
+
+    /// <summary>Override the line below the name. Falls back to the kind label.</summary>
+    [Parameter] public string? DetailLabel { get; set; }
+
+    /// <summary>If false, render only the avatar.</summary>
+    [Parameter] public bool ShowKindLabel { get; set; } = true;
+
+    /// <summary>When true, render only the avatar (no text).</summary>
+    [Parameter] public bool Compact { get; set; }
+
+    /// <summary>Extra classes on the outer wrapper.</summary>
+    [Parameter] public string ContainerClass { get; set; } = "inline-flex items-center gap-2 min-w-0";
+
+    private string AvatarClass => Kind switch
+    {
+        AssigneeKind.Me     => "inline-flex h-8 w-8 items-center justify-center rounded-full bg-accent-600 text-white shadow-sm shrink-0",
+        AssigneeKind.Friend => "inline-flex h-8 w-8 items-center justify-center rounded-full bg-sky-100 text-sky-700 ring-1 ring-sky-200 shrink-0",
+        AssigneeKind.Player => "inline-flex h-8 w-8 items-center justify-center rounded-full bg-ink-100 text-ink-600 ring-1 ring-ink-200 shrink-0",
+        _                   => "inline-flex h-8 w-8 items-center justify-center rounded-full bg-ink-100 text-ink-500 shrink-0",
+    };
+
+    private string IconClass => "w-4 h-4";
+
+    private string IconName() => Kind switch
+    {
+        AssigneeKind.Me     => "star",
+        AssigneeKind.Friend => "users",
+        AssigneeKind.Player => "user",
+        _                   => "user",
+    };
+
+    private string KindLabel() => Kind switch
+    {
+        AssigneeKind.Me     => "You",
+        AssigneeKind.Friend => "Friend",
+        AssigneeKind.Player => "Local player",
+        _                   => "—",
+    };
+
+    private string KindLabelClass() => Kind switch
+    {
+        AssigneeKind.Me     => "text-accent-700",
+        AssigneeKind.Friend => "text-sky-700",
+        AssigneeKind.Player => "text-ink-500",
+        _                   => "text-ink-400",
+    };
+}

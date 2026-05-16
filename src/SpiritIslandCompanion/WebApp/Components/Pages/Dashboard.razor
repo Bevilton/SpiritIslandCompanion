@@ -75,7 +75,7 @@ else
                     {
                         <tr @onclick='() => Nav.NavigateTo($"/app/games/{g.Id}")'>
                             <td class="text-ink-600">@g.StartedAt.LocalDateTime.ToString("MMM dd, yyyy")</td>
-                            <td class="font-medium text-ink-900">@(g.AdversaryNames.Count > 0 ? string.Join(" + ", g.AdversaryNames) : "—")</td>
+                            <td class="font-medium text-ink-900">@(g.AdversaryIds.Count > 0 ? string.Join(" + ", g.AdversaryIds.Select(id => GameLookups.AdversaryFor(id)?.Name ?? id)) : "—")</td>
                             <td>@g.PlayerCount</td>
                             <td>@g.Difficulty</td>
                             <td><GameStatusBadge IsCompleted="g.IsCompleted" Win="g.Win"/></td>

@@ -1,0 +1,33 @@
+@* Overlapping row of small colored dots, one per spirit. Shows up to <c>Max</c>
+   and a "+N" overflow badge for the rest. Used in compact game listings. *@
+
+@{
+    var visible = SpiritIds.Take(Max).ToList();
+    var overflow = SpiritIds.Count - visible.Count;
+}
+
+<div class="inline-flex items-center">
+    @for (var i = 0; i < visible.Count; i++)
+    {
+        var spirit = GameLookups.SpiritFor(visible[i]);
+        var color = (spirit is null ? null : SpiritDetails.For(spirit.Id))?.ColorHex ?? "#78716c";
+        var letter = spirit?.Name.Substring(0, 1).ToUpperInvariant() ?? "?";
+
+        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full ring-2 ring-white text-[10px] font-semibold text-white shrink-0 @(i > 0 ? "-ml-1.5" : "")"
+              style="background-color: @color;"
+              title="@(spirit?.Name ?? "Unknown spirit")">
+            @letter
+        </span>
+    }
+    @if (overflow > 0)
+    {
+        <span class="inline-flex h-6 min-w-6 px-1.5 items-center justify-center rounded-full ring-2 ring-white text-[10px] font-semibold text-ink-700 bg-ink-100 -ml-1.5">
+            +@overflow
+        </span>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<string> SpiritIds { get; set; } = [];
+    [Parameter] public int Max { get; set; } = 4;
+}

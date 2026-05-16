@@ -1,0 +1,132 @@
+@* Read-only display card for a recorded player. Mirrors the editor card in
+   GameForm but without the pickers — same colour treatment so the two pages
+   read as variations of one component. *@
+
+@{
+    var spirit = GameLookups.SpiritFor(Player.SpiritId);
+    var spiritDetail = spirit is null ? null : SpiritDetails.For(spirit.Id);
+    var color = spiritDetail?.ColorHex ?? "#78716c";
+
+    var board = GameLookups.BoardFor(Player.BoardId);
+    var boardDetail = board is null ? null : BoardDetails.For(board.Id);
+    var boardColor = boardDetail?.ColorHex ?? "#78716c";
+    var boardLetter = boardDetail?.Letter ?? (board is null ? "?" : board.Name[^1..]);
+
+    var aspect = GameLookups.AspectFor(Player.AspectId);
+}
+
+<article class="relative border border-ink-200 rounded-2xl"
+         style="border-top: 4px solid @color; background: linear-gradient(to bottom, @(color)14 0%, white 96px);">
+    <div class="p-4 md:p-5">
+        @* Header: P# badge *@
+        <div class="flex items-center justify-between mb-3">
+            <span class="inline-flex items-center gap-2 text-xs font-medium text-ink-500">
+                <span class="inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold"
+                      style="background-color: @color; color: white;">
+                    @(Index + 1)
+                </span>
+                <span class="uppercase tracking-wide">Player @(Index + 1)</span>
+            </span>
+            @if (aspect is not null)
+            {
+                <span class="badge badge-neutral text-[10px]">@aspect.Name</span>
+            }
+        </div>
+
+        @* Main row: spirit | board | assignee *@
+        <div class="grid md:grid-cols-12 gap-3">
+            <div class="md:col-span-6">
+                <div class="text-[10px] uppercase tracking-wide text-ink-500 mb-1">Spirit</div>
+                @if (spirit is not null)
+                {
+                    <div class="flex items-center gap-3">
+                        <span class="inline-block h-9 w-1.5 rounded-full shrink-0" style="background-color: @color;"></span>
+                        <div class="min-w-0 flex-1">
+                            <div class="text-sm font-semibold text-ink-900 truncate">@spirit.Name</div>
+                            @if (spiritDetail is not null)
+                            {
+                                <div class="text-[11px] text-ink-500 truncate">@spiritDetail.PlayStyle</div>
+                            }
+                        </div>
+                        @if (spiritDetail is not null)
+                        {
+                            <ElementBadges Elements="spiritDetail.Elements" Size="sm"/>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="text-sm text-ink-500 italic">Unknown spirit</div>
+                }
+            </div>
+
+            <div class="md:col-span-3">
+                <div class="text-[10px] uppercase tracking-wide text-ink-500 mb-1">Board</div>
+                @if (board is not null)
+                {
+                    <div class="flex items-center gap-2">
+                        <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-white text-base font-semibold shrink-0"
+                              style="background-color: @boardColor; font-family: var(--font-serif);">
+                            @boardLetter
+                        </span>
+                        <div class="min-w-0 flex-1">
+                            <div class="text-sm font-semibold text-ink-900 truncate">@board.Name</div>
+                            @if (boardDetail is not null)
+                            {
+                                <div class="text-[11px] text-ink-500 truncate">@boardDetail.ThematicName</div>
+                            }
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-sm text-ink-500 italic">No board</div>
+                }
+            </div>
+
+            <div class="md:col-span-3">
+                <div class="text-[10px] uppercase tracking-wide text-ink-500 mb-1">Played by</div>
+                @{
+                    var info = ResolveAssignee();
+                }
+                <PlayerAssigneeBadge Kind="info.Kind" Name="info.Name" DetailLabel="@info.Detail"/>
+            </div>
+        </div>
+    </div>
+</article>
+
+@code {
+    [Parameter, EditorRequired] public Application.Features.Games.Dtos.GamePlayerResponse Player { get; set; } = default!;
+    [Parameter, EditorRequired] public int Index { get; set; }
+
+    [Parameter] public Guid? CurrentUserId { get; set; }
+    [Parameter] public IReadOnlyList<Application.Features.Friendships.FriendResponse> Friends { get; set; } = [];
+    [Parameter] public IReadOnlyList<Application.Features.Players.ListPlayersResponse> LocalPlayers { get; set; } = [];
+
+    private record AssigneeInfo(PlayerAssigneeBadge.AssigneeKind Kind, string Name, string? Detail);
+
+    private AssigneeInfo ResolveAssignee()
+    {
+        if (Player.UserId is { } uid)
+        {
+            if (CurrentUserId == uid)
+            {
+                return new(PlayerAssigneeBadge.AssigneeKind.Me, "Me", "You");
+            }
+            var friend = Friends.FirstOrDefault(f => f.FriendUserId == uid);
+            return friend is null
+                ? new(PlayerAssigneeBadge.AssigneeKind.Friend, "Friend", null)
+                : new(PlayerAssigneeBadge.AssigneeKind.Friend, friend.Nickname, friend.Email);
+        }
+
+        if (Player.PlayerId is { } pid)
+        {
+            var player = LocalPlayers.FirstOrDefault(p => p.Id == pid);
+            return player is null
+                ? new(PlayerAssigneeBadge.AssigneeKind.Player, "Local player", null)
+                : new(PlayerAssigneeBadge.AssigneeKind.Player, player.Name, "Local player");
+        }
+
+        return new(PlayerAssigneeBadge.AssigneeKind.Unknown, "Unassigned", null);
+    }
+}

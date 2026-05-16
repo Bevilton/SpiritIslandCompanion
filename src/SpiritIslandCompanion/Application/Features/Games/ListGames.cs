@@ -20,8 +20,9 @@ public sealed record ListGamesResponse(
     bool? Win,
     int? Score,
     int PlayerCount,
-    List<string> AdversaryNames,
-    string? ScenarioId);
+    List<string> AdversaryIds,
+    string? ScenarioId,
+    List<string> SpiritIds);
 
 internal sealed class ListGamesHandler(IAppDbContext db) : IQueryHandler<ListGamesQuery, List<ListGamesResponse>>
 {
@@ -47,7 +48,8 @@ internal sealed class ListGamesHandler(IAppDbContext db) : IQueryHandler<ListGam
             g.Result?.Score.Value,
             g.Players.Count,
             g.PlayedAdversaries.Select(a => a.AdversaryId.Value).ToList(),
-            g.Scenario?.ScenarioId.Value)).ToList();
+            g.Scenario?.ScenarioId.Value,
+            g.Players.Select(p => p.SpiritId.Value).ToList())).ToList();
 
         return response;
     }

@@ -9,12 +9,12 @@
 
 <div class="page-head">
     <div>
+        <a href="/app/games" class="text-sm text-ink-500 hover:text-ink-700 flex w-fit items-center gap-1 mb-2">
+            <Icon Name="arrow-left" Class="w-3.5 h-3.5"/> Games
+        </a>
         <span class="eyebrow">Record a match</span>
         <h1 class="page-title mt-2">New game</h1>
     </div>
-    <a href="/app/games" class="btn btn-ghost">
-        <Icon Name="arrow-left" Class="w-4 h-4"/> Back to games
-    </a>
 </div>
 
 <Alert Message="@_message" Type="@_alertType"/>
@@ -470,130 +470,18 @@ else
 
             @if (_includeResult)
             {
-                <div class="border-t border-amber-200/60 bg-white/60 px-5 md:px-6 py-5 space-y-5">
-                    @* Win/Defeat hero choice *@
-                    <div class="grid grid-cols-2 gap-2">
-                        <button type="button" @onclick="() => _resultWin = true"
-                                class="@(_resultWin ? "border-accent-500 bg-accent-50 text-accent-800 ring-2 ring-accent-500/30" : "border-ink-200 bg-white text-ink-600 hover:border-ink-300")
-                                       flex items-center justify-center gap-2 rounded-xl border px-4 py-3 transition-all">
-                            <Icon Name="trophy" Class="w-5 h-5"/>
-                            <span class="font-semibold">Victory</span>
-                        </button>
-                        <button type="button" @onclick="() => _resultWin = false"
-                                class="@(!_resultWin ? "border-red-400 bg-red-50 text-red-800 ring-2 ring-red-300/40" : "border-ink-200 bg-white text-ink-600 hover:border-ink-300")
-                                       flex items-center justify-center gap-2 rounded-xl border px-4 py-3 transition-all">
-                            <Icon Name="x" Class="w-5 h-5"/>
-                            <span class="font-semibold">Defeat</span>
-                        </button>
-                    </div>
-
-                    @* Stats grid *@
-                    <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-                        <div>
-                            <label class="label flex items-center gap-1.5">
-                                <span>Terror level</span>
-                                <InfoHint>
-                                    <strong class="text-ink-900">Terror level reached</strong> when the game ended. Tracked for reference but does not affect the score.
-                                </InfoHint>
-                            </label>
-                            <select class="select" @bind="_resultTerror">
-                                @foreach (var t in Enum.GetValues<TerrorLevel>())
-                                {
-                                    <option value="@t">@t</option>
-                                }
-                            </select>
-                            <FieldError For="Result.TerrorLevel" Errors="@_errors"/>
-                        </div>
-                        <div>
-                            <label class="label">Duration (min)</label>
-                            <input type="number" class="input" @bind="_resultDuration" min="0"/>
-                            <FieldError For="Result.Duration" Errors="@_errors"/>
-                        </div>
-                        <div>
-                            <label class="label flex items-center gap-1.5">
-                                <span>Dahan remaining</span>
-                                <InfoHint>
-                                    <strong class="text-ink-900">Dahan tokens left on the island</strong> when the game ends. Every <span class="text-ink-900">@_players.Count</span> Dahan adds <span class="text-ink-900">+1</span> to your score.
-                                </InfoHint>
-                            </label>
-                            <input type="number" class="input" @bind="_resultDahan" min="0"/>
-                            <FieldError For="Result.Dahan" Errors="@_errors"/>
-                        </div>
-                        <div>
-                            <label class="label flex items-center gap-1.5">
-                                <span>Blight on island</span>
-                                <InfoHint>
-                                    <strong class="text-ink-900">Total Blight tokens on the island</strong> when the game ends. Every <span class="text-ink-900">@_players.Count</span> Blight subtracts <span class="text-ink-900">−1</span> from your score.
-                                </InfoHint>
-                            </label>
-                            <input type="number" class="input" @bind="_resultBlight" min="0"/>
-                            <FieldError For="Result.Blight" Errors="@_errors"/>
-                        </div>
-                        <div>
-                            <label class="label flex items-center gap-1.5">
-                                @if (_resultWin)
-                                {
-                                    <span>Cards remaining in invader deck</span>
-                                    <InfoHint>
-                                        Cards <strong class="text-ink-900">left undrawn</strong> in the invader deck at the end. Each remaining card adds <span class="text-ink-900">+2</span> to your score.
-                                    </InfoHint>
-                                }
-                                else
-                                {
-                                    <span>Enemy cards used</span>
-                                    <InfoHint>
-                                        Invader cards <strong class="text-ink-900">played or discarded</strong> during the game (not left in the deck). Each used card adds <span class="text-ink-900">+1</span> to your score.
-                                    </InfoHint>
-                                }
-                            </label>
-                            <input type="number" class="input" @bind="_resultCards" min="0"/>
-                            <FieldError For="Result.Cards" Errors="@_errors"/>
-                        </div>
-                        <div>
-                            <label class="label flex items-center gap-1.5">
-                                <span>Score modifier</span>
-                                <InfoHint>
-                                    Manual <strong class="text-ink-900">+/− adjustment</strong> for unusual circumstances — homemade variants, scenario-specific bonuses, or anything the standard formula doesn't capture. Leave at 0 for ordinary games.
-                                </InfoHint>
-                            </label>
-                            <input type="number" class="input" @bind="_resultScoreMod"/>
-                            <FieldError For="Result.ScoreModifier" Errors="@_errors"/>
-                        </div>
-                    </div>
-
-                    @* Live score breakdown *@
-                    @{
-                        var players = Math.Max(1, _players.Count);
-                        var diffPart = _resultWin ? 5 * ComputedDifficulty : 2 * ComputedDifficulty;
-                        var cardsPart = _resultWin ? 2 * _resultCards : _resultCards;
-                        var dahanPart = _resultDahan / players;
-                        var blightPart = _resultBlight / players;
-                    }
-                    <div class="rounded-xl bg-gradient-to-br @(_resultWin ? "from-accent-50 to-accent-100/60 border-accent-200" : "from-red-50 to-red-100/40 border-red-200") border p-5 flex items-center justify-between gap-4">
-                        <div>
-                            <div class="text-[11px] uppercase tracking-wider @(_resultWin ? "text-accent-700" : "text-red-700") font-semibold">Score preview</div>
-                            <div class="text-4xl font-bold @(_resultWin ? "text-accent-900" : "text-red-900") mt-1 leading-none" style="font-family: var(--font-serif);">@ComputedScore</div>
-                            <div class="mt-1 text-[11px] @(_resultWin ? "text-accent-800/70" : "text-red-800/70")">@(_resultWin ? "Victory formula" : "Defeat formula")</div>
-                        </div>
-                        <div class="text-xs @(_resultWin ? "text-accent-800/80" : "text-red-800/80") text-right space-y-0.5 tabular-nums">
-                            <div>@(_resultWin ? "5 ×" : "2 ×") difficulty (@ComputedDifficulty) <span class="opacity-70">@FormatSigned(diffPart)</span></div>
-                            @if (_resultWin)
-                            {
-                                <div>Victory bonus <span class="opacity-70">+10</span></div>
-                                <div>2 × cards remaining (@_resultCards) <span class="opacity-70">@FormatSigned(cardsPart)</span></div>
-                            }
-                            else
-                            {
-                                <div>Cards used (@_resultCards) <span class="opacity-70">@FormatSigned(cardsPart)</span></div>
-                            }
-                            <div>Dahan @_resultDahan / @players <span class="opacity-70">@FormatSigned(dahanPart)</span></div>
-                            <div>Blight @_resultBlight / @players <span class="opacity-70">@FormatSigned(-blightPart)</span></div>
-                            @if (_resultScoreMod != 0)
-                            {
-                                <div>Modifier <span class="opacity-70">@FormatSigned(_resultScoreMod)</span></div>
-                            }
-                        </div>
-                    </div>
+                <div class="border-t border-amber-200/60 bg-white/60 px-5 md:px-6 py-5">
+                    <GameResultEditor
+                        Difficulty="ComputedDifficulty"
+                        PlayerCount="_players.Count"
+                        Errors="_errors"
+                        Win="_resultWin" WinChanged="v => _resultWin = v"
+                        TerrorLevel="_resultTerror" TerrorLevelChanged="v => _resultTerror = v"
+                        DurationMinutes="_resultDuration" DurationMinutesChanged="v => _resultDuration = v"
+                        Dahan="_resultDahan" DahanChanged="v => _resultDahan = v"
+                        Blight="_resultBlight" BlightChanged="v => _resultBlight = v"
+                        Cards="_resultCards" CardsChanged="v => _resultCards = v"
+                        ScoreModifier="_resultScoreMod" ScoreModifierChanged="v => _resultScoreMod = v"/>
                 </div>
             }
         </div>
@@ -845,8 +733,6 @@ else
         if (e.Key is " " or "Enter") _thematicMaps = !_thematicMaps;
     }
 
-    private static string FormatSigned(int n) => n >= 0 ? $"+{n}" : n.ToString();
-
     private List<PlayerFormItem> _players = [new()];
     private List<Application.Features.Friendships.FriendResponse> _friends = [];
     private List<Application.Features.Players.ListPlayersResponse> _localPlayers = [];
@@ -997,19 +883,10 @@ else
     }
 
     @* ============== Lookups ============== *@
-    private static Spirit? SpiritFor(string id) =>
-        string.IsNullOrEmpty(id) ? null : GameData.Spirits.FirstOrDefault(x => x.Id.Value == id);
-
-    private static Board? BoardFor(string id) =>
-        string.IsNullOrEmpty(id) ? null : GameData.Boards.FirstOrDefault(x => x.Id.Value == id);
-
-    private static Adversary? AdversaryFor(string id) =>
-        string.IsNullOrEmpty(id) ? null : GameData.Adversaries.FirstOrDefault(x => x.Id.Value == id);
-
-    private static Scenario? ScenarioFor(string? id) =>
-        string.IsNullOrEmpty(id) ? null : GameData.Scenarios.FirstOrDefault(x => x.Id.Value == id);
-
-    private string ScenarioName() => ScenarioFor(_scenarioId)?.Name ?? "—";
+    private static Spirit? SpiritFor(string id) => GameLookups.SpiritFor(id);
+    private static Board? BoardFor(string id) => GameLookups.BoardFor(id);
+    private static Adversary? AdversaryFor(string id) => GameLookups.AdversaryFor(id);
+    private static Scenario? ScenarioFor(string? id) => GameLookups.ScenarioFor(id);
 
     @* ============== Save ============== *@
     private List<Application.Features.Games.Dtos.GamePlayerDto> BuildPlayerDtos()

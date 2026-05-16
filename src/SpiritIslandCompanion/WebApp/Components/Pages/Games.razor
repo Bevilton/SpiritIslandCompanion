@@ -24,16 +24,25 @@
 else
 {
     <div class="flex items-center gap-2 mb-4">
-        <button class="btn btn-sm @(_filter == "all" ? "btn-primary" : "btn-secondary")" @onclick='() => SetFilter("all")'>All</button>
-        <button class="btn btn-sm @(_filter == "completed" ? "btn-primary" : "btn-secondary")" @onclick='() => SetFilter("completed")'>Completed</button>
-        <button class="btn btn-sm @(_filter == "draft" ? "btn-primary" : "btn-secondary")" @onclick='() => SetFilter("draft")'>Drafts</button>
+        <FilterPill Active="@(_filter == "all")" OnToggle='() => SetFilter("all")'>
+            All <span class="ml-1 text-ink-500 tabular-nums">@_games.Count</span>
+        </FilterPill>
+        <FilterPill Active="@(_filter == "completed")" OnToggle='() => SetFilter("completed")'>
+            Completed <span class="ml-1 text-ink-500 tabular-nums">@_games.Count(g => g.IsCompleted)</span>
+        </FilterPill>
+        <FilterPill Active="@(_filter == "draft")" OnToggle='() => SetFilter("draft")'>
+            Drafts <span class="ml-1 text-ink-500 tabular-nums">@_games.Count(g => !g.IsCompleted)</span>
+        </FilterPill>
     </div>
 
     <div class="surface">
         @if (FilteredGames.Count == 0)
         {
             <div class="px-6 py-16 text-center text-ink-500">
-                <p>No games found.</p>
+                <div class="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-ink-100 text-ink-500 mb-3">
+                    <Icon Name="trophy" Class="w-5 h-5"/>
+                </div>
+                <p class="text-sm">No games match this filter.</p>
                 @if (_filter == "all")
                 {
                     <a href="/app/games/new" class="btn btn-primary mt-4">Record your first game</a>
@@ -46,11 +55,11 @@ else
                 <table class="table table-hover">
                     <thead>
                     <tr>
-                        <th>Date</th>
+                        <th class="whitespace-nowrap">Date</th>
                         <th>Adversary</th>
                         <th>Scenario</th>
                         <th>Players</th>
-                        <th>Difficulty</th>
+                        <th class="text-center">Difficulty</th>
                         <th>Result</th>
                         <th class="text-right">Score</th>
                     </tr>
@@ -58,14 +67,70 @@ else
                     <tbody>
                     @foreach (var g in FilteredGames)
                     {
-                        <tr @onclick='() => Nav.NavigateTo($"/app/games/{g.Id}")'>
-                            <td class="text-ink-600 whitespace-nowrap">@g.StartedAt.LocalDateTime.ToString("MMM dd, yyyy")</td>
-                            <td class="font-medium text-ink-900">@(g.AdversaryNames.Count > 0 ? string.Join(" + ", g.AdversaryNames) : "—")</td>
-                            <td class="text-ink-600">@(g.ScenarioId ?? "—")</td>
-                            <td>@g.PlayerCount</td>
-                            <td>@g.Difficulty</td>
+                        var adversaries = g.AdversaryIds
+                            .Select(id => GameLookups.AdversaryFor(id))
+                            .Where(a => a is not null)
+                            .ToList();
+                        var scenario = GameLookups.ScenarioFor(g.ScenarioId);
+
+                        <tr @onclick='() => Nav.NavigateTo($"/app/games/{g.Id}")' class="cursor-pointer">
+                            <td class="whitespace-nowrap">
+                                <div class="text-sm text-ink-900 font-medium">@g.StartedAt.LocalDateTime.ToString("MMM dd")</div>
+                                <div class="text-[11px] text-ink-500">@g.StartedAt.LocalDateTime.ToString("yyyy")</div>
+                            </td>
+                            <td>
+                                @if (adversaries.Count == 0)
+                                {
+                                    <span class="text-ink-400 text-sm">—</span>
+                                }
+                                else
+                                {
+                                    <div class="flex items-center gap-2 min-w-0">
+                                        <span class="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-accent-50 text-accent-700 shrink-0">
+                                            <Icon Name="shield" Class="w-3.5 h-3.5"/>
+                                        </span>
+                                        <span class="text-sm text-ink-900 font-medium truncate">
+                                            @string.Join(" + ", adversaries.Select(a => a!.Name))
+                                        </span>
+                                    </div>
+                                }
+                            </td>
+                            <td>
+                                @if (scenario is null)
+                                {
+                                    <span class="text-ink-400 text-sm">—</span>
+                                }
+                                else
+                                {
+                                    <div class="flex items-center gap-2 min-w-0">
+                                        <span class="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-accent-100 text-accent-700 shrink-0">
+                                            <Icon Name="book" Class="w-3.5 h-3.5"/>
+                                        </span>
+                                        <span class="text-sm text-ink-700 truncate">@scenario.Name</span>
+                                    </div>
+                                }
+                            </td>
+                            <td>
+                                <div class="flex items-center gap-1.5">
+                                    <SpiritAvatarStack SpiritIds="g.SpiritIds" Max="4"/>
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                <span class="inline-flex min-w-7 h-7 items-center justify-center px-2 rounded-lg bg-accent-50 text-accent-800 text-sm font-semibold tabular-nums" style="font-family: var(--font-serif);">
+                                    @g.Difficulty
+                                </span>
+                            </td>
                             <td><GameStatusBadge IsCompleted="g.IsCompleted" Win="g.Win"/></td>
-                            <td class="text-right font-medium">@(g.Score?.ToString() ?? "—")</td>
+                            <td class="text-right">
+                                @if (g.Score is { } score)
+                                {
+                                    <span class="text-base font-semibold tabular-nums @(g.Win == true ? "text-accent-800" : "text-red-700")" style="font-family: var(--font-serif);">@score</span>
+                                }
+                                else
+                                {
+                                    <span class="text-ink-400 text-sm">—</span>
+                                }
+                            </td>
                         </tr>
                     }
                     </tbody>

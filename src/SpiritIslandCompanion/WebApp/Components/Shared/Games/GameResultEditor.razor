@@ -1,0 +1,200 @@
+@* Editor for the result of a played game — Win/Defeat hero, stats grid, and a live
+   score preview. Used by:
+   • GameForm  — wrapped in an "include result" toggle, score is provisional.
+   • GameDetail — shown when completing a draft, score is provisional too.
+   The component is presentation-only; the calling page sends the data to the
+   appropriate Create / Complete command. *@
+
+<div class="space-y-5">
+    @* Win/Defeat hero choice *@
+    <div class="grid grid-cols-2 gap-2">
+        <button type="button" @onclick="() => SetWin(true)"
+                class="@(Win ? "border-accent-500 bg-accent-50 text-accent-800 ring-2 ring-accent-500/30" : "border-ink-200 bg-white text-ink-600 hover:border-ink-300")
+                       flex items-center justify-center gap-2 rounded-xl border px-4 py-3 transition-all">
+            <Icon Name="trophy" Class="w-5 h-5"/>
+            <span class="font-semibold">Victory</span>
+        </button>
+        <button type="button" @onclick="() => SetWin(false)"
+                class="@(!Win ? "border-red-400 bg-red-50 text-red-800 ring-2 ring-red-300/40" : "border-ink-200 bg-white text-ink-600 hover:border-ink-300")
+                       flex items-center justify-center gap-2 rounded-xl border px-4 py-3 transition-all">
+            <Icon Name="x" Class="w-5 h-5"/>
+            <span class="font-semibold">Defeat</span>
+        </button>
+    </div>
+
+    @* Stats grid *@
+    <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div>
+            <label class="label flex items-center gap-1.5">
+                <span>Terror level</span>
+                <InfoHint>
+                    <strong class="text-ink-900">Terror level reached</strong> when the game ended. Tracked for reference but does not affect the score.
+                </InfoHint>
+            </label>
+            <select class="select" value="@TerrorLevel" @onchange="OnTerrorChanged">
+                @foreach (var t in Enum.GetValues<TerrorLevel>())
+                {
+                    <option value="@t">@t</option>
+                }
+            </select>
+            <FieldError For="Result.TerrorLevel" Errors="@Errors"/>
+        </div>
+        <div>
+            <label class="label">Duration (min)</label>
+            <input type="number" class="input" value="@DurationMinutes"
+                   @onchange="@(e => SetInt(e.Value, v => DurationMinutesChanged.InvokeAsync(v)))"
+                   min="0"/>
+            <FieldError For="Result.Duration" Errors="@Errors"/>
+        </div>
+        <div>
+            <label class="label flex items-center gap-1.5">
+                <span>Dahan remaining</span>
+                <InfoHint>
+                    <strong class="text-ink-900">Dahan tokens left on the island</strong> when the game ends. Every <span class="text-ink-900">@EffectivePlayers</span> Dahan adds <span class="text-ink-900">+1</span> to your score.
+                </InfoHint>
+            </label>
+            <input type="number" class="input" value="@Dahan"
+                   @onchange="@(e => SetInt(e.Value, v => DahanChanged.InvokeAsync(v)))"
+                   min="0"/>
+            <FieldError For="Result.Dahan" Errors="@Errors"/>
+        </div>
+        <div>
+            <label class="label flex items-center gap-1.5">
+                <span>Blight on island</span>
+                <InfoHint>
+                    <strong class="text-ink-900">Total Blight tokens on the island</strong> when the game ends. Every <span class="text-ink-900">@EffectivePlayers</span> Blight subtracts <span class="text-ink-900">−1</span> from your score.
+                </InfoHint>
+            </label>
+            <input type="number" class="input" value="@Blight"
+                   @onchange="@(e => SetInt(e.Value, v => BlightChanged.InvokeAsync(v)))"
+                   min="0"/>
+            <FieldError For="Result.Blight" Errors="@Errors"/>
+        </div>
+        <div>
+            <label class="label flex items-center gap-1.5">
+                @if (Win)
+                {
+                    <span>Cards remaining in invader deck</span>
+                    <InfoHint>
+                        Cards <strong class="text-ink-900">left undrawn</strong> in the invader deck at the end. Each remaining card adds <span class="text-ink-900">+2</span> to your score.
+                    </InfoHint>
+                }
+                else
+                {
+                    <span>Enemy cards used</span>
+                    <InfoHint>
+                        Invader cards <strong class="text-ink-900">played or discarded</strong> during the game (not left in the deck). Each used card adds <span class="text-ink-900">+1</span> to your score.
+                    </InfoHint>
+                }
+            </label>
+            <input type="number" class="input" value="@Cards"
+                   @onchange="@(e => SetInt(e.Value, v => CardsChanged.InvokeAsync(v)))"
+                   min="0"/>
+            <FieldError For="Result.Cards" Errors="@Errors"/>
+        </div>
+        <div>
+            <label class="label flex items-center gap-1.5">
+                <span>Score modifier</span>
+                <InfoHint>
+                    Manual <strong class="text-ink-900">+/− adjustment</strong> for unusual circumstances — homemade variants, scenario-specific bonuses, or anything the standard formula doesn't capture. Leave at 0 for ordinary games.
+                </InfoHint>
+            </label>
+            <input type="number" class="input" value="@ScoreModifier"
+                   @onchange="@(e => SetInt(e.Value, v => ScoreModifierChanged.InvokeAsync(v)))"/>
+            <FieldError For="Result.ScoreModifier" Errors="@Errors"/>
+        </div>
+    </div>
+
+    @* Live score breakdown *@
+    @{
+        var diffPart = Win ? 5 * Difficulty : 2 * Difficulty;
+        var cardsPart = Win ? 2 * Cards : Cards;
+        var dahanPart = Dahan / EffectivePlayers;
+        var blightPart = Blight / EffectivePlayers;
+    }
+    <div class="rounded-xl bg-gradient-to-br @(Win ? "from-accent-50 to-accent-100/60 border-accent-200" : "from-red-50 to-red-100/40 border-red-200") border p-5 flex items-center justify-between gap-4">
+        <div>
+            <div class="text-[11px] uppercase tracking-wider @(Win ? "text-accent-700" : "text-red-700") font-semibold">Score preview</div>
+            <div class="text-4xl font-bold @(Win ? "text-accent-900" : "text-red-900") mt-1 leading-none" style="font-family: var(--font-serif);">@ComputedScore</div>
+            <div class="mt-1 text-[11px] @(Win ? "text-accent-800/70" : "text-red-800/70")">@(Win ? "Victory formula" : "Defeat formula")</div>
+        </div>
+        <div class="text-xs @(Win ? "text-accent-800/80" : "text-red-800/80") text-right space-y-0.5 tabular-nums">
+            <div>@(Win ? "5 ×" : "2 ×") difficulty (@Difficulty) <span class="opacity-70">@FormatSigned(diffPart)</span></div>
+            @if (Win)
+            {
+                <div>Victory bonus <span class="opacity-70">+10</span></div>
+                <div>2 × cards remaining (@Cards) <span class="opacity-70">@FormatSigned(cardsPart)</span></div>
+            }
+            else
+            {
+                <div>Cards used (@Cards) <span class="opacity-70">@FormatSigned(cardsPart)</span></div>
+            }
+            <div>Dahan @Dahan / @EffectivePlayers <span class="opacity-70">@FormatSigned(dahanPart)</span></div>
+            <div>Blight @Blight / @EffectivePlayers <span class="opacity-70">@FormatSigned(-blightPart)</span></div>
+            @if (ScoreModifier != 0)
+            {
+                <div>Modifier <span class="opacity-70">@FormatSigned(ScoreModifier)</span></div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int Difficulty { get; set; }
+    [Parameter] public int PlayerCount { get; set; } = 1;
+    [Parameter] public FormErrors? Errors { get; set; }
+
+    [Parameter] public bool Win { get; set; } = true;
+    [Parameter] public EventCallback<bool> WinChanged { get; set; }
+
+    [Parameter] public TerrorLevel TerrorLevel { get; set; } = TerrorLevel.First;
+    [Parameter] public EventCallback<TerrorLevel> TerrorLevelChanged { get; set; }
+
+    [Parameter] public int DurationMinutes { get; set; } = 60;
+    [Parameter] public EventCallback<int> DurationMinutesChanged { get; set; }
+
+    [Parameter] public int Dahan { get; set; }
+    [Parameter] public EventCallback<int> DahanChanged { get; set; }
+
+    [Parameter] public int Blight { get; set; }
+    [Parameter] public EventCallback<int> BlightChanged { get; set; }
+
+    [Parameter] public int Cards { get; set; }
+    [Parameter] public EventCallback<int> CardsChanged { get; set; }
+
+    [Parameter] public int ScoreModifier { get; set; }
+    [Parameter] public EventCallback<int> ScoreModifierChanged { get; set; }
+
+    private int EffectivePlayers => Math.Max(1, PlayerCount);
+
+    public int ComputedScore => Domain.Services.ScoreCalculator.Compute(
+        win: Win,
+        difficulty: Difficulty,
+        dahan: Dahan,
+        cards: Cards,
+        blight: Blight,
+        playerCount: PlayerCount,
+        scoreModifier: ScoreModifier);
+
+    private Task SetWin(bool win) => WinChanged.InvokeAsync(win);
+
+    private Task OnTerrorChanged(ChangeEventArgs e)
+    {
+        if (Enum.TryParse<TerrorLevel>(e.Value?.ToString(), out var t))
+        {
+            return TerrorLevelChanged.InvokeAsync(t);
+        }
+        return Task.CompletedTask;
+    }
+
+    private static Task SetInt(object? raw, Func<int, Task> invoke)
+    {
+        if (int.TryParse(raw?.ToString(), out var v))
+        {
+            return invoke(v);
+        }
+        return invoke(0);
+    }
+
+    private static string FormatSigned(int n) => n >= 0 ? $"+{n}" : n.ToString();
+}
