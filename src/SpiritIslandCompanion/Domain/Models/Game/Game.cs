@@ -11,6 +11,7 @@ public class Game : AggregateRoot<GameId>
     public PlayedScenario? Scenario { get; private set; }
     public IslandSetupId IslandSetupId { get; private set; }
     public Difficulty Difficulty { get; private set; }
+    public DifficultyModifier DifficultyModifier { get; private set; }
     public GameNote? Note { get; private set; }
     public UserId OwnerId { get; private init; }
     public IReadOnlyCollection<PlayedAdversary> PlayedAdversaries => _playedAdversaries.AsReadOnly();
@@ -26,6 +27,7 @@ public class Game : AggregateRoot<GameId>
         List<PlayedAdversary> adversaries,
         PlayedScenario? scenario,
         Difficulty difficulty,
+        DifficultyModifier difficultyModifier,
         GameResult? result,
         GameNote? note,
         UserId ownerId)
@@ -34,6 +36,7 @@ public class Game : AggregateRoot<GameId>
         StartedAt = startedAt;
         IslandSetupId = islandSetupId;
         Difficulty = difficulty;
+        DifficultyModifier = difficultyModifier;
         Result = result;
         Note = note;
         _playedAdversaries = adversaries;
@@ -51,10 +54,11 @@ public class Game : AggregateRoot<GameId>
         List<PlayedAdversary> adversaries,
         PlayedScenario? scenario,
         Difficulty difficultyLevel,
+        DifficultyModifier difficultyModifier,
         GameNote? note,
         UserId ownerId)
     {
-        var game = new Game(id, startedAt, islandSetupId, players, adversaries, scenario, difficultyLevel, null, note, ownerId);
+        var game = new Game(id, startedAt, islandSetupId, players, adversaries, scenario, difficultyLevel, difficultyModifier, null, note, ownerId);
         return game;
     }
 
@@ -66,11 +70,12 @@ public class Game : AggregateRoot<GameId>
         List<PlayedAdversary> adversaries,
         PlayedScenario? scenario,
         Difficulty difficultyLevel,
+        DifficultyModifier difficultyModifier,
         GameResult? result,
         GameNote? note,
         UserId ownerId)
     {
-        var game = new Game(id, startedAt, islandSetupId, players, adversaries, scenario, difficultyLevel, result, note, ownerId);
+        var game = new Game(id, startedAt, islandSetupId, players, adversaries, scenario, difficultyLevel, difficultyModifier, result, note, ownerId);
         return game;
     }
 
@@ -81,12 +86,14 @@ public class Game : AggregateRoot<GameId>
         List<PlayedAdversary> adversaries,
         PlayedScenario? scenario,
         Difficulty difficultyLevel,
+        DifficultyModifier difficultyModifier,
         GameResult? result,
         GameNote? note)
     {
         StartedAt = startedAt;
         IslandSetupId = islandSetupId;
         Difficulty = difficultyLevel;
+        DifficultyModifier = difficultyModifier;
         Result = result;
         Note = note;
         _playedAdversaries = adversaries;

@@ -14,6 +14,12 @@ public static class DomainErrors
         public static Error InvalidScoreModifier => Error.Validation("Game.InvalidScoreModifier", "Invalid score modifier");
         public static Error InvalidAdversaryLevel => Error.Validation("Game.InvalidAdversaryLevel", "Invalid adversary level");
         public static Error InvalidDifficulty => Error.Validation("Game.InvalidDifficulty", "Invalid difficulty");
+        public static Error InvalidDifficultyModifier => Error.Validation("Game.InvalidDifficultyModifier", "Invalid difficulty modifier");
+        public static Error UnknownIslandSetup => Error.Validation("Game.UnknownIslandSetup", "The selected island setup does not exist.");
+        public static Error IslandSetupPlayerCountMismatch => Error.Validation("Game.IslandSetupPlayerCountMismatch", "The selected island setup does not match the number of players (and extra board, if any).");
+        public static Error IslandSetupNotThematic => Error.Validation("Game.IslandSetupNotThematic", "Thematic maps is on, but the selected layout is not a thematic one.");
+        public static Error IslandSetupIsThematic => Error.Validation("Game.IslandSetupIsThematic", "Thematic maps is off, but the selected layout is a thematic one.");
+        public static Error ExtraBoardNotAllowed => Error.Validation("Game.ExtraBoardNotAllowed", "Extra board is only allowed for 1–5 players.");
         public static Error PlayerNotFriend => Error.Validation("Game.PlayerNotFriend", "You can only add registered users who are your friends.");
     }
 

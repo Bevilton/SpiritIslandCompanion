@@ -2,6 +2,7 @@ using Application.Abstractions;
 using Application.Data;
 using Application.Features.Games.Dtos;
 using Domain.Models.Game;
+using Domain.Models.Static.Data;
 using Domain.Results;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,6 +15,9 @@ public sealed record GetGameResponse(
     DateTimeOffset StartedAt,
     string IslandSetupId,
     int Difficulty,
+    int DifficultyModifier,
+    bool ExtraBoard,
+    bool ThematicMaps,
     string? Note,
     Guid OwnerId,
     bool IsCompleted,
@@ -37,11 +41,18 @@ internal sealed class GetGameHandler(IAppDbContext db) : IQueryHandler<GetGameQu
         if (game is null)
             return Result.Failure<GetGameResponse>(Error.NotFound("Game.NotFound", "Game not found."));
 
+        var setup = GameData.IslandSetups.FirstOrDefault(s => s.Id.Value == game.IslandSetupId.Value);
+        var extraBoard = setup is not null && setup.NumberOfPlayers > game.Players.Count;
+        var thematicMaps = setup?.IsThematic ?? false;
+
         var response = new GetGameResponse(
             game.Id.Value,
             game.StartedAt,
             game.IslandSetupId.Value,
             game.Difficulty.Value,
+            game.DifficultyModifier.Value,
+            extraBoard,
+            thematicMaps,
             game.Note?.Value,
             game.OwnerId.Value,
             game.Result is not null,

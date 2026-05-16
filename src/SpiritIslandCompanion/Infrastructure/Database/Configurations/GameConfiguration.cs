@@ -44,6 +44,7 @@ internal class GameConfiguration : IEntityTypeConfiguration<Game>
         });
         builder.OwnsOne(x => x.IslandSetupId);
         builder.OwnsOne(x => x.Difficulty);
+        builder.OwnsOne(x => x.DifficultyModifier);
         builder.OwnsOne(x => x.Note);
 
         builder.OwnsMany(x => x.Players, b =>

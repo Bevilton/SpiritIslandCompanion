@@ -29,10 +29,10 @@ public static class IslandSetups
         new(new("star-6p"), "Star", 6),
 
         // Thematic layouts (no 5p — thematic island shape doesn't accommodate it)
-        new(new("thematic-1p"), "Thematic", 1),
-        new(new("thematic-2p"), "Thematic", 2),
-        new(new("thematic-3p"), "Thematic", 3),
-        new(new("thematic-4p"), "Thematic", 4),
-        new(new("thematic-6p"), "Thematic", 6),
+        new(new("thematic-1p"), "Thematic", 1, isThematic: true),
+        new(new("thematic-2p"), "Thematic", 2, isThematic: true),
+        new(new("thematic-3p"), "Thematic", 3, isThematic: true),
+        new(new("thematic-4p"), "Thematic", 4, isThematic: true),
+        new(new("thematic-6p"), "Thematic", 6, isThematic: true),
     ];
 }

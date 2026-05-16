@@ -49,9 +49,25 @@ else
             <div class="surface-body">
                 <dl class="grid grid-cols-3 gap-y-3 text-sm">
                     <dt class="text-ink-500">Island setup</dt>
-                    <dd class="col-span-2 text-ink-900">@_game.IslandSetupId</dd>
+                    <dd class="col-span-2 text-ink-900">
+                        @_game.IslandSetupId
+                        @if (_game.ThematicMaps)
+                        {
+                            <span class="ml-2 inline-flex items-center text-[10px] uppercase tracking-wider text-accent-700 bg-accent-50 px-1.5 py-0.5 rounded">Thematic</span>
+                        }
+                        @if (_game.ExtraBoard)
+                        {
+                            <span class="ml-1 inline-flex items-center text-[10px] uppercase tracking-wider text-accent-700 bg-accent-50 px-1.5 py-0.5 rounded">Extra board</span>
+                        }
+                    </dd>
                     <dt class="text-ink-500">Difficulty</dt>
-                    <dd class="col-span-2 text-ink-900">@_game.Difficulty</dd>
+                    <dd class="col-span-2 text-ink-900">
+                        @_game.Difficulty
+                        @if (_game.DifficultyModifier != 0)
+                        {
+                            <span class="text-ink-500 text-xs ml-1">(modifier @(_game.DifficultyModifier > 0 ? "+" : "")@_game.DifficultyModifier)</span>
+                        }
+                    </dd>
                     <dt class="text-ink-500">Scenario</dt>
                     <dd class="col-span-2 text-ink-900">@(_game.ScenarioId ?? "None")</dd>
                 </dl>

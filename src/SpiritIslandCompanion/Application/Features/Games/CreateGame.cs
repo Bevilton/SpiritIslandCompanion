@@ -5,20 +5,21 @@ using Domain.Models.Game;
 using Domain.Models.Static;
 using Domain.Models.User;
 using Domain.Results;
-using Domain.Services;
 using FluentValidation;
 
 namespace Application.Features.Games;
 
 /// <summary>
 /// Creates a fully completed game with setup and result in one shot.
-/// Score is calculated server-side.
+/// Difficulty and score are calculated server-side.
 /// </summary>
 public sealed record CreateGameCommand(
     Guid OwnerId,
     DateTimeOffset StartedAt,
     string IslandSetupId,
-    int Difficulty,
+    bool ExtraBoard,
+    bool ThematicMaps,
+    int DifficultyModifier,
     List<GamePlayerDto> Players,
     List<GameAdversaryDto> Adversaries,
     string? ScenarioId,
@@ -51,9 +52,18 @@ internal sealed class CreateGameHandler(IAppDbContext db) : ICommandHandler<Crea
         if (friendshipCheck.IsFailure)
             return friendshipCheck;
 
-        var difficultyResult = Difficulty.Create(request.Difficulty);
+        var setupCheck = GameFactory.ValidateIslandSetup(request.IslandSetupId, request.Players.Count, request.ExtraBoard, request.ThematicMaps);
+        if (setupCheck.IsFailure)
+            return setupCheck;
+
+        var difficultyResult = GameFactory.ComputeDifficulty(
+            request.ScenarioId, request.Adversaries, request.ExtraBoard, request.ThematicMaps, request.DifficultyModifier);
         if (difficultyResult.IsFailure)
             return Result.Failure(difficultyResult.Error);
+
+        var modifierResult = Domain.Models.Game.DifficultyModifier.Create(request.DifficultyModifier);
+        if (modifierResult.IsFailure)
+            return Result.Failure(modifierResult.Error);
 
         var players = GameFactory.BuildPlayers(request.Players);
         var adversaries = GameFactory.BuildAdversaries(request.Adversaries);
@@ -79,6 +89,7 @@ internal sealed class CreateGameHandler(IAppDbContext db) : ICommandHandler<Crea
             adversaries,
             scenario,
             difficultyResult.Value,
+            modifierResult.Value,
             gameResultOrError.Value,
             note,
             new UserId(request.OwnerId));

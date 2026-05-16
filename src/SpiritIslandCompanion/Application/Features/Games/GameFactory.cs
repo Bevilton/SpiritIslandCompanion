@@ -4,6 +4,7 @@ using Domain.Errors;
 using Domain.Models.Friendship;
 using Domain.Models.Game;
 using Domain.Models.Static;
+using Domain.Models.Static.Data;
 using Domain.Models.User;
 using Domain.Results;
 using Domain.Services;
@@ -75,6 +76,61 @@ internal static class GameFactory
             dahan.Value,
             scoreResult.Value,
             scoreMod.Value);
+    }
+
+    /// <summary>
+    /// Validates the island setup matches the player count (+ optional extra board) and the
+    /// thematic-maps toggle. Returns Success if the combination is allowed.
+    /// </summary>
+    public static Result ValidateIslandSetup(string islandSetupId, int playerCount, bool extraBoard, bool thematicMaps)
+    {
+        if (extraBoard && playerCount > GameRestrictions.MaximumPlayersForExtraBoard)
+            return Result.Failure(DomainErrors.Game.ExtraBoardNotAllowed);
+
+        var setup = GameData.IslandSetups.FirstOrDefault(s => s.Id.Value == islandSetupId);
+        if (setup is null)
+            return Result.Failure(DomainErrors.Game.UnknownIslandSetup);
+
+        var requiredBoards = playerCount + (extraBoard ? 1 : 0);
+        if (setup.NumberOfPlayers != requiredBoards)
+            return Result.Failure(DomainErrors.Game.IslandSetupPlayerCountMismatch);
+
+        if (thematicMaps && !setup.IsThematic)
+            return Result.Failure(DomainErrors.Game.IslandSetupNotThematic);
+
+        if (!thematicMaps && setup.IsThematic)
+            return Result.Failure(DomainErrors.Game.IslandSetupIsThematic);
+
+        return Result.Success();
+    }
+
+    /// <summary>
+    /// Computes the total difficulty from scenario, adversaries, extra-board and thematic-maps
+    /// bonuses, and a manual modifier. Unknown scenario / adversary IDs contribute 0 here — the
+    /// stored IDs themselves are validated elsewhere.
+    /// </summary>
+    public static Result<Difficulty> ComputeDifficulty(
+        string? scenarioId,
+        List<GameAdversaryDto> adversaries,
+        bool extraBoard,
+        bool thematicMaps,
+        int modifier)
+    {
+        var modifierResult = DifficultyModifier.Create(modifier);
+        if (modifierResult.IsFailure) return Result.Failure<Difficulty>(modifierResult.Error);
+
+        var scenarioDifficulty = scenarioId is null
+            ? 0
+            : GameData.Scenarios.FirstOrDefault(s => s.Id.Value == scenarioId)?.Difficulty ?? 0;
+
+        var adversaryDifficulties = adversaries.Select(a =>
+        {
+            var adv = GameData.Adversaries.FirstOrDefault(x => x.Id.Value == a.AdversaryId);
+            return adv?.Modes.FirstOrDefault(m => m.Level == a.Level)?.Difficulty ?? 0;
+        });
+
+        return DifficultyCalculator.Calculate(
+            scenarioDifficulty, adversaryDifficulties, extraBoard, thematicMaps, modifierResult.Value);
     }
 
     /// <summary>

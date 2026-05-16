@@ -11,13 +11,15 @@ namespace Application.Features.Games;
 
 /// <summary>
 /// Updates a game's setup information. Can also update or set the result.
-/// Score is always calculated server-side.
+/// Difficulty and score are calculated server-side.
 /// </summary>
 public sealed record UpdateGameCommand(
     Guid GameId,
     DateTimeOffset StartedAt,
     string IslandSetupId,
-    int Difficulty,
+    bool ExtraBoard,
+    bool ThematicMaps,
+    int DifficultyModifier,
     List<GamePlayerDto> Players,
     List<GameAdversaryDto> Adversaries,
     string? ScenarioId,
@@ -52,9 +54,18 @@ internal sealed class UpdateGameHandler(IAppDbContext db) : ICommandHandler<Upda
         if (friendshipCheck.IsFailure)
             return friendshipCheck;
 
-        var difficultyResult = Difficulty.Create(request.Difficulty);
+        var setupCheck = GameFactory.ValidateIslandSetup(request.IslandSetupId, request.Players.Count, request.ExtraBoard, request.ThematicMaps);
+        if (setupCheck.IsFailure)
+            return setupCheck;
+
+        var difficultyResult = GameFactory.ComputeDifficulty(
+            request.ScenarioId, request.Adversaries, request.ExtraBoard, request.ThematicMaps, request.DifficultyModifier);
         if (difficultyResult.IsFailure)
             return Result.Failure(difficultyResult.Error);
+
+        var modifierResult = Domain.Models.Game.DifficultyModifier.Create(request.DifficultyModifier);
+        if (modifierResult.IsFailure)
+            return Result.Failure(modifierResult.Error);
 
         var players = GameFactory.BuildPlayers(request.Players);
         var adversaries = GameFactory.BuildAdversaries(request.Adversaries);
@@ -83,6 +94,7 @@ internal sealed class UpdateGameHandler(IAppDbContext db) : ICommandHandler<Upda
             adversaries,
             scenario,
             difficultyResult.Value,
+            modifierResult.Value,
             gameResult,
             note);
 

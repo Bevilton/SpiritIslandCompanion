@@ -63,6 +63,7 @@ internal sealed class CompleteGameHandler(IAppDbContext db) : ICommandHandler<Co
             game.PlayedAdversaries.ToList(),
             game.Scenario,
             game.Difficulty,
+            game.DifficultyModifier,
             gameResultOrError.Value,
             note);
 

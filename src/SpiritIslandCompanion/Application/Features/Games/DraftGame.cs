@@ -12,12 +12,15 @@ namespace Application.Features.Games;
 /// <summary>
 /// Creates a game with only the setup information (players, spirits, boards, adversaries, scenario).
 /// No result or scoring data. Use <see cref="CompleteGameCommand"/> to add the result later.
+/// Difficulty is calculated server-side.
 /// </summary>
 public sealed record DraftGameCommand(
     Guid OwnerId,
     DateTimeOffset StartedAt,
     string IslandSetupId,
-    int Difficulty,
+    bool ExtraBoard,
+    bool ThematicMaps,
+    int DifficultyModifier,
     List<GamePlayerDto> Players,
     List<GameAdversaryDto> Adversaries,
     string? ScenarioId,
@@ -48,9 +51,18 @@ internal sealed class DraftGameHandler(IAppDbContext db) : ICommandHandler<Draft
         if (friendshipCheck.IsFailure)
             return friendshipCheck;
 
-        var difficultyResult = Difficulty.Create(request.Difficulty);
+        var setupCheck = GameFactory.ValidateIslandSetup(request.IslandSetupId, request.Players.Count, request.ExtraBoard, request.ThematicMaps);
+        if (setupCheck.IsFailure)
+            return setupCheck;
+
+        var difficultyResult = GameFactory.ComputeDifficulty(
+            request.ScenarioId, request.Adversaries, request.ExtraBoard, request.ThematicMaps, request.DifficultyModifier);
         if (difficultyResult.IsFailure)
             return Result.Failure(difficultyResult.Error);
+
+        var modifierResult = Domain.Models.Game.DifficultyModifier.Create(request.DifficultyModifier);
+        if (modifierResult.IsFailure)
+            return Result.Failure(modifierResult.Error);
 
         var players = GameFactory.BuildPlayers(request.Players);
         var adversaries = GameFactory.BuildAdversaries(request.Adversaries);
@@ -72,6 +84,7 @@ internal sealed class DraftGameHandler(IAppDbContext db) : ICommandHandler<Draft
             adversaries,
             scenario,
             difficultyResult.Value,
+            modifierResult.Value,
             note,
             new UserId(request.OwnerId));
 

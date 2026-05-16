@@ -218,9 +218,59 @@ else
         </div>
 
         <div class="surface p-5 md:p-6 space-y-5">
+            @* ====== Map variant toggles ====== *@
+            <div class="grid sm:grid-cols-2 gap-3">
+                <div role="button" tabindex="0" aria-pressed="@_extraBoard"
+                     @onclick="ToggleExtraBoard"
+                     @onkeydown="OnExtraBoardKey"
+                     class="flex items-center justify-between gap-3 rounded-xl border @(_extraBoard ? "border-accent-300 bg-accent-50/50" : "border-ink-200 bg-white") px-4 py-3 select-none @(ExtraBoardAllowed ? "cursor-pointer hover:border-ink-300" : "opacity-50 cursor-not-allowed")">
+                    <div class="min-w-0 flex items-start gap-1.5">
+                        <div>
+                            <div class="text-sm font-semibold text-ink-900">Extra board</div>
+                            <div class="text-[11px] text-ink-500">@(ExtraBoardAllowed ? $"Plays on {_players.Count + 1} boards · +{GameRestrictions.ExtraBoardDifficultyBonus} difficulty" : "Disabled for 6 players")</div>
+                        </div>
+                        <span @onclick:stopPropagation="true" @onkeydown:stopPropagation="true" class="mt-0.5">
+                            <InfoHint Position="right">
+                                Adds one extra board to the island (so @_players.Count player@(_players.Count == 1 ? "" : "s") play on @(_players.Count + 1) boards). Only allowed for 1–5 players. Adds <span class="text-ink-900">+@GameRestrictions.ExtraBoardDifficultyBonus</span> difficulty.
+                            </InfoHint>
+                        </span>
+                    </div>
+                    <span class="relative inline-flex h-6 w-11 items-center shrink-0 rounded-full transition-colors @(_extraBoard ? "bg-accent-500" : "bg-ink-200")">
+                        <span class="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform @(_extraBoard ? "translate-x-5" : "")"></span>
+                    </span>
+                </div>
+
+                <div role="button" tabindex="0" aria-pressed="@_thematicMaps"
+                     @onclick="() => _thematicMaps = !_thematicMaps"
+                     @onkeydown="OnThematicMapsKey"
+                     class="flex items-center justify-between gap-3 rounded-xl border @(_thematicMaps ? "border-accent-300 bg-accent-50/50" : "border-ink-200 bg-white") px-4 py-3 select-none cursor-pointer hover:border-ink-300">
+                    <div class="min-w-0 flex items-start gap-1.5">
+                        <div>
+                            <div class="text-sm font-semibold text-ink-900">Thematic maps</div>
+                            <div class="text-[11px] text-ink-500">+@GameRestrictions.ThematicMapsDifficultyBonus difficulty · thematic-only layouts</div>
+                        </div>
+                        <span @onclick:stopPropagation="true" @onkeydown:stopPropagation="true" class="mt-0.5">
+                            <InfoHint Position="right">
+                                Restricts the layout list to thematic island shapes. Adds <span class="text-ink-900">+@GameRestrictions.ThematicMapsDifficultyBonus</span> difficulty. No thematic map exists for 5 boards.
+                            </InfoHint>
+                        </span>
+                    </div>
+                    <span class="relative inline-flex h-6 w-11 items-center shrink-0 rounded-full transition-colors @(_thematicMaps ? "bg-accent-500" : "bg-ink-200")">
+                        <span class="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform @(_thematicMaps ? "translate-x-5" : "")"></span>
+                    </span>
+                </div>
+            </div>
+
             <div>
-                <label class="label">Island setup <span class="text-ink-500 font-normal normal-case tracking-normal">— @_players.Count player@(_players.Count == 1 ? "" : "s")</span></label>
-                <IslandSetupPicker @bind-Value="_islandSetupId" PlayerCount="_players.Count"/>
+                <label class="label">
+                    Island setup
+                    <span class="text-ink-500 font-normal normal-case tracking-normal">— @EffectiveBoardCount board@(EffectiveBoardCount == 1 ? "" : "s")@(_thematicMaps ? " · thematic" : "")</span>
+                </label>
+                <IslandSetupPicker @bind-Value="_islandSetupId" PlayerCount="EffectiveBoardCount" Thematic="_thematicMaps"/>
+                @if (_thematicMaps && !ThematicAvailableForBoardCount)
+                {
+                    <p class="mt-2 text-xs text-red-600">No thematic layout exists for @EffectiveBoardCount boards. Turn off <em>Thematic maps</em> or @(_extraBoard ? "disable the extra board" : "enable the extra board").</p>
+                }
             </div>
 
             <div class="grid md:grid-cols-2 gap-4">
@@ -307,6 +357,21 @@ else
                 }
             </div>
 
+            @* Difficulty modifier *@
+            <div class="grid sm:grid-cols-[1fr_8rem] gap-3 items-end">
+                <div>
+                    <label class="label flex items-center gap-1.5">
+                        <span>Difficulty modifier</span>
+                        <InfoHint>
+                            Manual <strong class="text-ink-900">+/− adjustment</strong> for homemade variants or anything the standard formula doesn't cover. Leave at 0 for ordinary games. Allowed range: @GameRestrictions.DifficultyModifierMin to +@GameRestrictions.DifficultyModifierMax.
+                        </InfoHint>
+                    </label>
+                    <p class="text-[11px] text-ink-500 m-0">Added directly to total difficulty.</p>
+                </div>
+                <input type="number" class="input h-12" @bind="_difficultyModifier"
+                       min="@GameRestrictions.DifficultyModifierMin" max="@GameRestrictions.DifficultyModifierMax"/>
+            </div>
+
             @* Difficulty hero *@
             <div class="rounded-xl bg-gradient-to-br from-accent-50 to-accent-100/60 border border-accent-200 p-5 flex items-center justify-between gap-4">
                 <div>
@@ -314,7 +379,7 @@ else
                     <div class="text-4xl font-bold text-accent-900 mt-1 leading-none" style="font-family: var(--font-serif);">@ComputedDifficulty</div>
                 </div>
                 <div class="text-xs text-accent-800/70 text-right space-y-0.5">
-                    @if (_adversaries.Count == 0 && string.IsNullOrEmpty(_scenarioId))
+                    @if (_adversaries.Count == 0 && string.IsNullOrEmpty(_scenarioId) && !_extraBoard && !_thematicMaps && _difficultyModifier == 0)
                     {
                         <div>Tutorial / freeplay</div>
                     }
@@ -330,6 +395,18 @@ else
                         {
                             var sc = ScenarioFor(_scenarioId);
                             <div>@(sc?.Name ?? "Scenario") <span class="text-accent-700/60">+@(sc?.Difficulty ?? 0)</span></div>
+                        }
+                        @if (_extraBoard)
+                        {
+                            <div>Extra board <span class="text-accent-700/60">+@GameRestrictions.ExtraBoardDifficultyBonus</span></div>
+                        }
+                        @if (_thematicMaps)
+                        {
+                            <div>Thematic maps <span class="text-accent-700/60">+@GameRestrictions.ThematicMapsDifficultyBonus</span></div>
+                        }
+                        @if (_difficultyModifier != 0)
+                        {
+                            <div>Modifier <span class="text-accent-700/60">@(_difficultyModifier > 0 ? "+" : "")@_difficultyModifier</span></div>
                         }
                     }
                 </div>
@@ -666,8 +743,33 @@ else
                 total += scen?.Difficulty ?? 0;
             }
 
-            return total;
+            if (_extraBoard && ExtraBoardAllowed) total += GameRestrictions.ExtraBoardDifficultyBonus;
+            if (_thematicMaps) total += GameRestrictions.ThematicMapsDifficultyBonus;
+            total += _difficultyModifier;
+
+            return Math.Clamp(total, 0, GameRestrictions.MaximumDifficulty);
         }
+    }
+
+    private bool ExtraBoardAllowed => _players.Count <= GameRestrictions.MaximumPlayersForExtraBoard;
+    private int EffectiveBoardCount => _players.Count + (_extraBoard && ExtraBoardAllowed ? 1 : 0);
+    private bool ThematicAvailableForBoardCount =>
+        GameData.IslandSetups.Any(s => s.IsThematic && s.NumberOfPlayers == EffectiveBoardCount);
+
+    private void ToggleExtraBoard()
+    {
+        if (!ExtraBoardAllowed) return;
+        _extraBoard = !_extraBoard;
+    }
+
+    private void OnExtraBoardKey(KeyboardEventArgs e)
+    {
+        if (e.Key is " " or "Enter") ToggleExtraBoard();
+    }
+
+    private void OnThematicMapsKey(KeyboardEventArgs e)
+    {
+        if (e.Key is " " or "Enter") _thematicMaps = !_thematicMaps;
     }
 
     private List<PlayerFormItem> _players = [new()];
@@ -675,6 +777,10 @@ else
     private List<Application.Features.Players.ListPlayersResponse> _localPlayers = [];
 
     private List<AdversaryFormItem> _adversaries = [];
+
+    private bool _extraBoard;
+    private bool _thematicMaps;
+    private int _difficultyModifier;
 
     private bool _includeResult;
     private bool _resultWin = true;
@@ -700,7 +806,12 @@ else
     }
 
     @* ============== Player editing ============== *@
-    private void AddPlayer() => _players.Add(new PlayerFormItem());
+    private void AddPlayer()
+    {
+        _players.Add(new PlayerFormItem());
+        if (!ExtraBoardAllowed) _extraBoard = false;
+    }
+
     private void RemovePlayer(int idx) => _players.RemoveAt(idx);
 
     private void OnAssigneeChanged(int idx, string value)
@@ -855,7 +966,10 @@ else
         var cmd = new Application.Features.Games.DraftGameCommand(
             CurrentUser.UserId!.Value,
             new DateTimeOffset(_datePlayed, TimeSpan.Zero),
-            _islandSetupId, ComputedDifficulty,
+            _islandSetupId,
+            _extraBoard && ExtraBoardAllowed,
+            _thematicMaps,
+            _difficultyModifier,
             BuildPlayerDtos(), BuildAdversaryDtos(),
             string.IsNullOrEmpty(_scenarioId) ? null : _scenarioId,
             string.IsNullOrEmpty(_note) ? null : _note);
@@ -882,7 +996,10 @@ else
         var cmd = new Application.Features.Games.CreateGameCommand(
             CurrentUser.UserId!.Value,
             new DateTimeOffset(_datePlayed, TimeSpan.Zero),
-            _islandSetupId, ComputedDifficulty,
+            _islandSetupId,
+            _extraBoard && ExtraBoardAllowed,
+            _thematicMaps,
+            _difficultyModifier,
             BuildPlayerDtos(), BuildAdversaryDtos(),
             string.IsNullOrEmpty(_scenarioId) ? null : _scenarioId,
             resultDto,
