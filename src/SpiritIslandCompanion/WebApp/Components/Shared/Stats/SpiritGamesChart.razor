@@ -1,0 +1,94 @@
+@* Horizontal bar chart — one bar per played spirit, coloured with the spirit's
+   signature colour. Tooltip surfaces wins/losses/win-rate/avg-score. *@
+
+@if (_data.Count == 0)
+{
+    <div class="text-sm text-ink-500 py-8 text-center">No spirits played yet.</div>
+}
+else
+{
+    <ApexChart TItem="SpiritRow" Options="_options">
+        <ApexPointSeries TItem="SpiritRow"
+                         Items="_data"
+                         Name="Games"
+                         SeriesType="SeriesType.Bar"
+                         XValue="@(d => d.Name)"
+                         YValue="@(d => d.Games)"/>
+    </ApexChart>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<Application.Features.Statistics.SpiritStats> Spirits { get; set; } = [];
+    [Parameter] public int Height { get; set; } = 360;
+
+    private ApexChartOptions<SpiritRow> _options = new();
+    private List<SpiritRow> _data = [];
+
+    public record SpiritRow(string Id, string Name, int Games, int Wins, int Losses, double WinRate, double AverageScore, string Color);
+
+    protected override void OnParametersSet()
+    {
+        _data = Spirits
+            .OrderBy(s => s.GamesPlayed)
+            .Select(s =>
+            {
+                var spirit = GameLookups.SpiritFor(s.SpiritId);
+                var detail = spirit is null ? null : SpiritDetails.For(spirit.Id);
+                return new SpiritRow(
+                    s.SpiritId,
+                    spirit?.Name ?? s.SpiritId,
+                    s.GamesPlayed,
+                    s.Wins,
+                    s.Losses,
+                    s.WinRate,
+                    s.AverageScore,
+                    detail?.ColorHex ?? StatsTheme.Ink400);
+            })
+            .ToList();
+
+        _options = new ApexChartOptions<SpiritRow>
+        {
+            Chart = new Chart
+            {
+                Height = Math.Max(Height, 40 + _data.Count * 28),
+                Toolbar = new Toolbar { Show = false },
+                FontFamily = StatsTheme.FontFamily,
+            },
+            Colors = _data.Select(d => d.Color).ToList(),
+            PlotOptions = new PlotOptions
+            {
+                Bar = new PlotOptionsBar
+                {
+                    Horizontal = true,
+                    BorderRadius = 4,
+                    Distributed = true,
+                    DataLabels = new PlotOptionsBarDataLabels { Position = BarDataLabelPosition.Top },
+                },
+            },
+            DataLabels = new DataLabels
+            {
+                Enabled = true,
+                TextAnchor = TextAnchor.Start,
+                OffsetX = 4,
+                Style = new DataLabelsStyle { Colors = [StatsTheme.Ink700], FontSize = "11px" },
+            },
+            Legend = new Legend { Show = false },
+            Xaxis = new XAxis
+            {
+                DecimalsInFloat = 0,
+                AxisBorder = new AxisBorder { Show = false },
+                AxisTicks = new AxisTicks { Show = false },
+                Labels = new XAxisLabels { Style = new AxisLabelStyle { Colors = new Color(StatsTheme.Ink500) } },
+            },
+            Yaxis =
+            [
+                new YAxis
+                {
+                    Labels = new YAxisLabels { Style = new AxisLabelStyle { Colors = new Color(StatsTheme.Ink700) } },
+                }
+            ],
+            Grid = new Grid { BorderColor = StatsTheme.Ink200, StrokeDashArray = 4 },
+            Tooltip = new Tooltip { Theme = ApexCharts.Mode.Light },
+        };
+    }
+}

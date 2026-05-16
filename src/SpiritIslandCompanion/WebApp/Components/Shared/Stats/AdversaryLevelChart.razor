@@ -1,0 +1,97 @@
+@* Per-adversary stacked bar: wins vs losses per level. Used inside a card on
+   the Adversaries tab. *@
+
+@{
+    var levels = AllLevels.Count > 0
+        ? AllLevels.OrderBy(l => l).ToList()
+        : Levels.Select(l => l.Level).OrderBy(l => l).ToList();
+}
+
+@if (levels.Count == 0)
+{
+    <div class="text-xs text-ink-500">No games at any level.</div>
+}
+else
+{
+    <ApexChart TItem="LevelRow" Options="_options">
+        <ApexPointSeries TItem="LevelRow"
+                         Items="_data"
+                         Name="Wins"
+                         SeriesType="SeriesType.Bar"
+                         XValue="@(d => d.Level)"
+                         YValue="@(d => d.Wins)"
+                         Color="@StatsTheme.Accent500"/>
+        <ApexPointSeries TItem="LevelRow"
+                         Items="_data"
+                         Name="Losses"
+                         SeriesType="SeriesType.Bar"
+                         XValue="@(d => d.Level)"
+                         YValue="@(d => d.Losses)"
+                         Color="@StatsTheme.DangerSoft"/>
+    </ApexChart>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<Application.Features.Statistics.AdversaryLevelStats> Levels { get; set; } = [];
+    /// <summary>Optional full set of levels to render (e.g. all levels the adversary supports).
+    /// Levels in this set but not in <see cref="Levels"/> render as zeros — useful for coverage display.</summary>
+    [Parameter] public IReadOnlyList<int> AllLevels { get; set; } = [];
+    [Parameter] public int Height { get; set; } = 140;
+
+    private ApexChartOptions<LevelRow> _options = new();
+    private List<LevelRow> _data = [];
+
+    public record LevelRow(string Level, decimal Wins, decimal Losses);
+
+    protected override void OnParametersSet()
+    {
+        var byLevel = Levels.ToDictionary(l => l.Level, l => l);
+        var allLevels = AllLevels.Count > 0
+            ? AllLevels.OrderBy(l => l).ToList()
+            : Levels.Select(l => l.Level).OrderBy(l => l).ToList();
+
+        _data = allLevels.Select(level =>
+        {
+            if (byLevel.TryGetValue(level, out var stats))
+            {
+                return new LevelRow($"L{level}", stats.Wins, Math.Max(0, stats.GamesPlayed - stats.Wins));
+            }
+            return new LevelRow($"L{level}", 0, 0);
+        }).ToList();
+
+        _options = new ApexChartOptions<LevelRow>
+        {
+            Chart = new Chart
+            {
+                Stacked = true,
+                Height = Height,
+                Toolbar = new Toolbar { Show = false },
+                Sparkline = new ChartSparkline { Enabled = false },
+                FontFamily = StatsTheme.FontFamily,
+            },
+            Colors = [StatsTheme.Accent500, StatsTheme.DangerSoft],
+            PlotOptions = new PlotOptions
+            {
+                Bar = new PlotOptionsBar { BorderRadius = 3, ColumnWidth = "45%" },
+            },
+            DataLabels = new DataLabels { Enabled = false },
+            Legend = new Legend { Show = false },
+            Yaxis =
+            [
+                new YAxis
+                {
+                    DecimalsInFloat = 0,
+                    Labels = new YAxisLabels { Style = new AxisLabelStyle { Colors = new Color(StatsTheme.Ink500), FontSize = "10px" } },
+                }
+            ],
+            Xaxis = new XAxis
+            {
+                AxisBorder = new AxisBorder { Show = false },
+                AxisTicks = new AxisTicks { Show = false },
+                Labels = new XAxisLabels { Style = new AxisLabelStyle { Colors = new Color(StatsTheme.Ink500), FontSize = "10px" } },
+            },
+            Grid = new Grid { BorderColor = StatsTheme.Ink200, StrokeDashArray = 4 },
+            Tooltip = new Tooltip { Theme = ApexCharts.Mode.Light },
+        };
+    }
+}

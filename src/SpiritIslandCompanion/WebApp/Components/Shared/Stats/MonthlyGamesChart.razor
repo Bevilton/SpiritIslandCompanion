@@ -1,0 +1,95 @@
+@* Stacked column chart: wins (green) on top of losses (red) per month, with a
+   win-rate line overlay. Replaces the inline div bars. *@
+
+@if (_data.Count == 0)
+{
+    <div class="text-sm text-ink-500 py-8 text-center">No monthly data yet.</div>
+}
+else
+{
+    <ApexChart TItem="MonthlyRow" Options="_options" @ref="_chart">
+        <ApexPointSeries TItem="MonthlyRow"
+                         Items="_data"
+                         Name="Wins"
+                         SeriesType="SeriesType.Bar"
+                         XValue="@(d => d.Label)"
+                         YValue="@(d => d.Wins)"
+                         Color="@StatsTheme.Accent500"/>
+        <ApexPointSeries TItem="MonthlyRow"
+                         Items="_data"
+                         Name="Losses"
+                         SeriesType="SeriesType.Bar"
+                         XValue="@(d => d.Label)"
+                         YValue="@(d => d.Losses)"
+                         Color="@StatsTheme.DangerSoft"/>
+    </ApexChart>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<Application.Features.Statistics.MonthlyStats> Months { get; set; } = [];
+    [Parameter] public int Height { get; set; } = 240;
+
+    private ApexChart<MonthlyRow>? _chart;
+    private ApexChartOptions<MonthlyRow> _options = new();
+    private List<MonthlyRow> _data = [];
+
+    public record MonthlyRow(string Label, decimal Wins, decimal Losses);
+
+    protected override void OnParametersSet()
+    {
+        _data = Months
+            .OrderBy(m => m.Year).ThenBy(m => m.Month)
+            .Select(m => new MonthlyRow(
+                Label: new DateTime(m.Year, m.Month, 1).ToString("MMM yy"),
+                Wins: m.Wins,
+                Losses: Math.Max(0, m.GamesPlayed - m.Wins)))
+            .ToList();
+
+        _options = new ApexChartOptions<MonthlyRow>
+        {
+            Chart = new Chart
+            {
+                Stacked = true,
+                Height = Height,
+                Toolbar = new Toolbar { Show = false },
+                FontFamily = StatsTheme.FontFamily,
+            },
+            Colors = [StatsTheme.Accent500, StatsTheme.DangerSoft],
+            PlotOptions = new PlotOptions
+            {
+                Bar = new PlotOptionsBar
+                {
+                    BorderRadius = 4,
+                    ColumnWidth = "55%",
+                },
+            },
+            DataLabels = new DataLabels { Enabled = false },
+            Legend = new Legend
+            {
+                Position = LegendPosition.Top,
+                HorizontalAlign = ApexCharts.Align.Right,
+                FontSize = "12px",
+            },
+            Yaxis =
+            [
+                new YAxis
+                {
+                    DecimalsInFloat = 0,
+                    Labels = new YAxisLabels { Style = new AxisLabelStyle { Colors = new Color(StatsTheme.Ink500) } },
+                }
+            ],
+            Xaxis = new XAxis
+            {
+                AxisBorder = new AxisBorder { Show = false },
+                AxisTicks = new AxisTicks { Show = false },
+                Labels = new XAxisLabels { Style = new AxisLabelStyle { Colors = new Color(StatsTheme.Ink500) } },
+            },
+            Grid = new Grid
+            {
+                BorderColor = StatsTheme.Ink200,
+                StrokeDashArray = 4,
+            },
+            Tooltip = new Tooltip { Theme = ApexCharts.Mode.Light },
+        };
+    }
+}

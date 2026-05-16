@@ -1,0 +1,86 @@
+@* Histogram-style column chart of completed-game scores, bucketed into ranges
+   of <c>BucketSize</c>. Colored amber so it stands apart from the green
+   "wins" series used elsewhere on the page. *@
+
+@if (_data.Count == 0)
+{
+    <div class="text-sm text-ink-500 py-8 text-center">No completed games yet.</div>
+}
+else
+{
+    <ApexChart TItem="Bucket" Options="_options">
+        <ApexPointSeries TItem="Bucket"
+                         Items="_data"
+                         Name="Games"
+                         SeriesType="SeriesType.Bar"
+                         XValue="@(d => d.Label)"
+                         YValue="@(d => d.Count)"/>
+    </ApexChart>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<int> Scores { get; set; } = [];
+    [Parameter] public int BucketSize { get; set; } = 20;
+    [Parameter] public int Height { get; set; } = 220;
+
+    public record Bucket(string Label, int Lower, int Upper, int Count);
+
+    private ApexChartOptions<Bucket> _options = new();
+    private List<Bucket> _data = [];
+
+    protected override void OnParametersSet()
+    {
+        if (Scores.Count == 0)
+        {
+            _data = [];
+            return;
+        }
+
+        var min = Scores.Min();
+        var max = Scores.Max();
+        var lo = (min / BucketSize) * BucketSize;
+        var hi = ((max / BucketSize) + 1) * BucketSize;
+
+        var buckets = new List<Bucket>();
+        for (var start = lo; start < hi; start += BucketSize)
+        {
+            var end = start + BucketSize - 1;
+            var count = Scores.Count(s => s >= start && s <= end);
+            buckets.Add(new Bucket($"{start}–{end}", start, end, count));
+        }
+        _data = buckets;
+
+        _options = new ApexChartOptions<Bucket>
+        {
+            Chart = new Chart
+            {
+                Height = Height,
+                Toolbar = new Toolbar { Show = false },
+                FontFamily = StatsTheme.FontFamily,
+            },
+            Colors = ["#D97706"],
+            PlotOptions = new PlotOptions
+            {
+                Bar = new PlotOptionsBar { BorderRadius = 3, ColumnWidth = "60%" },
+            },
+            DataLabels = new DataLabels { Enabled = false },
+            Legend = new Legend { Show = false },
+            Yaxis =
+            [
+                new YAxis
+                {
+                    DecimalsInFloat = 0,
+                    Labels = new YAxisLabels { Style = new AxisLabelStyle { Colors = new Color(StatsTheme.Ink500) } },
+                }
+            ],
+            Xaxis = new XAxis
+            {
+                AxisBorder = new AxisBorder { Show = false },
+                AxisTicks = new AxisTicks { Show = false },
+                Labels = new XAxisLabels { Style = new AxisLabelStyle { Colors = new Color(StatsTheme.Ink500), FontSize = "11px" } },
+            },
+            Grid = new Grid { BorderColor = StatsTheme.Ink200, StrokeDashArray = 4 },
+            Tooltip = new Tooltip { Theme = ApexCharts.Mode.Light },
+        };
+    }
+}

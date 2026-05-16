@@ -1,0 +1,55 @@
+@* Coverage panel — shows how many items from a candidate set haven't been
+   played yet, with a horizontal completion bar and a small grid of "missing"
+   pills. Generic over the item type so it works for spirits, scenarios,
+   boards, adversary levels, etc. *@
+
+@{
+    var missingCount = MissingCount ?? Missing.Count;
+    var pct = Total > 0 ? Math.Clamp((double)(Total - missingCount) / Total * 100, 0, 100) : 100;
+}
+
+<section class="surface px-5 py-4">
+    <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+        <div>
+            <div class="text-[10px] uppercase tracking-wide text-ink-500 font-medium">@Title</div>
+            <div class="mt-0.5 text-base font-semibold text-ink-900" style="font-family: var(--font-serif);">
+                @(Total - missingCount) <span class="text-ink-500 font-normal">/ @Total played</span>
+            </div>
+        </div>
+        <div class="text-xs tabular-nums @(pct >= 75 ? "text-accent-700" : "text-ink-500")">@($"{pct:F0}%")</div>
+    </div>
+
+    <div class="h-2 bg-ink-100 rounded-full overflow-hidden mb-4">
+        <div class="h-full bg-accent-500 rounded-full transition-all" style="width:@($"{pct:F0}")%"></div>
+    </div>
+
+    @if (Missing.Count == 0)
+    {
+        <div class="text-xs text-accent-700 flex items-center gap-1.5">
+            <Icon Name="check" Class="w-3.5 h-3.5"/>
+            All @Title.ToLowerInvariant() covered.
+        </div>
+    }
+    else
+    {
+        <div class="text-[11px] uppercase tracking-wide text-ink-500 font-medium mb-2">Not yet played</div>
+        <div class="flex flex-wrap gap-1.5">
+            @foreach (var item in Missing)
+            {
+                @ItemTemplate(item)
+            }
+        </div>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter, EditorRequired] public int Total { get; set; }
+    [Parameter, EditorRequired] public IReadOnlyList<object> Missing { get; set; } = [];
+    [Parameter, EditorRequired] public RenderFragment<object> ItemTemplate { get; set; } = default!;
+
+    /// <summary>Override the number used for the "X / Y played" math when the
+    /// items in <see cref="Missing"/> are grouped (e.g. one row per adversary
+    /// covering several levels). Defaults to <c>Missing.Count</c>.</summary>
+    [Parameter] public int? MissingCount { get; set; }
+}

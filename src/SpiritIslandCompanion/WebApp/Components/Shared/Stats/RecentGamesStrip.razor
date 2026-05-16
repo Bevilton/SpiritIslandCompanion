@@ -1,0 +1,51 @@
+@* Horizontal strip of the user's 5 most recent games — clickable cards that
+   navigate to the game detail. *@
+
+@if (Games.Count == 0)
+{
+    <div class="text-sm text-ink-500 py-6 text-center surface">No games recorded yet.</div>
+}
+else
+{
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        @foreach (var g in Games)
+        {
+            var adversaries = g.AdversaryIds.Select(GameLookups.AdversaryFor).Where(a => a is not null).ToList();
+            var scenario = GameLookups.ScenarioFor(g.ScenarioId);
+            var border = !g.IsCompleted ? "border-ink-200" : g.Win == true ? "border-accent-300" : "border-red-200";
+            var resultClass = !g.IsCompleted ? "text-ink-500" : g.Win == true ? "text-accent-700" : "text-red-700";
+            <a href="/app/games/@g.Id" class="block rounded-xl border @border bg-white hover:shadow-sm hover:border-ink-300 transition-all p-4">
+                <div class="flex items-start justify-between gap-2 mb-2">
+                    <div class="text-[11px] uppercase tracking-wide text-ink-500">@g.StartedAt.LocalDateTime.ToString("MMM dd")</div>
+                    <GameStatusBadge IsCompleted="g.IsCompleted" Win="g.Win"/>
+                </div>
+                <div class="text-sm font-semibold text-ink-900 truncate mb-1">
+                    @if (adversaries.Count > 0)
+                    {
+                        @string.Join(" + ", adversaries.Select(a => a!.Name))
+                    }
+                    else if (scenario is not null)
+                    {
+                        @scenario.Name
+                    }
+                    else
+                    {
+                        <span class="text-ink-500 font-normal italic">Tutorial / freeplay</span>
+                    }
+                </div>
+                <div class="flex items-center justify-between text-[11px] text-ink-500 mb-2">
+                    <span>@g.PlayerCount @(g.PlayerCount == 1 ? "player" : "players") · diff @g.Difficulty</span>
+                    @if (g.IsCompleted && g.Score is { } sc)
+                    {
+                        <span class="@resultClass font-semibold tabular-nums" style="font-family: var(--font-serif);">@sc</span>
+                    }
+                </div>
+                <SpiritAvatarStack SpiritIds="g.SpiritIds" Max="4"/>
+            </a>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<Application.Features.Statistics.RecentGameSummary> Games { get; set; } = [];
+}

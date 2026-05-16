@@ -1,0 +1,47 @@
+@* Compact SVG donut showing a win-rate percentage. Sized by <c>Size</c> px.
+   Uses the same green / red accents the rest of the app uses for win/loss. *@
+
+@{
+    var pct = Math.Clamp(Pct, 0, 100);
+    var radius = Size / 2.0 - Stroke / 2.0;
+    var circumference = 2 * Math.PI * radius;
+    var dash = circumference * pct / 100.0;
+    var color = pct >= 60 ? "var(--color-accent-600)" : pct >= 40 ? "#D97706" /* amber-600 */ : "var(--color-red-600, #DC2626)";
+    var bg = "var(--color-ink-100)";
+    var center = Size / 2.0;
+}
+
+<div class="relative inline-flex items-center justify-center" style="width:@(Size)px; height:@(Size)px;">
+    <svg width="@Size" height="@Size" viewBox="0 0 @Size @Size" aria-hidden="true">
+        <circle cx="@center" cy="@center" r="@radius"
+                stroke="@bg" stroke-width="@Stroke" fill="none"/>
+        <circle cx="@center" cy="@center" r="@radius"
+                stroke="@color" stroke-width="@Stroke" fill="none"
+                stroke-linecap="round"
+                stroke-dasharray="@($"{dash.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)} {circumference.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}")"
+                transform="rotate(-90 @center @center)"/>
+    </svg>
+    <div class="absolute inset-0 flex items-center justify-center">
+        <div class="text-center leading-none">
+            <div class="font-semibold tabular-nums @TextSizeClass" style="font-family: var(--font-serif);">@($"{pct:F0}")<span class="text-[0.55em] align-top">%</span></div>
+            @if (!string.IsNullOrEmpty(Caption))
+            {
+                <div class="text-[9px] uppercase tracking-wide text-ink-500 mt-0.5">@Caption</div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public double Pct { get; set; }
+    [Parameter] public int Size { get; set; } = 80;
+    [Parameter] public int Stroke { get; set; } = 8;
+    [Parameter] public string? Caption { get; set; }
+
+    private string TextSizeClass => Size switch
+    {
+        >= 96 => "text-2xl",
+        >= 72 => "text-lg",
+        _     => "text-sm",
+    };
+}

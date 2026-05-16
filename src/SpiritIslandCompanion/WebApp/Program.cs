@@ -1,3 +1,4 @@
+using ApexCharts;
 using Application.Extensions;
 using Infrastructure.Database;
 using Infrastructure.Extensions;
@@ -16,6 +17,7 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure();
+builder.Services.AddApexCharts();
 builder.Services.AddOidcAuthentication(builder.Configuration, builder.Environment);
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<CurrentUserState>();

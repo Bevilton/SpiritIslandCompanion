@@ -1,0 +1,78 @@
+@* Column chart of games per difficulty value. Each column shows total games at
+   that difficulty; tooltip hover surfaces win rate. *@
+
+@if (_data.Count == 0)
+{
+    <div class="text-sm text-ink-500 py-8 text-center">No completed games yet.</div>
+}
+else
+{
+    <ApexChart TItem="DifficultyRow" Options="_options">
+        <ApexPointSeries TItem="DifficultyRow"
+                         Items="_data"
+                         Name="Games"
+                         SeriesType="SeriesType.Bar"
+                         XValue="@(d => d.Label)"
+                         YValue="@(d => d.Count)"/>
+    </ApexChart>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<int> Difficulties { get; set; } = [];
+    [Parameter] public int Height { get; set; } = 220;
+
+    public record DifficultyRow(string Label, int Difficulty, int Count);
+
+    private ApexChartOptions<DifficultyRow> _options = new();
+    private List<DifficultyRow> _data = [];
+
+    protected override void OnParametersSet()
+    {
+        if (Difficulties.Count == 0)
+        {
+            _data = [];
+            return;
+        }
+
+        var min = Difficulties.Min();
+        var max = Difficulties.Max();
+        _data = Enumerable.Range(min, max - min + 1)
+            .Select(d => new DifficultyRow(d.ToString(), d, Difficulties.Count(x => x == d)))
+            .Where(r => r.Count > 0 || (r.Difficulty >= min && r.Difficulty <= max))
+            .ToList();
+
+        _options = new ApexChartOptions<DifficultyRow>
+        {
+            Chart = new Chart
+            {
+                Height = Height,
+                Toolbar = new Toolbar { Show = false },
+                FontFamily = StatsTheme.FontFamily,
+            },
+            Colors = [StatsTheme.Accent600],
+            PlotOptions = new PlotOptions
+            {
+                Bar = new PlotOptionsBar { BorderRadius = 3, ColumnWidth = "55%" },
+            },
+            DataLabels = new DataLabels { Enabled = false },
+            Legend = new Legend { Show = false },
+            Yaxis =
+            [
+                new YAxis
+                {
+                    DecimalsInFloat = 0,
+                    Labels = new YAxisLabels { Style = new AxisLabelStyle { Colors = new Color(StatsTheme.Ink500) } },
+                }
+            ],
+            Xaxis = new XAxis
+            {
+                AxisBorder = new AxisBorder { Show = false },
+                AxisTicks = new AxisTicks { Show = false },
+                Title = new AxisTitle { Text = "Difficulty", Style = new AxisTitleStyle { Color = StatsTheme.Ink500, FontSize = "11px", FontWeight = "500" } },
+                Labels = new XAxisLabels { Style = new AxisLabelStyle { Colors = new Color(StatsTheme.Ink500) } },
+            },
+            Grid = new Grid { BorderColor = StatsTheme.Ink200, StrokeDashArray = 4 },
+            Tooltip = new Tooltip { Theme = ApexCharts.Mode.Light },
+        };
+    }
+}
