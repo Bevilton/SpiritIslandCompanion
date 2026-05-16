@@ -696,7 +696,7 @@ else
                                 var mode = a.Adv!.Modes.FirstOrDefault(m => m.Level == a.Level);
                                 <li class="flex items-center justify-between gap-2 text-xs">
                                     <span class="text-ink-900 truncate">@a.Adv.Name</span>
-                                    <span class="text-ink-500 shrink-0 font-medium tabular-nums">L@a.Level · +@(mode?.Difficulty ?? 0)</span>
+                                    <span class="text-ink-500 shrink-0 font-medium tabular-nums">L@(a.Level) · +@(mode?.Difficulty ?? 0)</span>
                                 </li>
                             }
                         </ul>
