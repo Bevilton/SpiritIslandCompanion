@@ -142,7 +142,8 @@ else
     }
 
     @* ============================== HERO STRIP ============================== *@
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-2">
+    @* Top row: the three headline stats — large tiles. *@
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-3">
         <StatHero Value="@_stats.TotalGames.ToString()"
                   Label="Total games"
                   Caption="@($"{_stats.InProgress} in progress")"
@@ -151,15 +152,18 @@ else
                   Label="Win rate"
                   Caption="@($"{_stats.Wins} W / {_stats.Losses} L")"
                   Icon="trophy"/>
-        <StatHero Value="@($"{_stats.AverageScore:F0}")"
-                  Label="Avg score"
-                  Caption="@($"{_stats.AverageDifficulty:F1} avg difficulty")"
-                  Icon="chart"/>
         <StatHero Value="@_stats.BestScore.ToString()"
                   Label="Best score"
                   Caption="@(_stats.BestScoreGameId is not null ? "View that match →" : "—")"
                   Icon="star"
                   Href="@(_stats.BestScoreGameId is { } id ? $"/app/games/{id}" : null)"/>
+    </div>
+    @* Second row: secondary stats, denser. *@
+    <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+        <StatHero Value="@($"{_stats.AverageScore:F0}")"
+                  Label="Avg score"
+                  Caption="@($"{_stats.AverageDifficulty:F1} avg difficulty")"
+                  Icon="chart"/>
         <StatHero Value="@FormatHours(_stats.TotalPlayTime)"
                   Label="Time played"
                   Caption="@($"avg {_stats.AverageDuration:h\\:mm} per game")"
@@ -168,12 +172,11 @@ else
                   Label="Best streak"
                   Caption="consecutive wins"
                   Icon="sparkles"/>
-    </div>
-    <div class="grid grid-cols-3 gap-4 mb-6">
         <StatHero Value="@(_stats.MinScore?.ToString() ?? "—")"
                   Label="Lowest score"
-                  Caption="completed games"
-                  Icon="chart"/>
+                  Caption="@(_stats.MinScoreGameId is not null ? "View that match →" : "no completed games")"
+                  Icon="chart"
+                  Href="@(_stats.MinScoreGameId is { } minId ? $"/app/games/{minId}" : null)"/>
         <StatHero Value="@($"{_stats.AverageDahan:F1}")"
                   Label="Avg dahan"
                   Caption="alive at game end"
@@ -318,6 +321,63 @@ else
                 <MonthlyGamesChart Months="_stats.MonthlyStatistics" Height="280"/>
             </div>
 
+            @* ===== Hardest matchups ===== *@
+            @{
+                var hardAdversaries = _stats.AdversaryStatistics
+                    .Where(a => a.Losses > 0)
+                    .OrderByDescending(a => a.Losses)
+                    .ThenByDescending(a => a.GamesPlayed)
+                    .Take(5)
+                    .Select(a =>
+                    {
+                        var adv = GameLookups.AdversaryFor(a.AdversaryId);
+                        return new LossLeaderboard.Row(
+                            adv?.Name ?? a.AdversaryId,
+                            a.Losses,
+                            $"avg L{a.AverageLevel:F1} · {a.WinRate:F0}% win");
+                    })
+                    .ToList();
+                var hardScenarios = _stats.ScenarioStatistics
+                    .Where(s => s.Losses > 0)
+                    .OrderByDescending(s => s.Losses)
+                    .ThenByDescending(s => s.GamesPlayed)
+                    .Take(5)
+                    .Select(s =>
+                    {
+                        var sc = GameLookups.ScenarioFor(s.ScenarioId);
+                        return new LossLeaderboard.Row(
+                            sc?.Name ?? s.ScenarioId,
+                            s.Losses,
+                            $"{s.WinRate:F0}% win");
+                    })
+                    .ToList();
+                var hardSpirits = _stats.SpiritStatistics
+                    .Where(s => s.Losses > 0)
+                    .OrderByDescending(s => s.Losses)
+                    .ThenByDescending(s => s.GamesPlayed)
+                    .Take(5)
+                    .Select(s =>
+                    {
+                        var sp = GameLookups.SpiritFor(s.SpiritId);
+                        return new LossLeaderboard.Row(
+                            sp?.Name ?? s.SpiritId,
+                            s.Losses,
+                            $"{s.WinRate:F0}% win");
+                    })
+                    .ToList();
+            }
+            <div>
+                <div class="flex items-baseline justify-between mb-3">
+                    <h2 class="text-base font-semibold" style="font-family: var(--font-serif);">Hardest matchups</h2>
+                    <span class="text-[11px] text-ink-500">Sorted by total losses</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <LossLeaderboard Title="Adversaries" Subtitle="Most defeats by" Rows="hardAdversaries"/>
+                    <LossLeaderboard Title="Scenarios" Subtitle="Most defeats in" Rows="hardScenarios"/>
+                    <LossLeaderboard Title="Spirits" Subtitle="Most defeats with" Rows="hardSpirits"/>
+                </div>
+            </div>
+
             @* ===== Distributions ===== *@
             <div class="grid lg:grid-cols-2 gap-6">
                 <div class="surface px-5 pt-5 pb-3">
@@ -335,6 +395,54 @@ else
                     <DifficultyDistributionChart Difficulties="_stats.CompletedDifficulties"/>
                 </div>
             </div>
+
+            @* ===== Terror distribution ===== *@
+            @{
+                var terrorTotal = _stats.TerrorDistribution.Sum(t => t.GamesPlayed);
+                var topTerror = _stats.TerrorDistribution.OrderByDescending(t => t.GamesPlayed).FirstOrDefault();
+            }
+            @if (terrorTotal > 0)
+            {
+                <div class="surface px-5 py-5">
+                    <div class="flex items-baseline justify-between mb-4">
+                        <div>
+                            <h2 class="text-base font-semibold" style="font-family: var(--font-serif);">Terror level at game end</h2>
+                            @if (topTerror is not null && topTerror.GamesPlayed > 0)
+                            {
+                                <p class="text-[11px] text-ink-500 mt-0.5">
+                                    Most games end at <span class="text-ink-800 font-medium">Terror @TerrorBar.TerrorLabel(topTerror.TerrorLevel)</span>
+                                    (@($"{(double)topTerror.GamesPlayed / terrorTotal * 100:F0}%"))
+                                </p>
+                            }
+                        </div>
+                        <span class="text-[11px] text-ink-500">@terrorTotal completed games</span>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        @foreach (var t in _stats.TerrorDistribution)
+                        {
+                            var pct = terrorTotal > 0 ? (double)t.GamesPlayed / terrorTotal * 100 : 0;
+                            var losses = t.GamesPlayed - t.Wins;
+                            var winPct = t.GamesPlayed > 0 ? (double)t.Wins / t.GamesPlayed * 100 : 0;
+                            <div class="rounded-xl border border-ink-200 px-4 py-3">
+                                <div class="flex items-baseline justify-between gap-2">
+                                    <div class="flex items-center gap-2">
+                                        <span class="inline-block h-3 w-3 rounded-sm" style="background-color: @TerrorBar.TerrorColor(t.TerrorLevel);"></span>
+                                        <span class="text-xs uppercase tracking-wide text-ink-500 font-medium">Terror @TerrorBar.TerrorLabel(t.TerrorLevel)</span>
+                                    </div>
+                                    <span class="text-base font-bold tabular-nums text-ink-900" style="font-family: var(--font-serif);">@t.GamesPlayed</span>
+                                </div>
+                                <div class="mt-2 h-1.5 bg-ink-100 rounded-full overflow-hidden">
+                                    <div class="h-full rounded-full" style="width:@($"{pct:F0}")%; background-color: @TerrorBar.TerrorColor(t.TerrorLevel);"></div>
+                                </div>
+                                <div class="mt-2 flex items-center justify-between text-[11px] text-ink-500 tabular-nums">
+                                    <span><span class="text-accent-700 font-medium">@t.Wins W</span> / <span class="text-red-600 font-medium">@losses L</span></span>
+                                    <span>@($"{winPct:F0}% win")</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
         </div>;
 }
 
@@ -376,6 +484,7 @@ else
                             <th>Win rate</th>
                             <th class="text-right">Avg score</th>
                             <th class="text-right">Best</th>
+                            <th>Terror reached</th>
                         </tr></thead>
                         <tbody>
                         @foreach (var s in _stats.SpiritStatistics)
@@ -399,6 +508,7 @@ else
                                 <td><WinRateBar Pct="s.WinRate"/></td>
                                 <td class="text-right tabular-nums">@($"{s.AverageScore:F0}")</td>
                                 <td class="text-right tabular-nums">@(s.BestScore?.ToString() ?? "—")</td>
+                                <td><TerrorBar Counts="s.TerrorCounts" WidthClass="w-28"/></td>
                             </tr>
                         }
                         </tbody>

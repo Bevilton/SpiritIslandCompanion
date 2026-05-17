@@ -1,6 +1,7 @@
 using Application.Abstractions;
 using Application.Data;
 using Domain.Models.Game;
+using Domain.Models.Game.Enums;
 using Domain.Models.User;
 using Domain.Results;
 using Microsoft.EntityFrameworkCore;
@@ -31,6 +32,7 @@ public sealed record StatisticsResponse(
     int BestScore,
     Guid? BestScoreGameId,
     int? MinScore,
+    Guid? MinScoreGameId,
     double AverageDahan,
     double AverageBlight,
     int LongestStreak,
@@ -42,7 +44,13 @@ public sealed record StatisticsResponse(
     List<MonthlyStats> MonthlyStatistics,
     List<RecentGameSummary> RecentGames,
     List<int> CompletedScores,
-    List<int> CompletedDifficulties);
+    List<int> CompletedDifficulties,
+    List<TerrorLevelStats> TerrorDistribution);
+
+public sealed record TerrorLevelStats(
+    TerrorLevel TerrorLevel,
+    int GamesPlayed,
+    int Wins);
 
 public sealed record RecentGameSummary(
     Guid Id,
@@ -63,7 +71,8 @@ public sealed record SpiritStats(
     int Losses,
     double WinRate,
     double AverageScore,
-    int? BestScore);
+    int? BestScore,
+    Dictionary<TerrorLevel, int> TerrorCounts);
 
 public sealed record AdversaryStats(
     string AdversaryId,
@@ -179,9 +188,8 @@ internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<Get
         var inProgress = scopedGames.Count(g => g.Result is null);
 
         var bestGame = completedGames.MaxBy(g => g.Result!.Score.Value);
-        var minScore = completedGames.Count > 0
-            ? completedGames.Min(g => g.Result!.Score.Value)
-            : (int?)null;
+        var worstGame = completedGames.MinBy(g => g.Result!.Score.Value);
+        var minScore = worstGame?.Result!.Score.Value;
         var totalPlayTime = completedGames.Count > 0
             ? TimeSpan.FromTicks(completedGames.Sum(g => g.Result!.Duration.Ticks))
             : TimeSpan.Zero;
@@ -206,6 +214,7 @@ internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<Get
             BestScore: bestGame?.Result!.Score.Value ?? 0,
             BestScoreGameId: bestGame?.Id.Value,
             MinScore: minScore,
+            MinScoreGameId: worstGame?.Id.Value,
             AverageDahan: completedGames.Count > 0
                 ? completedGames.Average(g => g.Result!.Dahan.Value)
                 : 0,
@@ -221,7 +230,8 @@ internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<Get
             MonthlyStatistics: GetMonthlyStats(scopedGames),
             RecentGames: GetRecentGames(scopedGames),
             CompletedScores: completedGames.Select(g => g.Result!.Score.Value).ToList(),
-            CompletedDifficulties: completedGames.Select(g => g.Difficulty.Value).ToList());
+            CompletedDifficulties: completedGames.Select(g => g.Difficulty.Value).ToList(),
+            TerrorDistribution: GetTerrorDistribution(completedGames));
 
         return response;
     }
@@ -235,6 +245,9 @@ internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<Get
             {
                 var completed = g.Where(x => x.Result is not null).ToList();
                 var w = completed.Count(x => x.Result!.Win);
+                var terrorCounts = completed
+                    .GroupBy(x => x.Result!.TerrorLevel)
+                    .ToDictionary(tg => tg.Key, tg => tg.Count());
                 return new SpiritStats(
                     g.Key,
                     g.Count(),
@@ -242,9 +255,23 @@ internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<Get
                     completed.Count - w,
                     completed.Count > 0 ? (double)w / completed.Count * 100 : 0,
                     completed.Count > 0 ? completed.Average(x => x.Result!.Score.Value) : 0,
-                    completed.Count > 0 ? completed.Max(x => x.Result!.Score.Value) : null);
+                    completed.Count > 0 ? completed.Max(x => x.Result!.Score.Value) : null,
+                    terrorCounts);
             })
             .OrderByDescending(s => s.GamesPlayed)
+            .ToList();
+    }
+
+    private static List<TerrorLevelStats> GetTerrorDistribution(List<Game> completedGames)
+    {
+        var byLevel = completedGames
+            .GroupBy(g => g.Result!.TerrorLevel)
+            .ToDictionary(g => g.Key, g => (Count: g.Count(), Wins: g.Count(x => x.Result!.Win)));
+
+        return Enum.GetValues<TerrorLevel>()
+            .Select(t => byLevel.TryGetValue(t, out var v)
+                ? new TerrorLevelStats(t, v.Count, v.Wins)
+                : new TerrorLevelStats(t, 0, 0))
             .ToList();
     }
 

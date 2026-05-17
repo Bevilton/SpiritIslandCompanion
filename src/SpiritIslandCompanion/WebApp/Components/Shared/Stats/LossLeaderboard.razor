@@ -1,0 +1,61 @@
+@* Ranked top-N list of "hardest" entities — sorted by loss count. Renders a
+   compact, list-style card with a red progress bar per row showing each entity's
+   share of total losses in the set. *@
+
+<div class="surface px-5 py-5 h-full flex flex-col">
+    <div class="flex items-baseline justify-between mb-3">
+        <h3 class="text-sm font-semibold text-ink-900" style="font-family: var(--font-serif);">@Title</h3>
+        @if (!string.IsNullOrEmpty(Subtitle))
+        {
+            <span class="text-[10px] uppercase tracking-wide text-ink-500">@Subtitle</span>
+        }
+    </div>
+
+    @if (Rows.Count == 0)
+    {
+        <div class="flex-1 flex items-center justify-center text-center py-6">
+            <div>
+                <Icon Name="trophy" Class="w-5 h-5 text-accent-700 mx-auto"/>
+                <p class="mt-2 text-xs text-ink-500">No losses recorded — flawless so far.</p>
+            </div>
+        </div>
+    }
+    else
+    {
+        var maxLosses = Rows.Max(r => r.Losses);
+        <ol class="space-y-2.5">
+            @for (var i = 0; i < Rows.Count; i++)
+            {
+                var row = Rows[i];
+                var pct = maxLosses > 0 ? row.Losses / (double)maxLosses * 100 : 0;
+                <li class="flex items-center gap-3">
+                    <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-ink-100 text-ink-600 text-[11px] font-semibold tabular-nums shrink-0">
+                        @(i + 1)
+                    </span>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-baseline justify-between gap-2">
+                            <span class="text-sm font-medium text-ink-900 truncate">@row.Name</span>
+                            <span class="text-sm font-semibold text-red-700 tabular-nums shrink-0" style="font-family: var(--font-serif);">
+                                @row.Losses<span class="text-[11px] text-red-500 ml-0.5">L</span>
+                            </span>
+                        </div>
+                        <div class="mt-1 flex items-center gap-2">
+                            <div class="flex-1 h-1.5 bg-ink-100 rounded-full overflow-hidden">
+                                <div class="h-full bg-red-400 rounded-full" style="width:@($"{pct:F0}")%"></div>
+                            </div>
+                            <span class="text-[10px] text-ink-500 tabular-nums shrink-0">@row.Detail</span>
+                        </div>
+                    </div>
+                </li>
+            }
+        </ol>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter, EditorRequired] public IReadOnlyList<Row> Rows { get; set; } = [];
+
+    public sealed record Row(string Name, int Losses, string Detail);
+}

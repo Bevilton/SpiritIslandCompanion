@@ -1,0 +1,69 @@
+@* Tiny 4-segment stacked bar showing the terror-level distribution. Used in
+   the Spirits table and as the visual base for the overview's terror card.
+   Color ramp goes from green (terror I) to red (terror IV) — semantic
+   "danger scale". *@
+
+@{
+    var total = TerrorOrder.Sum(t => Get(t));
+    if (total == 0)
+    {
+        <span class="text-[10px] text-ink-400">no data</span>
+        return;
+    }
+}
+
+<div class="@(ShowLabels ? "space-y-1" : "")">
+    <div class="flex h-2 rounded-full overflow-hidden bg-ink-100 @WidthClass">
+        @foreach (var t in TerrorOrder)
+        {
+            var count = Get(t);
+            if (count == 0) continue;
+            var pct = (double)count / total * 100;
+            <div class="h-full" style="width:@($"{pct:F2}")%; background-color: @TerrorColor(t);"
+                 title="@TerrorLabel(t): @count game@(count == 1 ? "" : "s")"></div>
+        }
+    </div>
+    @if (ShowLabels)
+    {
+        <div class="flex justify-between text-[10px] tabular-nums">
+            @foreach (var t in TerrorOrder)
+            {
+                var count = Get(t);
+                <span class="@(count > 0 ? "text-ink-700 font-medium" : "text-ink-400")">
+                    @TerrorLabel(t)<span class="ml-1">@count</span>
+                </span>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public Dictionary<TerrorLevel, int> Counts { get; set; } = new();
+    [Parameter] public bool ShowLabels { get; set; }
+    [Parameter] public string WidthClass { get; set; } = "w-24";
+
+    private static readonly TerrorLevel[] TerrorOrder =
+    [
+        TerrorLevel.First, TerrorLevel.Second, TerrorLevel.Third, TerrorLevel.Max,
+    ];
+
+    private int Get(TerrorLevel t) => Counts.TryGetValue(t, out var c) ? c : 0;
+
+    public static string TerrorLabel(TerrorLevel t) => t switch
+    {
+        TerrorLevel.First  => "I",
+        TerrorLevel.Second => "II",
+        TerrorLevel.Third  => "III",
+        TerrorLevel.Max    => "IV",
+        _                  => "?",
+    };
+
+    public static string TerrorColor(TerrorLevel t) => t switch
+    {
+        TerrorLevel.First  => "#10B981", // accent-500 — green
+        TerrorLevel.Second => "#FACC15", // yellow-400
+        TerrorLevel.Third  => "#F97316", // orange-500
+        TerrorLevel.Max    => "#DC2626", // red-600
+        _                  => "#A8A29E",
+    };
+}
