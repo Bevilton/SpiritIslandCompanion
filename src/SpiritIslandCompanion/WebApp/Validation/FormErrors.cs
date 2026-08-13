@@ -40,9 +40,6 @@ public sealed class FormErrors
     public bool Any => _all.Count > 0;
     public IReadOnlyList<string> All => _all;
 
-    public string? For(string propertyPath) =>
-        _byProperty.TryGetValue(propertyPath, out var msgs) && msgs.Count > 0 ? msgs[0] : null;
-
     public IReadOnlyList<string> AllFor(string propertyPath) =>
         _byProperty.TryGetValue(propertyPath, out var msgs) ? msgs : Array.Empty<string>();
 
@@ -55,4 +52,21 @@ public sealed class FormErrors
     /// </summary>
     public static FormErrors FromResult(Result result) =>
         result is IValidationResult vr ? new FormErrors(vr.Errors) : Empty;
+
+    /// <summary>
+    /// The same errors without the given paths — what a form does when the user fills one of
+    /// them in, so the list tracks their progress rather than standing still until they submit
+    /// again. See <c>FormFeedback.Resolve</c>.
+    /// </summary>
+    public FormErrors Without(params string[] propertyPaths)
+    {
+        var drop = propertyPaths.Where(_byProperty.ContainsKey).ToHashSet(StringComparer.Ordinal);
+        if (drop.Count == 0) return this;
+
+        var kept = _byProperty
+            .Where(p => !drop.Contains(p.Key))
+            .SelectMany(p => p.Value.Select(m => new ValidationError(p.Key, "", m)))
+            .ToList();
+        return kept.Count == 0 ? Empty : new FormErrors(kept);
+    }
 }

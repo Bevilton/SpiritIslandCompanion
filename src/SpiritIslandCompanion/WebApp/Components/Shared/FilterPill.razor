@@ -1,8 +1,10 @@
 @* Toggleable filter pill — clean active/inactive states.
    Usage: <FilterPill Active="@isActive" OnToggle="() => Toggle(value)">Label</FilterPill> *@
 
+@* aria-pressed as literal "true"/"false": handed a bool, Blazor drops the attribute for false. *@
 <button type="button"
         @onclick="OnToggle"
+        aria-pressed="@(Active ? "true" : "false")"
         class="@CssClass">
     @ChildContent
 </button>

@@ -1,8 +1,23 @@
+@* The list of what a form is unhappy about.
+
+   It also has to make itself noticed. A second submit that fails the same way as the first
+   changes nothing on screen — and by then the summary is usually scrolled off the top — so the
+   button appears to do nothing at all. On every failed attempt this therefore takes focus,
+   which brings it into view and makes a screen reader read it out, and flashes once for anyone
+   watching the button instead.
+
+   role="alert" alone is not enough: an alert region whose contents don't change is not
+   re-announced, which is exactly the repeat-submit case. @key on the attempt is what makes the
+   node genuinely new, so the announcement and the flash both happen again.
+
+   Pass Attempt from FormFeedback.Attempt — see that class. *@
+
 @using WebApp.Validation
 
 @if (Errors is { Any: true })
 {
-    <div class="alert alert-danger mb-4" role="alert">
+    <div @key="_shownAttempt" @ref="_summary" tabindex="-1" role="alert"
+         class="alert alert-danger mb-4 scroll-mt-6 si-attention">
         <Icon Name="x" Class="w-5 h-5 shrink-0 mt-0.5"/>
         <div class="flex-1">
             <div class="font-medium">@(Errors.All.Count == 1 ? "Please fix the following:" : $"Please fix the following {Errors.All.Count} issues:")</div>
@@ -18,4 +33,34 @@
 
 @code {
     [Parameter] public FormErrors? Errors { get; set; }
+
+    /// <summary>
+    /// Failed submits so far — <c>FormFeedback.Attempt</c>. Every increase pulls the page back
+    /// here. Left at zero the summary still renders, it just never moves the page, which is what
+    /// a form that only ever shows errors passively wants.
+    /// </summary>
+    [Parameter] public int Attempt { get; set; }
+
+    private ElementReference _summary;
+    private int _shownAttempt;
+    private bool _pending;
+
+    protected override void OnParametersSet()
+    {
+        if (Attempt <= _shownAttempt) return;
+        _shownAttempt = Attempt;
+        // Nothing to move to when the failure had no field errors — the page's Alert carries it.
+        _pending = Errors is { Any: true };
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_pending) return;
+        _pending = false;
+        try
+        {
+            await _summary.FocusAsync();
+        }
+        catch (JSDisconnectedException) { /* circuit already gone */ }
+    }
 }

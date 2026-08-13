@@ -1,4 +1,5 @@
 using Domain.Models.Game;
+using Domain.Models.IslandLayout;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -43,6 +44,18 @@ internal class GameConfiguration : IEntityTypeConfiguration<Game>
             b.ToTable($"{nameof(Game)}_{nameof(PlayedScenario)}");
         });
         builder.OwnsOne(x => x.IslandSetupId);
+
+        // The game's own copy of a hand-built arrangement, and the library layout it came
+        // from. No foreign key on purpose: deleting a saved layout must not cascade into the
+        // games played on it. Guarding the delete is the handler's business, not the schema's —
+        // DeleteIslandLayout refuses to drop a layout that recorded games still point at.
+        builder.OwnsOne(x => x.IslandLayout, b =>
+            b.Property(x => x.Value).HasMaxLength(IslandLayoutGeometry.MaxLength));
+        builder.OwnsOne(x => x.CustomLayoutId);
+
+        // Nullable: games recorded before the extra board was asked for have no letter to give.
+        builder.OwnsOne(x => x.ExtraBoard);
+
         builder.OwnsOne(x => x.Difficulty);
         builder.OwnsOne(x => x.DifficultyModifier);
         builder.OwnsOne(x => x.Note);

@@ -1,0 +1,65 @@
+@* The rows only spirits have: complexity, elements and tokens. Handed to FilterBar's Facets slot
+   so the shared rows above and below them come from one place. *@
+
+<FilterRow Label="Complexity">
+    @foreach (var c in SpiritFilter.AllComplexities)
+    {
+        <FilterPill Active="@Filter.Complexities.Contains(c)"
+                    OnToggle="() => Bar.Set(() => FilterState.Toggle(Filter.Complexities, c))">
+            @SpiritFilter.ComplexityLabel(c)
+        </FilterPill>
+    }
+</FilterRow>
+
+<FilterRow Label="Elements">
+    <ChildContent>
+        @foreach (var el in SpiritFilter.AllElements)
+        {
+            <FilterPill Active="@Filter.Elements.Contains(el)"
+                        OnToggle="() => Bar.Set(() => FilterState.Toggle(Filter.Elements, el))">
+                <span class="inline-flex items-center gap-1">
+                    <ElementBadges Elements="@(new[] { el })" Size="sm"/>
+                    <span>@el</span>
+                </span>
+            </FilterPill>
+        }
+    </ChildContent>
+    <Switch>
+        <SegmentedToggle TValue="MatchMode" Value="Filter.ElementMode"
+                         ValueChanged="m => Bar.Set(() => Filter.ElementMode = m)"
+                         FirstValue="MatchMode.All" FirstLabel="all" FirstHint="Spirits with every element picked"
+                         SecondValue="MatchMode.Any" SecondLabel="any" SecondHint="Spirits with at least one of them"
+                         Disabled="@(Filter.Elements.Count < 2)"
+                         DisabledHint="Pick two or more elements to choose how they combine"/>
+    </Switch>
+</FilterRow>
+
+<FilterRow Label="Tokens">
+    <ChildContent>
+        @foreach (var t in SpiritFilter.AllTokens)
+        {
+            <FilterPill Active="@Filter.Tokens.Contains(t)"
+                        OnToggle="() => Bar.Set(() => FilterState.Toggle(Filter.Tokens, t))">
+                <span class="inline-flex items-center gap-1">
+                    <TokenBadges Tokens="@(new[] { t })" Size="sm"/>
+                    <span>@t</span>
+                </span>
+            </FilterPill>
+        }
+    </ChildContent>
+    <Switch>
+        <SegmentedToggle TValue="MatchMode" Value="Filter.TokenMode"
+                         ValueChanged="m => Bar.Set(() => Filter.TokenMode = m)"
+                         FirstValue="MatchMode.All" FirstLabel="all" FirstHint="Spirits that use every token picked"
+                         SecondValue="MatchMode.Any" SecondLabel="any" SecondHint="Spirits that use at least one of them"
+                         Disabled="@(Filter.Tokens.Count < 2)"
+                         DisabledHint="Pick two or more tokens to choose how they combine"/>
+    </Switch>
+</FilterRow>
+
+@code {
+    [Parameter, EditorRequired] public SpiritFilter Filter { get; set; } = default!;
+
+    /// <summary>The bar these rows sit in — its Set() applies a change and tells the host to re-render.</summary>
+    [Parameter, EditorRequired] public FilterBar Bar { get; set; } = default!;
+}

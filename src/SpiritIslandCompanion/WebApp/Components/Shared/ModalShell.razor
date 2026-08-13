@@ -1,0 +1,50 @@
+@* The one overlay skeleton every dialog shares: dimmed backdrop, a panel that is a bottom
+   sheet on mobile and a centred card from md up, closed by backdrop click or Escape.
+   Header, body and footer stay with the caller — this is the chrome, not the content. *@
+
+<div @ref="_container" tabindex="-1" role="dialog" aria-modal="true" @onkeydown="OnKeyDown"
+     class="fixed inset-0 @ZIndex flex items-end md:items-center justify-center px-0 md:px-4 py-0 md:py-8 focus:outline-none">
+    <div class="absolute inset-0 bg-ink-900/40 backdrop-blur-sm" @onclick="OnClose"></div>
+    <div class="@(Scrollable ? "overflow-hidden max-h-[92vh] flex flex-col" : "")
+                relative bg-white w-full @MaxWidth md:rounded-2xl shadow-2xl border border-ink-200"
+         style="@PanelStyle">
+        @ChildContent
+    </div>
+</div>
+
+@code {
+    /// Raised when the user asks to close — backdrop click or Escape. The caller owns the
+    /// open flag, so closing is its state change to make.
+    [Parameter, EditorRequired] public EventCallback OnClose { get; set; }
+
+    [Parameter, EditorRequired] public RenderFragment ChildContent { get; set; } = default!;
+
+    /// Tailwind max-width class for the panel from md up.
+    [Parameter] public string MaxWidth { get; set; } = "md:max-w-2xl";
+
+    /// Stacking tier. Pickers sit at z-50, the reference sheets they open above them at
+    /// z-[60], and the game form's player dialog below both at z-40 — so a sheet can be
+    /// read over the picker that opened it, and a picker over the seat being edited.
+    [Parameter] public string ZIndex { get; set; } = "z-50";
+
+    /// Caps the panel to the viewport and lets the caller's body scroll within it. Off for
+    /// short dialogs that manage their own height.
+    [Parameter] public bool Scrollable { get; set; } = true;
+
+    /// Extra inline style for the panel — e.g. the player dialog's spirit-coloured top border.
+    [Parameter] public string? PanelStyle { get; set; }
+
+    private ElementReference _container;
+
+    /// The shell only exists while its dialog is open, so first render is every open —
+    /// focus moves onto the dialog then, which is what makes Escape work immediately.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try { await _container.FocusAsync(); }
+        catch (JSDisconnectedException) { /* circuit already gone */ }
+    }
+
+    private Task OnKeyDown(KeyboardEventArgs e) =>
+        e.Key == "Escape" ? OnClose.InvokeAsync() : Task.CompletedTask;
+}

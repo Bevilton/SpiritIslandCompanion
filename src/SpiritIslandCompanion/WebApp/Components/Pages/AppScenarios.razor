@@ -1,12 +1,12 @@
 @page "/app/scenarios"
 @attribute [Authorize]
-@rendermode InteractiveServer
+@inherits CatalogueReferencePage
 
 <PageTitle>Scenarios</PageTitle>
 
-<ScenariosView OwnedExpansions="@OwnedExpansions"/>
+<ScenariosView OwnedExpansions="@OwnedExpansions" Records="Records" Facts="Facts"/>
 
 @code {
-    [CascadingParameter(Name = "OwnedExpansions")]
-    public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
+    protected override IReadOnlyDictionary<string, SetupInsights.PlayRecord> Project(
+        IReadOnlyList<Application.Features.Statistics.SetupGameFact> facts) => SetupInsights.ScenarioRecords(facts);
 }

@@ -1,12 +1,13 @@
 @page "/app/boards"
 @attribute [Authorize]
-@rendermode InteractiveServer
+@inherits CatalogueReferencePage
 
 <PageTitle>Boards</PageTitle>
 
-<BoardsView OwnedExpansions="@OwnedExpansions"/>
+<BoardsView OwnedExpansions="@OwnedExpansions" Records="Records" Facts="Facts"/>
 
 @code {
-    [CascadingParameter(Name = "OwnedExpansions")]
-    public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
+    /// Every recorded seat counts, so a board is "used" whoever played on it.
+    protected override IReadOnlyDictionary<string, SetupInsights.PlayRecord> Project(
+        IReadOnlyList<Application.Features.Statistics.SetupGameFact> facts) => SetupInsights.BoardRecords(facts);
 }

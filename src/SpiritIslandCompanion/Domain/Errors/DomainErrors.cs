@@ -1,4 +1,5 @@
 using Domain.Models.Game;
+using Domain.Models.IslandLayout;
 using Domain.Models.Player;
 using Domain.Models.User;
 using Domain.Results;
@@ -24,6 +25,8 @@ public static class DomainErrors
 
     public static class Game
     {
+        public static Error NotFound => Error.NotFound("Game.NotFound", "Game not found.");
+        public static Error AlreadyCompleted => Error.Conflict("Game.AlreadyCompleted", "Game already has a result.");
         public static Error NoteTooLong => Error.Validation("Game.NoteTooLong", $"Note must be at most {GameRestrictions.NoteLength} characters.");
         public static Error InvalidCardCount => Error.Validation("Game.InvalidCardCount", $"Cards must be between 0 and {GameRestrictions.MaximumCardsCount}.");
         public static Error InvalidBlightCount => Error.Validation("Game.InvalidBlightCount", $"Blight must be between 0 and {GameRestrictions.MaximumBlightCount}.");
@@ -36,8 +39,12 @@ public static class DomainErrors
         public static Error UnknownIslandSetup => Error.Validation("Game.UnknownIslandSetup", "The selected island setup does not exist.");
         public static Error IslandSetupPlayerCountMismatch => Error.Validation("Game.IslandSetupPlayerCountMismatch", "The selected island setup does not match the number of players (and extra board, if any).");
         public static Error IslandSetupNotThematic => Error.Validation("Game.IslandSetupNotThematic", "Thematic maps is on, but the selected layout is not a thematic one.");
+        public static Error NoThematicMapForBoardCount => Error.Validation("Game.NoThematicMapForBoardCount", "There is no thematic island for that many boards — Spirit Island publishes thematic maps for 1–4 and 6 boards only.");
         public static Error IslandSetupIsThematic => Error.Validation("Game.IslandSetupIsThematic", "Thematic maps is off, but the selected layout is a thematic one.");
         public static Error ExtraBoardNotAllowed => Error.Validation("Game.ExtraBoardNotAllowed", "Extra board is only allowed for 1–5 players.");
+        public static Error ExtraBoardRequired => Error.Validation("Game.ExtraBoardRequired", "Pick the extra board.");
+        public static Error ExtraBoardNotUsed => Error.Validation("Game.ExtraBoardNotUsed", "A board was named as the extra one, but this game does not use an extra board.");
+        public static Error ThematicBoardMismatch => Error.Validation("Game.ThematicBoardMismatch", "On the thematic island each seat plays the board belonging to its position — these boards don't match the island's regions.");
         public static Error PlayerNotFriend => Error.Validation("Game.PlayerNotFriend", "You can only add registered users who are your friends.");
 
         public static Error IslandSetupRequired => Error.Validation("Game.IslandSetupRequired", "Pick an island setup.");
@@ -56,6 +63,20 @@ public static class DomainErrors
         public static Error UnknownScenario => Error.Validation("Game.UnknownScenario", "Selected scenario is not recognised.");
         public static Error DuplicateBoard => Error.Validation("Game.DuplicateBoard", "Each player must play on a different board.");
         public static Error DuplicateAdversary => Error.Validation("Game.DuplicateAdversary", "The same adversary cannot be added more than once.");
+    }
+
+    public static class IslandLayout
+    {
+        public static Error NameRequired => Error.Validation("IslandLayout.NameRequired", "Give the layout a name so you can find it again.");
+        public static Error NameTooLong => Error.Validation("IslandLayout.NameTooLong", $"Layout name must be at most {IslandLayoutName.MaxLength} characters.");
+        public static Error GeometryRequired => Error.Validation("IslandLayout.GeometryRequired", "Arrange the boards on the island before saving the layout.");
+        public static Error GeometryTooLong => Error.Validation("IslandLayout.GeometryTooLong", "The island arrangement is too large to store.");
+        public static Error GeometryMalformed => Error.Validation("IslandLayout.GeometryMalformed", "The island arrangement could not be read — it does not describe a set of boards.");
+        public static Error NotFound => Error.NotFound("IslandLayout.NotFound", "That saved layout no longer exists.");
+        public static Error BoardCountMismatch => Error.Validation("IslandLayout.BoardCountMismatch", "The saved layout was built for a different number of boards.");
+        public static Error InvalidBoardCount => Error.Validation("IslandLayout.InvalidBoardCount", $"A layout must cover between 1 and {GameRestrictions.MaximumBoards} boards.");
+        public static Error NotAllowedWithThematicMaps => Error.Validation("IslandLayout.NotAllowedWithThematicMaps", "Thematic maps use their own fixed island — a hand-built layout can't be used with them.");
+        public static Error InUse => Error.Conflict("IslandLayout.InUse", "This shape has recorded games — it can only be deleted once no game uses it.");
     }
 
     public static class Friendship

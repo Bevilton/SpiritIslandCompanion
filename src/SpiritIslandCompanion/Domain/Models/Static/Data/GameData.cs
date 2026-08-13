@@ -10,6 +10,13 @@ public static class GameData
     public static IReadOnlyList<Board> Boards => Static.Data.Boards.All;
     public static IReadOnlyList<IslandSetup> IslandSetups => Static.Data.IslandSetups.All;
 
+    /// <summary>
+    /// Island setups that are an actual arrangement — use this to show or offer layouts, and
+    /// <see cref="IslandSetups"/> only to resolve an id that has already been recorded. See
+    /// <see cref="Static.Data.IslandSetups.Published"/>.
+    /// </summary>
+    public static IReadOnlyList<IslandSetup> PublishedIslandSetups => Static.Data.IslandSetups.Published;
+
     public static IReadOnlyList<Spirit> GetSpiritsForExpansions(IEnumerable<ExpansionId> ownedExpansions)
     {
         var owned = ownedExpansions.ToHashSet();

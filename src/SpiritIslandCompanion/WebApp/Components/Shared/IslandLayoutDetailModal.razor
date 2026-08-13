@@ -1,0 +1,109 @@
+@* Island layout record sheet — the layout's picture and, given Facts, the player's record
+   on it: how those games went, who was fielded, which boards made the island. Serves both
+   a published layout and a saved shape from the player's library; a saved shape has no
+   pre-rendered diagram, so its tile falls back to the board count.
+   z-60 keeps it above whatever opened it (the setup sidebar, the boards reference page). *@
+
+@using Application.Features.Statistics
+
+@if (_open)
+{
+    <ModalShell OnClose="Close" ZIndex="z-[60]">
+            <div class="px-6 pt-6 pb-5 relative bg-sky-50/60 border-b border-sky-100">
+                <button class="absolute top-4 right-4 inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-500 hover:bg-white/60 hover:text-ink-900 transition-colors" @onclick="Close" aria-label="Close">
+                    <Icon Name="x" Class="w-5 h-5"/>
+                </button>
+
+                <div class="flex items-start gap-4 pr-10">
+                    <div class="flex h-16 w-20 shrink-0 items-center justify-center">
+                        @if (_setup is not null)
+                        {
+                            <IslandSetupDiagram Setup="_setup" Class="max-h-16 max-w-full"/>
+                        }
+                        else
+                        {
+                            <span class="inline-flex h-14 w-14 items-center justify-center rounded-xl border border-dashed border-ink-300 bg-white text-ink-500">
+                                <Icon Name="map" Class="w-6 h-6"/>
+                            </span>
+                        }
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <h2 class="text-2xl font-semibold text-ink-900 leading-tight" style="font-family: var(--font-serif);">@_name</h2>
+                        <div class="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
+                            <span class="badge badge-neutral">@_boardCount board@(_boardCount == 1 ? "" : "s")</span>
+                            @if (_setup?.IsThematic == true)
+                            {
+                                <span class="badge badge-info">Thematic</span>
+                            }
+                            @if (_savedAt is { } saved)
+                            {
+                                <span class="text-ink-600">· your saved shape, updated @SetupInsights.Ago(saved)</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="overflow-y-auto px-6 py-5">
+                @if (_profile is not null)
+                {
+                    <SetupProfileSection Profile="_profile" Name="@_name" Title="Your record on this island"/>
+                }
+                else
+                {
+                    <p class="text-ink-500 italic">No game history to show for this layout yet.</p>
+                }
+            </div>
+    </ModalShell>
+}
+
+@code {
+    /// <summary>
+    /// Personal game history. When there is any, the modal profiles the player's record on
+    /// this layout; empty or null shows a placeholder (layouts carry no reference text).
+    /// </summary>
+    [Parameter] public IReadOnlyList<SetupGameFact>? Facts { get; set; }
+
+    private bool _open;
+    private string _name = "";
+    private int _boardCount;
+    private IslandSetup? _setup;
+    private DateTimeOffset? _savedAt;
+    private SetupProfiles.Profile? _profile;
+
+    /// <summary>A published layout, matched in the history by its setup id.</summary>
+    public void Show(IslandSetup setup)
+    {
+        _setup = setup;
+        _savedAt = null;
+        _name = setup.Name;
+        _boardCount = setup.NumberOfPlayers;
+        _profile = Facts is { Count: > 0 }
+            ? SetupProfiles.Build(SetupSubjectKind.IslandLayout, setup.Id.Value, Facts)
+            : null;
+        _open = true;
+        StateHasChanged();
+    }
+
+    /// <summary>A shape from the player's library, matched by the games' <c>CustomLayoutId</c>.</summary>
+    public void Show(Application.Features.IslandLayouts.IslandLayoutResponse saved)
+    {
+        _setup = null;
+        _savedAt = saved.UpdatedAt;
+        _name = saved.Name;
+        _boardCount = saved.BoardCount;
+        _profile = Facts is { Count: > 0 }
+            ? SetupProfiles.Build(SetupSubjectKind.SavedLayout, saved.Id.ToString(), Facts)
+            : null;
+        _open = true;
+        StateHasChanged();
+    }
+
+    private void Close()
+    {
+        _open = false;
+        _setup = null;
+        _savedAt = null;
+        _profile = null;
+    }
+}

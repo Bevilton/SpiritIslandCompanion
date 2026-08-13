@@ -17,4 +17,13 @@ public static class GameRestrictions
     public const int ExtraBoardDifficultyBonus = 2;
     public const int ThematicMapsDifficultyBonus = 3;
     public const int MaximumPlayersForExtraBoard = 5;
+
+    public const int MaximumPlayers = 6;
+
+    /// <summary>
+    /// Boards on the island: one per player, plus the optional extra board. The extra board
+    /// stops at <see cref="MaximumPlayersForExtraBoard"/> players, so the island never grows
+    /// past a full table either way.
+    /// </summary>
+    public const int MaximumBoards = MaximumPlayers;
 }

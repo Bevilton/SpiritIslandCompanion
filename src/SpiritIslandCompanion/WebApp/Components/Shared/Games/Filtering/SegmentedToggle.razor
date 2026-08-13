@@ -1,0 +1,55 @@
+@* Two-segment switch: the current choice is filled in, the other is the click.
+
+   Used for the all/any of a filter group and for the direction of the sort, so the two read as
+   the same kind of control. Below two picks an all/any switch decides nothing, so it can be
+   disabled — it stays visible and explains itself rather than vanishing, which would make the
+   control seem to come and go at random. *@
+
+@typeparam TValue
+
+<span class="inline-flex shrink-0 items-center overflow-hidden rounded-full border border-ink-200 bg-white text-[10px] font-medium @(Disabled ? "opacity-40" : "")"
+      title="@(Disabled ? DisabledHint : null)">
+    @* aria-pressed as literal "true"/"false": handed a bool, Blazor drops the attribute for
+       false, so the off state would be indistinguishable from no state at all. *@
+    <button type="button" disabled="@Disabled" title="@FirstHint" aria-pressed="@(IsCurrent(FirstValue) ? "true" : "false")"
+            @onclick="() => ValueChanged.InvokeAsync(FirstValue)"
+            class="px-2 py-0.5 uppercase tracking-wide transition-colors @SegmentClass @Style(FirstValue)">
+        @FirstLabel
+    </button>
+    <button type="button" disabled="@Disabled" title="@SecondHint" aria-pressed="@(IsCurrent(SecondValue) ? "true" : "false")"
+            @onclick="() => ValueChanged.InvokeAsync(SecondValue)"
+            class="px-2 py-0.5 uppercase tracking-wide transition-colors @SegmentClass @Style(SecondValue)">
+        @SecondLabel
+    </button>
+</span>
+
+@code {
+    [Parameter, EditorRequired] public TValue Value { get; set; } = default!;
+    [Parameter] public EventCallback<TValue> ValueChanged { get; set; }
+
+    [Parameter, EditorRequired] public TValue FirstValue { get; set; } = default!;
+    [Parameter, EditorRequired] public string FirstLabel { get; set; } = "";
+    [Parameter] public string? FirstHint { get; set; }
+
+    [Parameter, EditorRequired] public TValue SecondValue { get; set; } = default!;
+    [Parameter, EditorRequired] public string SecondLabel { get; set; } = "";
+    [Parameter] public string? SecondHint { get; set; }
+
+    /// <summary>The choice currently makes no difference — shown, but inert.</summary>
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public string? DisabledHint { get; set; }
+
+    /// <summary>
+    /// Extra classes on each segment. Use a min-width where the labels change with what is being
+    /// switched — the sort direction is "A–Z" for one field and "Simplest" for another, and left
+    /// to size itself the whole control would jump about as the field changes.
+    /// </summary>
+    [Parameter] public string? SegmentClass { get; set; }
+
+    private bool IsCurrent(TValue option) => EqualityComparer<TValue>.Default.Equals(Value, option);
+
+    private string Style(TValue option) =>
+        IsCurrent(option)
+            ? "bg-accent-600 text-white"
+            : "text-ink-500 enabled:hover:bg-ink-100";
+}

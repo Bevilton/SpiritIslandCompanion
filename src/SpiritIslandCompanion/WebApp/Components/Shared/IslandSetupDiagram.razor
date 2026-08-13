@@ -1,5 +1,13 @@
-@* Renders an image of an island setup from /img/layouts/{setup-id}.png.
-   The standard 1-player setup has no image — falls back to a small placeholder. *@
+@* Renders a small picture of an island setup.
+
+   The diagrams in /img/layouts/generated are emitted by tools/build-island-geometry.mjs
+   from the very placements the island playground uses, so a preview always matches what
+   dropping that layout in produces. Custom layouts have no fixed shape — they fall back
+   to a board-count placeholder.
+
+   Thematic islands are drawn reflected, for the same reason the playground reflects them:
+   they are played on the boards' reverse side. The diagrams are generated from the one
+   traced side, so the reflection happens here rather than in the file. *@
 
 @if (Setup is null)
 {
@@ -8,13 +16,13 @@
 else if (_hasImage)
 {
     <img src="@_src"
-         alt="@Setup.Name layout, @Setup.NumberOfPlayers @(Setup.NumberOfPlayers == 1 ? "player" : "players")"
-         class="@Class object-contain"
+         alt="@Setup.Name layout, @Setup.NumberOfPlayers @(Setup.NumberOfPlayers == 1 ? "board" : "boards")"
+         class="@Class object-contain @(Setup.IsThematic ? "-scale-x-100" : "")"
          loading="lazy"/>
 }
 else
 {
-    <div class="@PlaceholderClass" title="@Setup.Name (@Setup.NumberOfPlayers player)">
+    <div class="@PlaceholderClass" title="@Setup.Name (@Setup.NumberOfPlayers @(Setup.NumberOfPlayers == 1 ? "board" : "boards"))">
         @Setup.NumberOfPlayers<span class="text-[0.65em] align-top">p</span>
     </div>
 }
@@ -22,12 +30,6 @@ else
 @code {
     [Parameter] public IslandSetup? Setup { get; set; }
     [Parameter] public string Class { get; set; } = "h-16 w-auto";
-
-    /// Setups for which we don't ship an image (fall back to placeholder).
-    private static readonly HashSet<string> _imagelessSetups = new(StringComparer.Ordinal)
-    {
-        "standard-1p",
-    };
 
     private string PlaceholderClass =>
         $"{Class} flex items-center justify-center text-ink-500 font-semibold rounded-lg border border-dashed border-ink-200 bg-ink-50 px-3 aspect-square";
@@ -37,12 +39,7 @@ else
 
     protected override void OnParametersSet()
     {
-        if (Setup is null)
-        {
-            _hasImage = false;
-            return;
-        }
-        _hasImage = !_imagelessSetups.Contains(Setup.Id.Value);
-        _src = $"/img/layouts/{Setup.Id.Value}.png";
+        _hasImage = Setup is not null && !Setup.IsCustom;
+        _src = Setup is null ? "" : $"/img/layouts/generated/{Setup.Id.Value}.svg";
     }
 }

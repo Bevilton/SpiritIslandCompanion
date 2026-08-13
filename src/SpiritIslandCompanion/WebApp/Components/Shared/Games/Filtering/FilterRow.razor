@@ -1,0 +1,21 @@
+@* One row of a filter: a label, the pills, and optionally a switch.
+
+   The switch sits in its own right-hand column rather than at the end of the pills, so it lands
+   in the same place in every row whatever the width and whether the pills above it wrapped. *@
+
+<div class="flex items-start gap-3">
+    <span class="mt-1 w-20 shrink-0 text-[11px] uppercase tracking-wide text-ink-500">@Label</span>
+    <div class="flex min-w-0 flex-1 flex-wrap gap-1.5">@ChildContent</div>
+    @if (Switch is not null)
+    {
+        <span class="mt-0.5">@Switch</span>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>An all/any or direction switch for this row, pinned to the right.</summary>
+    [Parameter] public RenderFragment? Switch { get; set; }
+}

@@ -5,11 +5,11 @@
 @{
     var spirit = GameLookups.SpiritFor(Player.SpiritId);
     var spiritDetail = spirit is null ? null : SpiritDetails.For(spirit.Id);
-    var color = spiritDetail?.ColorHex ?? "#78716c";
+    var color = spiritDetail?.ColorHex ?? GameLookups.NeutralColor;
 
     var board = GameLookups.BoardFor(Player.BoardId);
     var boardDetail = board is null ? null : BoardDetails.For(board.Id);
-    var boardColor = boardDetail?.ColorHex ?? "#78716c";
+    var boardColor = boardDetail?.ColorHex ?? GameLookups.NeutralColor;
     var boardLetter = boardDetail?.Letter ?? (board is null ? "?" : board.Name[^1..]);
 
     var aspect = GameLookups.AspectFor(Player.AspectId);

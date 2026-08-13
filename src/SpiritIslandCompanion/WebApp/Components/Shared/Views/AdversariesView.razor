@@ -1,49 +1,42 @@
 @* Reference content for adversaries. Used from /adversaries (public) and /app/adversaries.
-   Pass OwnedExpansions to filter; null (default) shows every adversary. *@
+   Pass OwnedExpansions to filter; null (default) shows every adversary.
+   Pass Records for the signed-in view to sort and filter by the player's own history.
+
+   The filter is FilterBar, shared with every other catalogue and picker. Adversaries have no
+   facets of their own — expansion, difficulty and your own record is the whole of what there is
+   to ask about eight of them. *@
 
 <div class="page-head">
     <div>
         <span class="eyebrow">Reference</span>
         <h1 class="page-title mt-2">Adversaries</h1>
-        <p class="page-sub">@_adversariesInScope.Count adversaries with their difficulty progression.</p>
+        <p class="page-sub">@_inScope.Count adversaries with their difficulty progression.</p>
     </div>
-    <input type="search" class="input md:w-64" placeholder="Filter by name…" @bind="_query" @bind:event="oninput"/>
+    <input type="search" class="input md:w-64" placeholder="Filter by name…" aria-label="Filter by name"
+           @bind="_filter.Query" @bind:event="oninput"/>
 </div>
 
-<div class="surface p-4 mt-4">
-    <div class="flex items-start gap-3 flex-wrap">
-        <span class="text-[11px] uppercase tracking-wide text-ink-500 w-20 shrink-0 mt-1">Expansion</span>
-        <div class="flex flex-wrap gap-1.5 flex-1">
-            @foreach (var e in GameData.Expansions.Where(x => OwnedExpansions is null || OwnedExpansions.Contains(x.Id)))
-            {
-                <FilterPill Active="@_selectedExpansions.Contains(e.Id.Value)"
-                            OnToggle="() => ToggleExpansion(e.Id.Value)">
-                    @e.Name
-                </FilterPill>
-            }
-        </div>
-        @if (_selectedExpansions.Count > 0)
-        {
-            <button type="button" class="text-xs text-accent-700 hover:text-accent-800 hover:underline mt-1" @onclick="() => _selectedExpansions.Clear()">
-                Clear
-            </button>
-        }
-    </div>
+<div class="mt-4">
+    <FilterBar Filter="_filter" OwnedExpansions="@OwnedExpansions"
+               PresentExpansions="_filter.ExpansionsIn(_inScope)"
+               ShowingCount="_visible.Count" TotalCount="_inScope.Count"
+               UntestedLabel="Never faced" UntestedHint="Adversaries you have never played against"
+               Changed="StateHasChanged"/>
 </div>
 
 <div class="grid lg:grid-cols-2 gap-4 mt-6">
-    @foreach (var a in _filtered)
+    @foreach (var a in _visible)
     {
         var modes = a.Modes.OrderBy(m => m.Level).ToList();
         var detail = AdversaryDetails.For(a.Id);
-        <button type="button"
+        <button @key="a.Id.Value" type="button"
                 @onclick="() => OpenDetail(a)"
                 class="text-left surface p-5 md:p-6 transition-all hover:shadow-sm hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
             <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0">
                     <h3 class="text-lg font-semibold leading-tight">@a.Name</h3>
                     <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-500">
-                        <span>@ExpansionName(a.ExpansionId)</span>
+                        <span>@GameLookups.ExpansionName(a.ExpansionId)</span>
                         @if (detail is not null)
                         {
                             <span>·</span>
@@ -61,58 +54,61 @@
                     {
                         <div class="rounded-md border border-ink-200 bg-ink-50/60 px-1 py-2 text-center">
                             <div class="text-[10px] uppercase text-ink-500">L@(m.Level)</div>
-                            <div class="text-sm font-semibold text-ink-900">@m.Difficulty</div>
+                            <div class="text-sm font-semibold text-ink-900">+@m.Difficulty</div>
                         </div>
                     }
                 </div>
             </div>
+
+            @* Passive pill — the whole card opens the same sheet. Shows the numbers the
+               play-based orderings sort on, in the shape used everywhere else. *@
+            @if (Records is not null)
+            {
+                <div class="mt-4 border-t border-ink-100 pt-3">
+                    <RecordChip Record="Records.GetValueOrDefault(a.Id.Value)" Subject="@a.Name" NeverLabel="Never faced"/>
+                </div>
+            }
         </button>
     }
 </div>
 
-@if (!_filtered.Any())
+@if (_visible.Count == 0)
 {
     <div class="surface text-center py-10 mt-6 text-ink-500">No adversaries match the current filters.</div>
 }
 
-<AdversaryDetailModal @ref="_modal"/>
+<AdversaryDetailModal @ref="_modal" Facts="Facts"/>
 
 @code {
     /// <summary>Null (default) shows everything; non-null restricts to those expansions.</summary>
     [Parameter] public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
 
-    private string _query = "";
-    private readonly HashSet<string> _selectedExpansions = new();
+    /// <summary>
+    /// The visitor's record per adversary, when there is one. Unlocks ordering by how often they
+    /// have faced it and how it went, the never-faced filter, and the figures on the cards. Null
+    /// on the public route, which has nobody to have a record.
+    /// </summary>
+    [Parameter] public IReadOnlyDictionary<string, SetupInsights.PlayRecord>? Records { get; set; }
+
+    /// <summary>The history behind <see cref="Records"/>, for the detail modal's profile.</summary>
+    [Parameter] public IReadOnlyList<Application.Features.Statistics.SetupGameFact>? Facts { get; set; }
+
     private AdversaryDetailModal _modal = default!;
 
-    private void OpenDetail(Adversary a) => _modal.Show(a);
+    /// Difficulty is the top of its range: what the adversary asks of you at its hardest.
+    private readonly CatalogueFilter<Adversary> _filter = new(
+        a => a.Id.Value, a => a.Name, a => a.ExpansionId,
+        numeric: (FilterState.ByDifficulty, a => a.Modes.Any() ? a.Modes.Max(m => m.Difficulty) : 0));
 
-    private static readonly Dictionary<string, string> _expansionNames =
-        GameData.Expansions.ToDictionary(e => e.Id.Value, e => e.Name);
-
-    private static readonly Dictionary<string, int> _expansionOrder =
-        GameData.Expansions
-            .Select((e, i) => (e.Id.Value, i))
-            .ToDictionary(x => x.Value, x => x.i);
-
-    private IReadOnlyList<Adversary> _adversariesInScope =>
-        GameData.Adversaries
-            .Where(a => OwnedExpansions is null || OwnedExpansions.Contains(a.ExpansionId))
-            .ToList();
-
-    private IEnumerable<Adversary> _filtered =>
-        _adversariesInScope
-            .Where(a =>
-                (string.IsNullOrWhiteSpace(_query) || a.Name.Contains(_query, StringComparison.OrdinalIgnoreCase))
-                && (_selectedExpansions.Count == 0 || _selectedExpansions.Contains(a.ExpansionId.Value)))
-            .OrderBy(a => _expansionOrder.GetValueOrDefault(a.ExpansionId.Value, int.MaxValue))
-            .ThenBy(a => a.Name);
-
-    private void ToggleExpansion(string id)
+    protected override void OnParametersSet()
     {
-        if (!_selectedExpansions.Add(id)) { _selectedExpansions.Remove(id); }
+        _filter.UseHistory(Records);
     }
 
-    private static string ExpansionName(ExpansionId id)
-        => _expansionNames.GetValueOrDefault(id.Value, id.Value);
+    private IReadOnlyList<Adversary> _inScope =>
+        GameData.Adversaries.Where(a => OwnedExpansions is null || OwnedExpansions.Contains(a.ExpansionId)).ToList();
+
+    private IReadOnlyList<Adversary> _visible => _filter.Apply(_inScope);
+
+    private void OpenDetail(Adversary a) => _modal.Show(a);
 }

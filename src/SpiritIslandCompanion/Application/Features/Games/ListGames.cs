@@ -1,7 +1,6 @@
 using Application.Abstractions;
 using Application.Data;
 using Domain.Models.Game;
-using Domain.Models.User;
 using Domain.Results;
 using Microsoft.EntityFrameworkCore;
 
@@ -36,13 +35,7 @@ internal sealed class ListGamesHandler(IAppDbContext db) : IQueryHandler<ListGam
     public async Task<Result<List<ListGamesResponse>>> Handle(ListGamesQuery request, CancellationToken cancellationToken)
     {
         var games = await db.Games
-            .AsNoTracking()
-            .Include(g => g.Players)
-            .Include(g => g.PlayedAdversaries)
-            .Include(g => g.Result)
-            .Include(g => g.Scenario)
-            .Where(g => g.OwnerId.Value == request.UserId ||
-                        g.Players.Any(p => p.UserId != null && p.UserId.Value == request.UserId))
+            .InvolvingUser(request.UserId)
             .OrderByDescending(g => g.StartedAt)
             .ToListAsync(cancellationToken);
 

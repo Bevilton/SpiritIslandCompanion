@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+using Domain.Models.IslandLayout;
 using Domain.Models.Static;
 using Domain.Models.User;
 using Domain.Primitives;
@@ -10,6 +12,36 @@ public class Game : AggregateRoot<GameId>
     public GameResult? Result { get; private set; }
     public PlayedScenario? Scenario { get; private set; }
     public IslandSetupId IslandSetupId { get; private set; }
+
+    /// <summary>
+    /// Where the boards actually sat, for a hand-built island; null when the game used one
+    /// of the published layouts, whose geometry is already known from its id.
+    /// <para>
+    /// This is the game's own copy, not a pointer into the player's layout library: a game
+    /// records what was on the table that evening, and editing or deleting a saved layout
+    /// afterwards must not rewrite it.
+    /// </para>
+    /// </summary>
+    public IslandLayoutGeometry? IslandLayout { get; private set; }
+
+    /// <summary>
+    /// The saved layout this island came from, when the player picked one out of their
+    /// library rather than arranging a one-off. Kept so plays can be counted per layout;
+    /// the layout may since have been renamed, reshaped or deleted.
+    /// </summary>
+    public CustomIslandLayoutId? CustomLayoutId { get; private set; }
+
+    /// <summary>
+    /// The board on the island that nobody played — the extra board some games add to raise
+    /// the difficulty. Null when the game used one board per player.
+    /// <para>
+    /// Which lettered board it is matters: a board is a specific set of terrains, so an island
+    /// of A/B/C reads differently from A/B/E. Null on games recorded before this was asked for,
+    /// where the extra board's letter is simply not known.
+    /// </para>
+    /// </summary>
+    public BoardId? ExtraBoard { get; private set; }
+
     public Difficulty Difficulty { get; private set; }
     public DifficultyModifier DifficultyModifier { get; private set; }
     public GameNote? Note { get; private set; }
@@ -22,7 +54,7 @@ public class Game : AggregateRoot<GameId>
     private Game(
         GameId id,
         DateTimeOffset startedAt,
-        IslandSetupId islandSetupId,
+        IslandChoice island,
         List<GamePlayer> players,
         List<PlayedAdversary> adversaries,
         PlayedScenario? scenario,
@@ -34,7 +66,7 @@ public class Game : AggregateRoot<GameId>
         : base(id)
     {
         StartedAt = startedAt;
-        IslandSetupId = islandSetupId;
+        SetIsland(island);
         Difficulty = difficulty;
         DifficultyModifier = difficultyModifier;
         Result = result;
@@ -49,7 +81,7 @@ public class Game : AggregateRoot<GameId>
     public static Game StartNew(
         GameId id,
         DateTimeOffset startedAt,
-        IslandSetupId islandSetupId,
+        IslandChoice island,
         List<GamePlayer> players,
         List<PlayedAdversary> adversaries,
         PlayedScenario? scenario,
@@ -58,14 +90,14 @@ public class Game : AggregateRoot<GameId>
         GameNote? note,
         UserId ownerId)
     {
-        var game = new Game(id, startedAt, islandSetupId, players, adversaries, scenario, difficultyLevel, difficultyModifier, null, note, ownerId);
+        var game = new Game(id, startedAt, island, players, adversaries, scenario, difficultyLevel, difficultyModifier, null, note, ownerId);
         return game;
     }
 
     public static Game Create(
         GameId id,
         DateTimeOffset startedAt,
-        IslandSetupId islandSetupId,
+        IslandChoice island,
         List<GamePlayer> players,
         List<PlayedAdversary> adversaries,
         PlayedScenario? scenario,
@@ -75,30 +107,26 @@ public class Game : AggregateRoot<GameId>
         GameNote? note,
         UserId ownerId)
     {
-        var game = new Game(id, startedAt, islandSetupId, players, adversaries, scenario, difficultyLevel, difficultyModifier, result, note, ownerId);
+        var game = new Game(id, startedAt, island, players, adversaries, scenario, difficultyLevel, difficultyModifier, result, note, ownerId);
         return game;
     }
 
-    public void Update(
-        DateTimeOffset startedAt,
-        IslandSetupId islandSetupId,
-        List<GamePlayer> players,
-        List<PlayedAdversary> adversaries,
-        PlayedScenario? scenario,
-        Difficulty difficultyLevel,
-        DifficultyModifier difficultyModifier,
-        GameResult? result,
-        GameNote? note)
+    /// <summary>Records the outcome of a drafted game, leaving the setup untouched.</summary>
+    public void Complete(GameResult result, GameNote? note)
     {
-        StartedAt = startedAt;
-        IslandSetupId = islandSetupId;
-        Difficulty = difficultyLevel;
-        DifficultyModifier = difficultyModifier;
         Result = result;
         Note = note;
-        _playedAdversaries = adversaries;
-        Scenario = scenario;
-        _players = players;
+    }
+
+    /// Setting the island through a method is what the constructor needs, but it also hides
+    /// the assignment from the compiler's definite-assignment check — hence the annotation.
+    [MemberNotNull(nameof(IslandSetupId))]
+    private void SetIsland(IslandChoice island)
+    {
+        IslandSetupId = island.SetupId;
+        IslandLayout = island.Layout;
+        CustomLayoutId = island.SavedLayoutId;
+        ExtraBoard = island.ExtraBoard;
     }
 
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.

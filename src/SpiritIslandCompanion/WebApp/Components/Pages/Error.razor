@@ -1,4 +1,7 @@
 ﻿@page "/Error"
+@* Static on purpose: HttpContext (for the request id) only exists during static rendering,
+   and after an unhandled error a working circuit is the last thing to rely on. *@
+@attribute [ExcludeFromInteractiveRouting]
 @using System.Diagnostics
 
 <PageTitle>Error</PageTitle>

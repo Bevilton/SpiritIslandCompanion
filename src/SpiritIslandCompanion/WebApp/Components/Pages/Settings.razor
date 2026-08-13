@@ -1,6 +1,5 @@
 @page "/app/settings"
 @attribute [Authorize]
-@rendermode InteractiveServer
 @inject IMediator Mediator
 @inject ICurrentUserService CurrentUser
 @inject WebApp.State.CurrentUserState UserState
@@ -14,8 +13,8 @@
     </div>
 </div>
 
-<Alert Message="@_message" Type="@_alertType"/>
-<FormErrorSummary Errors="@_errors"/>
+<Alert Message="@_form.Message" Type="@_form.MessageType"/>
+<FormErrorSummary Errors="@_form.Errors" Attempt="_form.Attempt"/>
 
 @if (_loading)
 {
@@ -80,9 +79,8 @@ else
     private HashSet<string> _ownedExpansions = [];
     private bool _loading = true;
     private bool _saving;
-    private string? _message;
-    private string _alertType = "success";
-    private FormErrors _errors = FormErrors.Empty;
+    /// Field errors, the general alert and the failed-attempt count in one place — see FormFeedback.
+    private readonly FormFeedback _form = new();
 
     private record ExpansionCounts(int Spirits, int Adversaries, int Scenarios);
 
@@ -100,7 +98,6 @@ else
         var result = await Mediator.Send(new Application.Features.Users.GetUserQuery(userId));
         if (result.IsSuccess)
             _ownedExpansions = result.Value.OwnedExpansionIds.ToHashSet();
-        _ownedExpansions.Add(Expansions.BaseGame.Value);
         _loading = false;
     }
 
@@ -114,26 +111,11 @@ else
     private async Task Save()
     {
         _saving = true;
-        _ownedExpansions.Add(Expansions.BaseGame.Value);
         var result = await Mediator.Send(new Application.Features.Users.UpdateUserSettingsCommand(
             CurrentUser.UserId!.Value, _ownedExpansions.ToList()));
         _saving = false;
 
-        _errors = FormErrors.FromResult(result);
-        if (result.IsSuccess)
-        {
-            _message = "Settings saved.";
-            _alertType = "success";
+        if (_form.Apply(result, "Settings saved."))
             await UserState.ReloadAsync();
-        }
-        else if (_errors.Any)
-        {
-            _message = null;
-        }
-        else
-        {
-            _message = result.Error.Message;
-            _alertType = "danger";
-        }
     }
 }

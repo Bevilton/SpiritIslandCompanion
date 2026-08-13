@@ -1,12 +1,15 @@
+@* Adversary reference sheet. Given Facts it also profiles the player's own record
+   — including per level inside the difficulty grid — and given OnSelected a level can
+   be picked straight from here. z-60 keeps it above the picker modals (z-50). *@
+
+@using Application.Features.Statistics
+
 @if (_adversary is not null)
 {
     var detail = _detail;
     var modes = _adversary.Modes.OrderBy(m => m.Level).ToList();
 
-    <div class="fixed inset-0 z-50 flex items-end md:items-center justify-center px-0 md:px-4 py-0 md:py-8" role="dialog" aria-modal="true">
-        <div class="absolute inset-0 bg-ink-900/40 backdrop-blur-sm" @onclick="Close"></div>
-
-        <div class="relative bg-white w-full md:max-w-2xl md:rounded-2xl shadow-2xl border border-ink-200 overflow-hidden max-h-[92vh] flex flex-col">
+    <ModalShell OnClose="Close" ZIndex="z-[60]">
             <div class="px-6 pt-6 pb-5 relative bg-ink-50/60 border-b border-ink-200">
                 <button class="absolute top-4 right-4 inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-500 hover:bg-white/60 hover:text-ink-900 transition-colors" @onclick="Close" aria-label="Close">
                     <Icon Name="x" Class="w-5 h-5"/>
@@ -17,7 +20,7 @@
                     <div class="min-w-0 flex-1">
                         <h2 class="text-2xl font-semibold text-ink-900 leading-tight" style="font-family: var(--font-serif);">@_adversary.Name</h2>
                         <div class="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
-                            <span class="badge badge-neutral">@ExpansionName(_adversary.ExpansionId)</span>
+                            <span class="badge badge-neutral">@GameLookups.ExpansionName(_adversary.ExpansionId)</span>
                             @if (detail is not null)
                             {
                                 <span class="text-ink-600">· @detail.Theme</span>
@@ -38,62 +41,123 @@
                 }
 
                 <div>
-                    <h3 class="text-sm font-medium uppercase tracking-wide text-ink-500 mb-3">Difficulty by level</h3>
-                    <div class="grid grid-cols-7 gap-1.5">
+                    <h3 class="text-sm font-medium uppercase tracking-wide text-ink-500 mb-3">
+                        @(_profile is null ? "Difficulty by level" : "Difficulty and your record by level")
+                    </h3>
+                    <div class="grid grid-cols-4 gap-1.5 sm:grid-cols-7">
                         @foreach (var m in modes)
                         {
-                            <div class="rounded-md border border-ink-200 bg-ink-50/60 px-1 py-2 text-center">
+                            var record = _facing?.Levels.GetValueOrDefault(m.Level);
+                            var isPickable = OnSelected.HasDelegate;
+                            <button type="button" disabled="@(!isPickable)"
+                                    @onclick="() => Select(m.Level)"
+                                    title="@LevelTooltip(m.Level, m.Difficulty, record, isPickable)"
+                                    class="rounded-md border px-1 py-2 text-center transition-colors
+                                           @(record is { Played: > 0 } ? "border-ink-300 bg-white" : "border-ink-200 bg-ink-50/60")
+                                           @(isPickable ? "cursor-pointer hover:border-accent-400 hover:bg-accent-50" : "cursor-default")">
                                 <div class="text-[10px] uppercase text-ink-500">L@(m.Level)</div>
-                                <div class="text-sm font-semibold text-ink-900">@m.Difficulty</div>
-                            </div>
+                                <div class="text-sm font-semibold text-ink-900">+@m.Difficulty</div>
+                                @if (_profile is not null)
+                                {
+                                    <div class="mt-0.5 text-[9px] leading-tight tabular-nums @WinTone.ForRecord(record)">
+                                        @(record is { Played: > 0 }
+                                            ? $"{record.Played}×{(record.Completed > 0 ? $" · {record.WinRate:F0}%" : "")}"
+                                            : "—")
+                                    </div>
+                                }
+                            </button>
                         }
                     </div>
                     <p class="mt-2 text-xs text-ink-500">
-                        Each level adds escalation rules. See the wiki for the per-level setup and rules text.
+                        Each level adds escalation rules.
+                        @if (OnSelected.HasDelegate)
+                        {
+                            <text>Tap a level to play it.</text>
+                        }
+                        else
+                        {
+                            <text>See the wiki for the per-level setup and rules text.</text>
+                        }
                     </p>
                 </div>
 
+                @if (_profile is not null)
+                {
+                    <SetupProfileSection Profile="_profile" Name="@_adversary.Name"
+                                         Title="Your record against this foe"/>
+                }
+
                 <div class="pt-2">
-                    <a href="@WikiLink(_adversary.Name)" target="_blank" rel="noopener"
+                    <a href="@GameLookups.WikiLink(_adversary.Name)" target="_blank" rel="noopener"
                        class="inline-flex items-center gap-1 text-sm text-accent-700 hover:text-accent-800">
                         Read on the Spirit Island wiki
                         <Icon Name="arrow-right" Class="w-3.5 h-3.5"/>
                     </a>
                 </div>
             </div>
-        </div>
-    </div>
+
+            @if (OnSelected.HasDelegate)
+            {
+                <div class="flex items-center gap-3 border-t border-ink-100 bg-ink-50/40 px-6 py-3.5 md:rounded-b-2xl">
+                    <button type="button" class="btn btn-ghost btn-sm" @onclick="Close">
+                        <Icon Name="arrow-left" Class="w-3.5 h-3.5"/> Back to adversaries
+                    </button>
+                    <span class="ml-auto text-xs text-ink-500">Pick a level above to add this foe.</span>
+                </div>
+            }
+    </ModalShell>
 }
 
 @code {
+    /// <summary>
+    /// Personal game history. When there is any, the modal profiles the player's record
+    /// against this adversary; empty or null hides the stats (plain reference sheet).
+    /// </summary>
+    [Parameter] public IReadOnlyList<SetupGameFact>? Facts { get; set; }
+
+    /// <summary>When set, tapping a level picks this adversary at that level.</summary>
+    [Parameter] public EventCallback<(Adversary Adversary, int Level)> OnSelected { get; set; }
+
     private Adversary? _adversary;
     private AdversaryDetail? _detail;
-
-    private static readonly Dictionary<string, string> _expansionNames =
-        GameData.Expansions.ToDictionary(e => e.Id.Value, e => e.Name);
+    private SetupProfiles.Profile? _profile;
+    private SetupInsights.AdversaryFacing? _facing;
 
     public void Show(Adversary adversary)
     {
         _adversary = adversary;
         _detail = AdversaryDetails.For(adversary.Id);
+        _profile = Facts is { Count: > 0 }
+            ? SetupProfiles.Build(SetupSubjectKind.Adversary, adversary.Id.Value, Facts)
+            : null;
+        // Null once the foe has never been faced — the grid then shows "—" per level.
+        _facing = Facts is { Count: > 0 }
+            ? SetupInsights.AdversaryRecords(Facts).GetValueOrDefault(adversary.Id.Value)
+            : null;
         StateHasChanged();
     }
 
-    public void Close()
+    private void Close()
     {
         _adversary = null;
         _detail = null;
-        StateHasChanged();
+        _profile = null;
+        _facing = null;
     }
 
-    private static string ExpansionName(ExpansionId id)
-        => _expansionNames.GetValueOrDefault(id.Value, id.Value);
-
-    private static string WikiLink(string name)
+    private async Task Select(int level)
     {
-        // Strip parenthesised qualifier (e.g. "France (Plantation Colony)" → "France (Plantation Colony)" maps fine,
-        // but the wiki uses underscores in titles).
-        var slug = name.Replace("'", "%27").Replace(" ", "_");
-        return $"https://spiritislandwiki.com/index.php?title={slug}";
+        var adversary = _adversary;
+        if (!OnSelected.HasDelegate || adversary is null) return;
+        Close();
+        await OnSelected.InvokeAsync((adversary, level));
+    }
+
+    private static string LevelTooltip(int level, int difficulty, SetupInsights.PlayRecord? record, bool pickable)
+    {
+        var history = record is { Played: > 0 }
+            ? $"played {record.Played}×{(record.Completed > 0 ? $", {record.Wins} won / {record.Losses} lost" : ", no results yet")}"
+            : "never played at this level";
+        return $"Level {level} · +{difficulty} difficulty — {history}{(pickable ? ". Tap to play it." : "")}";
     }
 }

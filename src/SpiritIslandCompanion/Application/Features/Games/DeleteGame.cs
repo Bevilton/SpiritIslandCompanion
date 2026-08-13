@@ -7,17 +7,20 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Application.Features.Games;
 
-public sealed record DeleteGameCommand(Guid GameId) : ICommand;
+/// <summary>Only the game's owner can delete it — for anyone else it isn't found.</summary>
+public sealed record DeleteGameCommand(Guid GameId, Guid UserId) : ICommand;
 
 internal sealed class DeleteGameHandler(IAppDbContext db) : ICommandHandler<DeleteGameCommand>
 {
     public async Task<Result> Handle(DeleteGameCommand request, CancellationToken cancellationToken)
     {
         var game = await db.Games
-            .FirstOrDefaultAsync(g => g.Id == new GameId(request.GameId), cancellationToken);
+            .FirstOrDefaultAsync(
+                g => g.Id == new GameId(request.GameId) && g.OwnerId.Value == request.UserId,
+                cancellationToken);
 
         if (game is null)
-            return Result.Failure(Error.NotFound("Game.NotFound", "Game not found."));
+            return Result.Failure(DomainErrors.Game.NotFound);
 
         db.Games.Remove(game);
         return Result.Success();

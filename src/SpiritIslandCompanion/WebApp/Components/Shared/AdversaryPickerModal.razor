@@ -4,42 +4,59 @@
 
 @if (_open)
 {
-    <div class="fixed inset-0 z-50 flex items-end md:items-center justify-center px-0 md:px-4 py-0 md:py-8" role="dialog" aria-modal="true">
-        <div class="absolute inset-0 bg-ink-900/40 backdrop-blur-sm" @onclick="Close"></div>
-
-        <div class="relative bg-white w-full md:max-w-3xl md:rounded-2xl shadow-2xl border border-ink-200 overflow-hidden max-h-[92vh] flex flex-col">
+    <ModalShell OnClose="Close" MaxWidth="md:max-w-3xl">
             <div class="px-6 pt-5 pb-4 border-b border-ink-200 flex items-start gap-4">
                 <div class="min-w-0 flex-1">
                     <h2 class="text-xl font-semibold text-ink-900 leading-tight" style="font-family: var(--font-serif);">
                         Choose an adversary
                     </h2>
                     <p class="text-xs text-ink-500 mt-1">
-                        Pick a card to expand level options, then confirm.
+                        Pick a card to expand level options@(HasStats ? " · a foe's record opens its full history" : "").
                     </p>
                 </div>
-                <input type="search" class="input md:w-56" placeholder="Search by name…" @bind="_query" @bind:event="oninput"/>
+                <input type="search" class="input md:w-56" placeholder="Search by name…" aria-label="Search by name"
+                       @bind="_filter.Query" @bind:event="oninput"/>
                 <button class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-500 hover:bg-ink-100 hover:text-ink-900 transition-colors shrink-0" @onclick="Close" aria-label="Close">
                     <Icon Name="x" Class="w-5 h-5"/>
                 </button>
             </div>
 
+            @* The same filter every catalogue and picker uses. *@
+            <div class="border-b border-ink-200 bg-ink-50/50 px-6 py-3">
+                <FilterBar Filter="_filter" OwnedExpansions="@OwnedExpansions"
+                           PresentExpansions="_filter.ExpansionsIn(_inScope)"
+                           ShowingCount="_visible.Count" TotalCount="_inScope.Count"
+                           UntestedLabel="Never faced" UntestedHint="Adversaries you have never played against"
+                           Changed="StateHasChanged"/>
+            </div>
+
             <div class="overflow-y-auto px-6 py-5 flex-1">
-                <div class="grid sm:grid-cols-2 gap-3">
-                    @foreach (var a in _filtered)
+                <div class="grid sm:grid-cols-2 gap-3 items-start">
+                    @foreach (var a in _visible)
                     {
                         var detail = AdversaryDetails.For(a.Id);
                         var modes = a.Modes.OrderBy(m => m.Level).ToList();
                         var isExpanded = _expandedId == a.Id.Value;
+                        var isCurrent = _currentId == a.Id.Value;
+                        var isTaken = AdversariesTaken.Contains(a.Id.Value) && !isCurrent;
                         var maxDifficulty = modes.LastOrDefault()?.Difficulty ?? 0;
 
-                        <div class="@(isExpanded ? "border-accent-300 ring-2 ring-accent-500/30" : "border-ink-200 hover:border-ink-300")
-                                    bg-white border rounded-xl transition-all overflow-hidden">
-                            <button type="button" @onclick="() => Expand(a)" class="w-full text-left p-4 focus:outline-none">
+                        var facing = _facing.GetValueOrDefault(a.Id.Value);
+
+                        <div @key="a.Id.Value"
+                             class="@(isExpanded ? "border-accent-300 ring-2 ring-accent-500/30"
+                                        : isCurrent ? "border-accent-300 ring-2 ring-accent-500"
+                                        : "border-ink-200 hover:border-ink-300")
+                                    @(isTaken ? "opacity-40" : "")
+                                    relative bg-white border rounded-xl transition-all overflow-hidden">
+                            <button type="button" @onclick="() => Expand(a)" disabled="@isTaken"
+                                    class="@(isTaken ? "cursor-not-allowed" : "")
+                                           w-full text-left p-4 pb-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
                                 <div class="flex items-start justify-between gap-3">
                                     <div class="min-w-0">
                                         <h3 class="text-sm font-semibold text-ink-900 leading-tight">@a.Name</h3>
                                         <div class="mt-0.5 text-[11px] text-ink-500">
-                                            @ExpansionName(a.ExpansionId)@(detail is not null ? $" · {detail.Theme}" : "")
+                                            @GameLookups.ExpansionName(a.ExpansionId)@(detail is not null ? $" · {detail.Theme}" : "")
                                         </div>
                                     </div>
                                     <Icon Name="shield" Class="w-5 h-5 text-accent-600 shrink-0"/>
@@ -49,8 +66,25 @@
                                     <span>L0–L@(modes.Count - 1)</span>
                                     <span class="text-ink-300">·</span>
                                     <span>up to +@maxDifficulty</span>
+                                    @if (isTaken)
+                                    {
+                                        <span class="text-ink-300">·</span>
+                                        <span>already at the table</span>
+                                    }
                                 </div>
                             </button>
+
+                            @* The record doubles as the door to the foe's full sheet. Sibling of the
+                               expand button — a button may not contain a button. *@
+                            <div class="flex flex-wrap items-center gap-1.5 px-4 pb-3">
+                                <RecordChip Record="@(facing is null ? null : new SetupInsights.PlayRecord(facing.Played, facing.Wins, facing.Losses))"
+                                            HasHistory="HasStats" Subject="@a.Name" NeverLabel="New foe — never faced"
+                                            OnClick="() => ShowDetails(a)"/>
+                                @if (facing?.MostPlayedLevel is { } ml)
+                                {
+                                    <span class="text-[10px] text-ink-500">mostly L@(ml)</span>
+                                }
+                            </div>
 
                             @if (isExpanded)
                             {
@@ -59,11 +93,21 @@
                                     <div class="flex flex-wrap gap-1.5">
                                         @foreach (var m in modes)
                                         {
+                                            var rec = facing?.Levels.GetValueOrDefault(m.Level);
+                                            var isCurrentLevel = isCurrent && _currentLevel == m.Level;
                                             <button type="button"
                                                     @onclick="() => Pick(a, m.Level)"
-                                                    class="inline-flex flex-col items-center justify-center min-w-[3.25rem] px-2 py-1.5 rounded-lg border border-ink-200 bg-white text-ink-800 hover:border-accent-400 hover:bg-accent-50 transition-colors">
+                                                    title="@(rec is { Played: > 0 } ? $"You played L{m.Level} {rec.Played}×{(rec.Completed > 0 ? $" — {rec.Wins} won, {rec.Losses} lost" : "")}" : null)"
+                                                    class="@(isCurrentLevel ? "border-accent-500 bg-accent-50 ring-1 ring-accent-500/30" : "border-ink-200 bg-white")
+                                                           inline-flex flex-col items-center justify-center min-w-[3.25rem] px-2 py-1.5 rounded-lg border text-ink-800 hover:border-accent-400 hover:bg-accent-50 transition-colors">
                                                 <span class="text-[10px] uppercase tracking-wide text-ink-500">L@(m.Level)</span>
                                                 <span class="text-sm font-semibold">+@m.Difficulty</span>
+                                                @if (rec is { Played: > 0 })
+                                                {
+                                                    <span class="text-[9px] tabular-nums leading-tight @WinTone.ForRecord(rec)">
+                                                        @(rec.Played)×@(rec.Completed > 0 ? $" · {rec.Wins}W" : "")
+                                                    </span>
+                                                }
                                             </button>
                                         }
                                     </div>
@@ -73,41 +117,70 @@
                     }
                 </div>
 
-                @if (!_filtered.Any())
+                @if (_visible.Count == 0)
                 {
-                    <div class="text-center py-10 text-ink-500 text-sm">No adversaries match.</div>
+                    <div class="text-center py-10 text-ink-500 text-sm">No adversaries match the current filters.</div>
                 }
             </div>
-        </div>
-    </div>
+    </ModalShell>
 }
 
+<AdversaryDetailModal @ref="_detailModal"
+                      Facts="_context.Facts"
+                      OnSelected="pick => Pick(pick.Adversary, pick.Level)"/>
+
 @code {
-    [Parameter] public EventCallback<(Adversary, int)> OnSelected { get; set; }
+    [Parameter] public EventCallback<(Adversary Adversary, int Level)> OnSelected { get; set; }
+
+    /// <summary>
+    /// Adversary ids already at the table for another slot — shown dimmed and disabled,
+    /// since the same foe can't invade twice (the save rejects the duplicate).
+    /// </summary>
+    [Parameter] public IReadOnlyCollection<string> AdversariesTaken { get; set; } = [];
 
     private bool _open;
-    private string _query = "";
     private string? _expandedId;
+    private string? _currentId;
+    private int? _currentLevel;
+    private AdversaryDetailModal _detailModal = default!;
 
-    private static readonly Dictionary<string, string> _expansionNames =
-        GameData.Expansions.ToDictionary(e => e.Id.Value, e => e.Name);
+    /// The setup this picker was opened for — supplies the history behind each
+    /// card's record, the per-level play counts, and the detail profile.
+    private SetupInsights.MatchupContext _context = SetupInsights.MatchupContext.Empty;
+
+    // Snapshotted on open — the form behind the modal can't change while it is up.
+    private Dictionary<string, SetupInsights.AdversaryFacing> _facing = [];
+
+    /// <summary>Any history to show at all; without it the cards are a plain catalogue.</summary>
+    private bool HasStats => _context.HasHistory;
 
     [CascadingParameter(Name = "OwnedExpansions")]
     public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
 
-    public void Show()
+    /// <param name="current">
+    /// The slot's pick when one is being changed rather than added — the card is marked and
+    /// starts expanded with its level highlighted, like the other pickers mark their current
+    /// selection.
+    /// </param>
+    public void Show(SetupInsights.AdversaryPick? current = null, SetupInsights.MatchupContext? context = null)
     {
-        _query = "";
-        _expandedId = null;
+        _context = context ?? SetupInsights.MatchupContext.Empty;
+        _currentId = current?.AdversaryId;
+        _currentLevel = current?.Level;
+        _expandedId = _currentId;
+        _facing = _context.HasHistory ? _context.AdversaryRecords() : [];
+
+        _filter.Reset();
+        // The per-level breakdown stays in _facing for the cards; the filter only needs the tally.
+        _filter.UseHistory(_context.HasHistory ? SetupInsights.AdversaryPlayRecords(_facing) : null);
+
         _open = true;
         StateHasChanged();
     }
 
-    private void Close()
-    {
-        _open = false;
-        StateHasChanged();
-    }
+    private void Close() => _open = false;
+
+    private void ShowDetails(Adversary a) => _detailModal.Show(a);
 
     private void Expand(Adversary a)
     {
@@ -117,16 +190,19 @@
     private async Task Pick(Adversary a, int level)
     {
         _open = false;
-        StateHasChanged();
         await OnSelected.InvokeAsync((a, level));
     }
 
-    private IEnumerable<Adversary> _filtered =>
-        GameData.Adversaries
-            .Where(a => OwnedExpansions is null || OwnedExpansions.Contains(a.ExpansionId))
-            .Where(a => string.IsNullOrWhiteSpace(_query) || a.Name.Contains(_query, StringComparison.OrdinalIgnoreCase))
-            .OrderBy(a => a.Name);
+    /// Difficulty is the top of its range: what the adversary asks of you at its hardest. Ordered
+    /// by name to start with — a picker is a list to scan, not a catalogue to browse.
+    private readonly CatalogueFilter<Adversary> _filter = new(
+        a => a.Id.Value, a => a.Name, a => a.ExpansionId,
+        numeric: (FilterState.ByDifficulty, a => a.Modes.Any() ? a.Modes.Max(m => m.Difficulty) : 0),
+        defaultSortKey: "name");
 
-    private static string ExpansionName(ExpansionId id)
-        => _expansionNames.GetValueOrDefault(id.Value, id.Value);
+    /// Only what the player owns is on their table, so only that is offered.
+    private IReadOnlyList<Adversary> _inScope =>
+        GameData.Adversaries.Where(a => OwnedExpansions is null || OwnedExpansions.Contains(a.ExpansionId)).ToList();
+
+    private IReadOnlyList<Adversary> _visible => _filter.Apply(_inScope);
 }

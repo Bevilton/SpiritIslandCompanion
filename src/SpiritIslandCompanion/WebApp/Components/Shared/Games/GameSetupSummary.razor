@@ -13,7 +13,7 @@
 }
 
 <section class="surface overflow-hidden">
-    @* Difficulty hero — same gradient as the new game form *@
+    @* Difficulty hero *@
     <div class="bg-gradient-to-br from-accent-50 to-accent-100/60 border-b border-accent-200 p-5 flex items-center justify-between gap-4">
         <div>
             <div class="text-[11px] uppercase tracking-wider text-accent-700 font-semibold">Total difficulty</div>
@@ -72,7 +72,12 @@
                 }
                 @if (ExtraBoard)
                 {
-                    <span class="inline-flex items-center text-[10px] uppercase tracking-wider text-accent-700 bg-accent-50 px-1.5 py-0.5 rounded">Extra board</span>
+                    @* Games recorded before the extra board's letter was asked for have none to
+                       show, so the chip falls back to just saying there was one. *@
+                    <span class="inline-flex items-center text-[10px] uppercase tracking-wider text-accent-700 bg-accent-50 px-1.5 py-0.5 rounded"
+                          title="@(ExtraBoardLetter is null ? "An extra board was played; which one wasn't recorded." : $"Board {ExtraBoardLetter} was on the island with no spirit on it.")">
+                        Extra board@(ExtraBoardLetter is { } letter ? $" · {letter}" : "")
+                    </span>
                 }
             </div>
         </div>
@@ -124,6 +129,12 @@
 @code {
     [Parameter, EditorRequired] public string IslandSetupId { get; set; } = "";
     [Parameter] public bool ExtraBoard { get; set; }
+
+    /// <summary>Which lettered board was the extra one; null when the game didn't record it.</summary>
+    [Parameter] public string? ExtraBoardId { get; set; }
+
+    private string? ExtraBoardLetter =>
+        GameLookups.BoardFor(ExtraBoardId) is { } b ? GameLookups.BoardLetter(b) : null;
     [Parameter] public bool ThematicMaps { get; set; }
     [Parameter] public int Difficulty { get; set; }
     [Parameter] public int DifficultyModifier { get; set; }

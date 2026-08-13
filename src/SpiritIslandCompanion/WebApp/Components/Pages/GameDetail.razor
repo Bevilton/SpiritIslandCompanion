@@ -1,6 +1,5 @@
 @page "/app/games/{Id:guid}"
 @attribute [Authorize]
-@rendermode InteractiveServer
 @inject IMediator Mediator
 @inject ICurrentUserService CurrentUser
 @inject NavigationManager Nav
@@ -26,7 +25,7 @@ else
                 <Icon Name="arrow-left" Class="w-3.5 h-3.5"/> Games
             </a>
             <span class="eyebrow">@(_game.IsCompleted ? "Recorded match" : "Draft")</span>
-            <h1 class="page-title mt-2">@_game.StartedAt.LocalDateTime.ToString("MMMM dd, yyyy")</h1>
+            <h1 class="page-title mt-2">@_game.StartedAt.DateTime.ToString("MMMM dd, yyyy")</h1>
             <div class="mt-2"><GameStatusBadge IsCompleted="_game.IsCompleted" Win="_game.Result?.Win"/></div>
         </div>
         <div class="flex flex-wrap gap-2">
@@ -42,8 +41,8 @@ else
         </div>
     </div>
 
-    <Alert Message="@_message" Type="@_alertType"/>
-    <FormErrorSummary Errors="@_errors"/>
+    <Alert Message="@_form.Message" Type="@_form.MessageType"/>
+    <FormErrorSummary Errors="@_form.Errors" Attempt="_form.Attempt"/>
 
     <div class="lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-6">
         <div class="lg:min-w-0 space-y-8">
@@ -55,6 +54,7 @@ else
                 <GameSetupSummary
                     IslandSetupId="@_game.IslandSetupId"
                     ExtraBoard="_game.ExtraBoard"
+                    ExtraBoardId="@_game.ExtraBoardId"
                     ThematicMaps="_game.ThematicMaps"
                     Difficulty="_game.Difficulty"
                     DifficultyModifier="_game.DifficultyModifier"
@@ -103,7 +103,7 @@ else
                         <GameResultEditor
                             Difficulty="_game.Difficulty"
                             PlayerCount="_game.Players.Count"
-                            Errors="_errors"
+                            Errors="_form.Errors"
                             Win="_resultWin" WinChanged="v => _resultWin = v"
                             TerrorLevel="_resultTerror" TerrorLevelChanged="v => _resultTerror = v"
                             DurationMinutes="_resultDurationMinutes" DurationMinutesChanged="v => _resultDurationMinutes = v"
@@ -115,7 +115,7 @@ else
                             <label class="label">Note</label>
                             <textarea class="textarea" rows="3" @bind="_resultNote"
                                       placeholder="Optional — anything memorable from the match"></textarea>
-                            <FieldError For="Note" Errors="@_errors"/>
+                            <FieldError For="Note" Errors="@_form.Errors"/>
                         </div>
                     </div>
                 }
@@ -202,7 +202,7 @@ else
                         {
                             var spirit = GameLookups.SpiritFor(p.SpiritId);
                             var spiritDetail = spirit is null ? null : SpiritDetails.For(spirit.Id);
-                            var color = spiritDetail?.ColorHex ?? "#78716c";
+                            var color = spiritDetail?.ColorHex ?? GameLookups.NeutralColor;
                             var board = GameLookups.BoardFor(p.BoardId);
                             var boardDetail = board is null ? null : BoardDetails.For(board.Id);
                             var aspect = GameLookups.AspectFor(p.AspectId);
@@ -216,7 +216,7 @@ else
                                     <div class="text-[11px] text-ink-500 truncate">
                                         @if (board is not null)
                                         {
-                                            <span>Board @(boardDetail?.Letter ?? board.Name[^1..])</span>
+                                            <span>Board @GameLookups.BoardLetter(board)</span>
                                             @if (boardDetail is not null)
                                             {
                                                 <span> · @boardDetail.ThematicName</span>
@@ -229,10 +229,12 @@ else
                     </ul>
                 </div>
 
-                @* Date *@
+                @* Date. StartedAt is the wall clock the player wrote down, stored at offset zero,
+                   so it is read back as-is — converting to server-local time would shift it, and
+                   a late-evening game onto the wrong day. *@
                 <div class="px-5 py-4 border-t border-ink-100">
                     <div class="text-[10px] uppercase tracking-wider text-ink-500 mb-1 font-medium">Date played</div>
-                    <div class="text-xs text-ink-700">@_game.StartedAt.LocalDateTime.ToString("MMMM d, yyyy")</div>
+                    <div class="text-xs text-ink-700">@_game.StartedAt.DateTime.ToString("MMMM d, yyyy · HH:mm")</div>
                 </div>
 
                 @if (_game.Result is not null)
@@ -259,9 +261,8 @@ else
     private bool _loading = true;
     private bool _saving;
     private bool _showCompleteForm;
-    private string? _message;
-    private string _alertType = "danger";
-    private FormErrors _errors = FormErrors.Empty;
+    /// Field errors, the general alert and the failed-attempt count in one place — see FormFeedback.
+    private readonly FormFeedback _form = new();
 
     private bool _resultWin = true;
     private TerrorLevel _resultTerror = TerrorLevel.First;
@@ -276,11 +277,11 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        var gameResult = await Mediator.Send(new Application.Features.Games.GetGameQuery(Id));
-        if (gameResult.IsSuccess) _game = gameResult.Value;
-
         if (CurrentUser.UserId is { } uid)
         {
+            var gameResult = await Mediator.Send(new Application.Features.Games.GetGameQuery(Id, uid));
+            if (gameResult.IsSuccess) _game = gameResult.Value;
+
             var friendsResult = await Mediator.Send(new Application.Features.Friendships.ListFriendsQuery(uid));
             if (friendsResult.IsSuccess) _friends = friendsResult.Value;
 
@@ -294,14 +295,13 @@ else
     private void StartComplete()
     {
         _showCompleteForm = true;
-        _message = null;
-        _errors = FormErrors.Empty;
+        _form.Clear();
     }
 
     private void CancelComplete()
     {
         _showCompleteForm = false;
-        _errors = FormErrors.Empty;
+        _form.Clear();
     }
 
     private async Task CompleteGame()
@@ -311,44 +311,22 @@ else
             _resultWin, TimeSpan.FromMinutes(_resultDurationMinutes),
             _resultCards, _resultTerror, _resultBlight, _resultDahan, _resultScoreModifier);
 
-        var result = await Mediator.Send(new Application.Features.Games.CompleteGameCommand(Id, dto, _resultNote));
+        var result = await Mediator.Send(new Application.Features.Games.CompleteGameCommand(Id, CurrentUser.UserId!.Value, dto, _resultNote));
         _saving = false;
-        _errors = FormErrors.FromResult(result);
 
-        if (result.IsSuccess)
-        {
-            _message = "Game completed successfully!";
-            _alertType = "success";
-            _showCompleteForm = false;
-            var reload = await Mediator.Send(new Application.Features.Games.GetGameQuery(Id));
-            if (reload.IsSuccess) _game = reload.Value;
-        }
-        else if (_errors.Any)
-        {
-            _message = null;
-        }
-        else
-        {
-            _message = result.Error.Message;
-            _alertType = "danger";
-        }
+        if (!_form.Apply(result, "Game completed successfully!")) return;
+
+        _showCompleteForm = false;
+        var reload = await Mediator.Send(new Application.Features.Games.GetGameQuery(Id, CurrentUser.UserId!.Value));
+        if (reload.IsSuccess) _game = reload.Value;
     }
 
     private async Task DeleteGame()
     {
         if (!await _confirmDialog.ShowAsync()) return;
 
-        var result = await Mediator.Send(new Application.Features.Games.DeleteGameCommand(Id));
-        _errors = FormErrors.FromResult(result);
-        if (result.IsSuccess)
-            Nav.NavigateTo("/app/games");
-        else if (_errors.Any)
-            _message = null;
-        else
-        {
-            _message = result.Error.Message;
-            _alertType = "danger";
-        }
+        var result = await Mediator.Send(new Application.Features.Games.DeleteGameCommand(Id, CurrentUser.UserId!.Value));
+        if (_form.Apply(result)) Nav.NavigateTo("/app/games");
     }
 
     private static string FormatDuration(TimeSpan d)

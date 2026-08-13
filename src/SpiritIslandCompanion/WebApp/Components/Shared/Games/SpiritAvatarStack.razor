@@ -10,7 +10,7 @@
     @for (var i = 0; i < visible.Count; i++)
     {
         var spirit = GameLookups.SpiritFor(visible[i]);
-        var color = (spirit is null ? null : SpiritDetails.For(spirit.Id))?.ColorHex ?? "#78716c";
+        var color = (spirit is null ? null : SpiritDetails.For(spirit.Id))?.ColorHex ?? GameLookups.NeutralColor;
         var letter = spirit?.Name.Substring(0, 1).ToUpperInvariant() ?? "?";
 
         <span class="inline-flex h-6 w-6 items-center justify-center rounded-full ring-2 ring-white text-[10px] font-semibold text-white shrink-0 @(i > 0 ? "-ml-1.5" : "")"

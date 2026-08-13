@@ -1,6 +1,5 @@
 @page "/app/games"
 @attribute [Authorize]
-@rendermode InteractiveServer
 @inject IMediator Mediator
 @inject ICurrentUserService CurrentUser
 @inject NavigationManager Nav
@@ -73,10 +72,16 @@ else
                             .ToList();
                         var scenario = GameLookups.ScenarioFor(g.ScenarioId);
 
-                        <tr @onclick='() => Nav.NavigateTo($"/app/games/{g.Id}")' class="cursor-pointer">
+                        <tr @key="g.Id" @onclick='() => Nav.NavigateTo($"/app/games/{g.Id}")' class="cursor-pointer">
                             <td class="whitespace-nowrap">
-                                <div class="text-sm text-ink-900 font-medium">@g.StartedAt.LocalDateTime.ToString("MMM dd")</div>
-                                <div class="text-[11px] text-ink-500">@g.StartedAt.LocalDateTime.ToString("yyyy")</div>
+                                @* Read back as stored, not converted: StartedAt carries the wall
+                                   clock the player wrote down at offset zero. *@
+                                @* A real link inside the clickable row, so the game is reachable
+                                   by keyboard and middle-click too. *@
+                                <a href="/app/games/@g.Id" class="block rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                                    <div class="text-sm text-ink-900 font-medium">@g.StartedAt.DateTime.ToString("MMM dd")</div>
+                                    <div class="text-[11px] text-ink-500">@g.StartedAt.DateTime.ToString("yyyy")</div>
+                                </a>
                             </td>
                             <td>
                                 @if (adversaries.Count == 0)

@@ -186,6 +186,9 @@
     @apply text-2xl md:text-3xl font-semibold text-ink-900;
     font-family: var(--font-serif);
   }
+  /* FocusOnNavigate lands focus on the h1 so a new page announces itself to a screen
+     reader; the ring Chrome draws with it dresses the title up as a control it isn't. */
+  .page-title:focus { outline: none; }
   .page-sub   { @apply text-sm text-ink-500 mt-1; }
 
   /* ---------- Stat tile ---------- */
@@ -214,6 +217,149 @@
   .top-nav-link:hover { @apply text-ink-900; }
   .top-nav-link.active { @apply text-ink-900 font-medium; }
 }
+
+/* ---------- Form error summary ----------
+   One flash when a submit fails, so a second failure that reads identically to the first is
+   still visibly a response to the button. Focus does the accessible half of the job (see
+   FormErrorSummary); this is for whoever was watching the button.                          */
+@keyframes si-attention {
+  0%   { box-shadow: 0 0 0 0 rgb(220 38 38 / .5); }
+  70%  { box-shadow: 0 0 0 12px rgb(220 38 38 / 0); }
+  100% { box-shadow: 0 0 0 0 rgb(220 38 38 / 0); }
+}
+.si-attention { animation: si-attention 1s ease-out 2; }
+/* The summary is focused programmatically, never tabbed to, so its ring would only ever be
+   noise on top of the flash. */
+.si-attention:focus { outline: none; }
+@media (prefers-reduced-motion: reduce) {
+  .si-attention { animation: none; }
+}
+
+/* ---------- New-game island scene ---------- */
+@keyframes si-bob {
+  0%, 100% { transform: translateY(0) rotate(-0.6deg); }
+  50%      { transform: translateY(-5px) rotate(0.8deg); }
+}
+@keyframes si-drift {
+  0%, 100% { transform: translateX(0); }
+  50%      { transform: translateX(16px); }
+}
+.si-bob   { animation: si-bob 5.5s ease-in-out infinite; }
+.si-drift { animation: si-drift 22s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .si-bob, .si-drift { animation: none; }
+}
+
+/* ---------- Island playground ----------
+   The sea canvas that boards are dragged around on. Structure and behaviour live in
+   wwwroot/js/island-playground.js; this only styles what that module renders.        */
+/* No border: the scene behind it is the same sea, and a line around the canvas would frame
+   it into a picture. The inset shadow is enough to sink it into the water.                  */
+.island-pg-wrap {
+  @apply relative overflow-hidden rounded-2xl shadow-inner;
+  height: clamp(20rem, 46vh, 30rem);
+  touch-action: none;              /* the canvas owns pan + pinch */
+}
+.island-pg-wrap--full {
+  @apply fixed inset-3 z-50 rounded-3xl shadow-2xl;
+  height: auto;
+}
+.island-pg-host { @apply absolute inset-0; }
+.island-pg__sea { @apply block h-full w-full; cursor: grab; }
+.island-pg__sea:active { cursor: grabbing; }
+.island-pg__labels { @apply pointer-events-none absolute inset-0 overflow-hidden; }
+
+/* the island shadow is heavy to recompute — skip it while a piece is in motion */
+.island-pg.is-dragging .island-pg__boards { filter: none; }
+
+/* a board */
+.island-pg__board { cursor: grab; }
+/* thematic maps: the island is published, not arranged — it can be inspected and tapped,
+   but not taken apart, so nothing should invite a drag */
+.island-pg.is-locked .island-pg__board { cursor: pointer; }
+.island-pg__board .ipg-land {
+  stroke: #5d4630;
+  stroke-linejoin: round;
+  transition: filter .15s ease;
+}
+/* shallow water hugging the coast — a thick stroke on the coast line, clipped to the land,
+   with the width set from the geometry in JS */
+.island-pg__board .ipg-coast { fill: none; stroke: #2f76b8; stroke-linejoin: round; stroke-linecap: butt; }
+.island-pg__board.is-island .ipg-land { stroke: #7c5b3c; }
+
+/* Selection and error live on their own layer above the boards, not on the board's own
+   edge: a board joined into an island shares half its outline with neighbours drawn after
+   it, which would paint straight over a highlight on the board itself. pointer-events must
+   stay off, or the highlight would swallow the drag on the board it is tracing. */
+.island-pg__outline {
+  fill: none;
+  stroke: none;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.island-pg__outline.is-selected { stroke: #ffffff; stroke-width: 2.6; }
+/* after .is-selected, so a board that is both reports the problem rather than the selection */
+.island-pg__outline.has-error   { stroke: #ef4444; stroke-width: 2.4; }
+/* the drop would leave this board lying across another — it will spring back */
+.island-pg__board.is-blocked { opacity: .55; }
+.island-pg__board.is-blocked .ipg-land { stroke: #ef4444; stroke-dasharray: 5 3; }
+
+/* the seams a drag is about to click into — one path per side, tracing that side's outline */
+.island-pg__snapline {
+  fill: none;
+  stroke: #fbbf24;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 4px rgb(251 191 36 / .9));
+}
+
+/* per-board chip in the HTML overlay, so labels stay crisp at any zoom */
+.island-pg__chip {
+  @apply absolute flex items-center gap-1 rounded-full border border-white/70
+         bg-white/85 px-1.5 py-0.5 shadow-sm backdrop-blur-sm;
+  top: 0; left: 0;
+  will-change: transform;
+}
+.island-pg__chip.is-selected { @apply border-white bg-white ring-2 ring-white/70; }
+.island-pg__chip.has-error   { @apply border-red-400 ring-2 ring-red-400/50; }
+.island-pg__letter {
+  @apply text-xs font-bold leading-none text-ink-800;
+  font-family: var(--font-serif);
+}
+.island-pg__dot { @apply h-2.5 w-2.5 shrink-0 rounded-full; }
+.island-pg__dot.is-empty { @apply border border-dashed border-ink-400 bg-transparent; }
+.island-pg__who { @apply text-[9px] font-semibold uppercase leading-none text-ink-500; }
+.island-pg__add { @apply text-xs font-bold leading-none text-accent-600; }
+
+/* overlays: the layout badge and the two tool clusters */
+.island-pg-badge {
+  @apply pointer-events-none absolute left-3 top-3 flex items-center gap-1.5 rounded-full
+         border border-white/60 bg-white/85 px-2.5 py-1 text-[11px] font-medium
+         text-ink-800 shadow-sm backdrop-blur;
+}
+.island-pg-badge__count { @apply text-ink-500; }
+
+.island-pg-tools {
+  @apply absolute flex items-center gap-1 rounded-full border border-white/60
+         bg-white/85 p-1 shadow-sm backdrop-blur;
+}
+.island-pg-tools--view  { @apply right-3 top-3; }
+/* One row, always — wrapped tool text reads as broken text in a bubble. The hint is the
+   part that gives way on narrow screens. */
+.island-pg-tools--piece { @apply bottom-3 left-1/2 -translate-x-1/2 max-w-[calc(100%-1.5rem)] flex-nowrap justify-center; }
+.island-pg-tools button {
+  @apply inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-1 text-[11px]
+         font-medium text-ink-700 transition-colors;
+}
+.island-pg-tools button:hover:not(:disabled) { @apply bg-ink-100 text-ink-900; }
+.island-pg-tools button:disabled { @apply opacity-40; }
+.island-pg-tools__text { @apply hidden sm:inline; }
+.island-pg-tools__sep  { @apply h-4 w-px shrink-0 bg-ink-200; }
+/* The hint is dropped on narrow screens, which would leave its separator dangling at the
+   start of the bar as a stray tick mark. */
+.island-pg-tools__sep:first-child { @apply hidden; }
+.island-pg-tools__hint { @apply hidden truncate whitespace-nowrap px-2 py-1 text-[11px] text-ink-500 sm:block; }
 
 /* Blazor scaffolding */
 .blazor-error-boundary {

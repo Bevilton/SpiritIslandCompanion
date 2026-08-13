@@ -1,0 +1,165 @@
+@* The catalogue filter, shared by every browse page and every picker so a player meets the same
+   controls wherever they are choosing something.
+
+   It renders the questions every catalogue shares — expansion, your play, ordering — and leaves a
+   slot for whatever is peculiar to one: spirits put complexity, elements and tokens in Facets.
+   State and matching live in FilterState and its subclasses.
+
+   Collapsed by default: several pill groups and a sort row is a lot to put in front of someone
+   who only wants to scroll the list. The header carries what is active, so a filter can never be
+   on without saying so. *@
+
+<div class="surface overflow-visible">
+    @* The whole header toggles the panel, but "Clear" is its own action — and a button cannot
+       contain a button. So the disclosure is a full-size overlay behind the header content, and
+       Clear is a real sibling button raised above it: both work by mouse and by keyboard. *@
+    <div class="relative">
+        @* aria-expanded as literal "true"/"false": handed a bool, Blazor drops the attribute
+           for false, and a disclosure with no aria-expanded reads as a plain button. *@
+        <button type="button" aria-expanded="@(_open ? "true" : "false")" @onclick="() => _open = !_open"
+                class="absolute inset-0 w-full transition-colors hover:bg-ink-50/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40 @(_open ? "rounded-t-xl" : "rounded-xl")">
+            <span class="sr-only">@(_open ? "Hide filters" : "Show filters")</span>
+        </button>
+        <div class="pointer-events-none relative flex items-center justify-between gap-3 px-4 py-3">
+            <span class="flex flex-wrap items-center gap-2">
+                <Icon Name="settings" Class="w-4 h-4 text-ink-500"/>
+                <span class="text-sm font-medium text-ink-900">Filters</span>
+                @if (Filter.ActiveCount > 0)
+                {
+                    <span class="badge badge-info">@Filter.ActiveCount active</span>
+                }
+                @* Only a departure from the host's own order is worth badging. *@
+                @if (Filter.SortChanged)
+                {
+                    <span class="badge badge-neutral">by @Filter.SortSummary</span>
+                }
+            </span>
+            <span class="flex shrink-0 items-center gap-2">
+                @if (ShowingCount is { } showing && TotalCount is { } total)
+                {
+                    <span class="text-xs tabular-nums text-ink-500">@showing of @total</span>
+                }
+                @if (Filter.Any)
+                {
+                    <button type="button" @onclick="ClearFilters"
+                            class="pointer-events-auto rounded text-xs text-accent-700 hover:text-accent-800 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                        Clear
+                    </button>
+                }
+                <Icon Name="chevron-down" Class="@($"w-4 h-4 text-ink-400 transition-transform {(_open ? "rotate-180" : "")}")"/>
+            </span>
+        </div>
+    </div>
+
+    @if (_open)
+    {
+        <div class="space-y-3 border-t border-ink-100 px-4 pb-4 pt-3">
+            @* One expansion means one pill, which decides nothing — the list is already only that
+               expansion's, so the row would be a control that cannot change the answer. Some
+               catalogues have no expansions at all. *@
+            @if (Filter.HasExpansions && AvailableExpansions.Count > 1)
+            {
+                <FilterRow Label="Expansion">
+                    @foreach (var e in AvailableExpansions)
+                    {
+                        <FilterPill Active="@Filter.Expansions.Contains(e.Id.Value)"
+                                    OnToggle="() => Toggle(Filter.Expansions, e.Id.Value)">
+                            @e.Name
+                        </FilterPill>
+                    }
+                </FilterRow>
+            }
+
+            @Facets
+
+            @if (Filter.HasHistory)
+            {
+                <FilterRow Label="Your play">
+                    @* Not the same thing as ordering by play count: that reorders the whole list,
+                       this takes the played ones out of it — and in a picker it can ask about the
+                       matchup on the table, which no ordering can express. *@
+                    <FilterPill Active="@Filter.UntestedOnly" OnToggle="() => Set(() => Filter.UntestedOnly = !Filter.UntestedOnly)">
+                        <span class="inline-flex items-center gap-1" title="@UntestedHint">
+                            <Icon Name="sparkles" Class="w-3 h-3"/> @UntestedLabel
+                        </span>
+                    </FilterPill>
+                </FilterRow>
+            }
+
+            <div class="border-t border-ink-100 pt-3">
+                <FilterRow Label="Sort by">
+                    <ChildContent>
+                        @foreach (var option in Filter.AvailableSorts)
+                        {
+                            <FilterPill Active="@(Filter.SortKey == option.Key)" OnToggle="() => Set(() => Filter.SetSort(option.Key))">
+                                @option.Label
+                            </FilterPill>
+                        }
+                    </ChildContent>
+                    <Switch>
+                        <SegmentedToggle TValue="bool" Value="Filter.Descending"
+                                         ValueChanged="d => Set(() => Filter.Descending = d)"
+                                         FirstValue="false" FirstLabel="@Filter.CurrentSort.Ascending"
+                                         FirstHint="@($"{Filter.CurrentSort.Ascending} first")"
+                                         SecondValue="true" SecondLabel="@Filter.CurrentSort.Descending"
+                                         SecondHint="@($"{Filter.CurrentSort.Descending} first")"
+                                         SegmentClass="min-w-[4.25rem] text-center"/>
+                    </Switch>
+                </FilterRow>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public FilterState Filter { get; set; } = default!;
+
+    /// <summary>
+    /// The expansions the player owns — the only ones offered, since something from an expansion
+    /// you don't have isn't on your table. Null shows every expansion (the public browse pages).
+    /// </summary>
+    [Parameter] public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
+
+    /// <summary>
+    /// The expansions this catalogue's items actually come from (<c>CatalogueFilter.ExpansionsIn</c>).
+    /// Not every expansion has boards or scenarios, and a pill for one that doesn't can only ever
+    /// produce the empty list. Null offers every owned expansion.
+    /// </summary>
+    [Parameter] public IReadOnlyCollection<ExpansionId>? PresentExpansions { get; set; }
+
+    /// <summary>Whatever this catalogue has to filter on beyond the shared questions.</summary>
+    [Parameter] public RenderFragment? Facets { get; set; }
+
+    /// <summary>How many items survive the filter, and how many there were — shown in the header.</summary>
+    [Parameter] public int? ShowingCount { get; set; }
+    [Parameter] public int? TotalCount { get; set; }
+
+    /// <summary>
+    /// What the never-played pill is called and what it means here. A picker opened against a
+    /// chosen foe scopes it to that foe, so "never played" would be the wrong words there.
+    /// </summary>
+    [Parameter] public string UntestedLabel { get; set; } = "Never played";
+    [Parameter] public string? UntestedHint { get; set; }
+
+    /// <summary>Raised after any change, so the host can re-render its list.</summary>
+    [Parameter] public EventCallback Changed { get; set; }
+
+    private bool _open;
+
+    private IReadOnlyList<Expansion> AvailableExpansions =>
+        GameData.Expansions
+            .Where(e => OwnedExpansions is null || OwnedExpansions.Contains(e.Id))
+            .Where(e => PresentExpansions is null || PresentExpansions.Contains(e.Id))
+            .ToList();
+
+    private Task Toggle<T>(HashSet<T> set, T value) => Set(() => FilterState.Toggle(set, value));
+
+    /// <summary>For a facet row in <see cref="Facets"/> to report its own change.</summary>
+    public Task Set(Action change)
+    {
+        change();
+        return Changed.InvokeAsync();
+    }
+
+    private Task ClearFilters() => Set(Filter.Clear);
+}

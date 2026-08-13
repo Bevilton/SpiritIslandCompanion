@@ -56,6 +56,25 @@ namespace Infrastructure.Database.Migrations
                     b.ToTable("Games");
                 });
 
+            modelBuilder.Entity("Domain.Models.IslandLayout.CustomIslandLayout", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("BoardCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("CustomIslandLayouts");
+                });
+
             modelBuilder.Entity("Domain.Models.Player.Player", b =>
                 {
                     b.Property<Guid>("Id")
@@ -158,6 +177,41 @@ namespace Infrastructure.Database.Migrations
                                 .HasForeignKey("GameId");
                         });
 
+                    b.OwnsOne("Domain.Models.Static.BoardId", "ExtraBoard", b1 =>
+                        {
+                            b1.Property<Guid>("GameId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<string>("Value")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)");
+
+                            b1.HasKey("GameId");
+
+                            b1.ToTable("Games");
+
+                            b1.WithOwner()
+                                .HasForeignKey("GameId");
+                        });
+
+                    b.OwnsOne("Domain.Models.IslandLayout.IslandLayoutGeometry", "IslandLayout", b1 =>
+                        {
+                            b1.Property<Guid>("GameId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<string>("Value")
+                                .IsRequired()
+                                .HasMaxLength(20000)
+                                .HasColumnType("nvarchar(max)");
+
+                            b1.HasKey("GameId");
+
+                            b1.ToTable("Games");
+
+                            b1.WithOwner()
+                                .HasForeignKey("GameId");
+                        });
+
                     b.OwnsOne("Domain.Models.User.UserId", "OwnerId", b1 =>
                         {
                             b1.Property<Guid>("GameId")
@@ -208,6 +262,23 @@ namespace Infrastructure.Database.Migrations
                             b1.WithOwner()
                                 .HasForeignKey("GameId");
 
+                            b1.OwnsOne("Domain.Models.Static.BoardId", "StartingBoard", b2 =>
+                                {
+                                    b2.Property<Guid>("GamePlayerId")
+                                        .HasColumnType("uniqueidentifier");
+
+                                    b2.Property<string>("Value")
+                                        .IsRequired()
+                                        .HasColumnType("nvarchar(max)");
+
+                                    b2.HasKey("GamePlayerId");
+
+                                    b2.ToTable("Game_GamePlayer");
+
+                                    b2.WithOwner()
+                                        .HasForeignKey("GamePlayerId");
+                                });
+
                             b1.OwnsOne("Domain.Models.User.UserId", "UserId", b2 =>
                                 {
                                     b2.Property<Guid>("GamePlayerId")
@@ -241,23 +312,6 @@ namespace Infrastructure.Database.Migrations
                                 });
 
                             b1.OwnsOne("Domain.Models.Static.AspectId", "AspectId", b2 =>
-                                {
-                                    b2.Property<Guid>("GamePlayerId")
-                                        .HasColumnType("uniqueidentifier");
-
-                                    b2.Property<string>("Value")
-                                        .IsRequired()
-                                        .HasColumnType("nvarchar(max)");
-
-                                    b2.HasKey("GamePlayerId");
-
-                                    b2.ToTable("Game_GamePlayer");
-
-                                    b2.WithOwner()
-                                        .HasForeignKey("GamePlayerId");
-                                });
-
-                            b1.OwnsOne("Domain.Models.Static.BoardId", "StartingBoard", b2 =>
                                 {
                                     b2.Property<Guid>("GamePlayerId")
                                         .HasColumnType("uniqueidentifier");
@@ -549,6 +603,22 @@ namespace Infrastructure.Database.Migrations
                                 .IsRequired();
                         });
 
+                    b.OwnsOne("Domain.Models.IslandLayout.CustomIslandLayoutId", "CustomLayoutId", b1 =>
+                        {
+                            b1.Property<Guid>("GameId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<Guid>("Value")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.HasKey("GameId");
+
+                            b1.ToTable("Games");
+
+                            b1.WithOwner()
+                                .HasForeignKey("GameId");
+                        });
+
                     b.OwnsOne("Domain.Models.Static.IslandSetupId", "IslandSetupId", b1 =>
                         {
                             b1.Property<Guid>("GameId")
@@ -566,11 +636,17 @@ namespace Infrastructure.Database.Migrations
                                 .HasForeignKey("GameId");
                         });
 
+                    b.Navigation("CustomLayoutId");
+
                     b.Navigation("Difficulty")
                         .IsRequired();
 
                     b.Navigation("DifficultyModifier")
                         .IsRequired();
+
+                    b.Navigation("ExtraBoard");
+
+                    b.Navigation("IslandLayout");
 
                     b.Navigation("IslandSetupId")
                         .IsRequired();
@@ -587,6 +663,70 @@ namespace Infrastructure.Database.Migrations
                     b.Navigation("Result");
 
                     b.Navigation("Scenario");
+                });
+
+            modelBuilder.Entity("Domain.Models.IslandLayout.CustomIslandLayout", b =>
+                {
+                    b.OwnsOne("Domain.Models.IslandLayout.IslandLayoutGeometry", "Geometry", b1 =>
+                        {
+                            b1.Property<Guid>("CustomIslandLayoutId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<string>("Value")
+                                .IsRequired()
+                                .HasMaxLength(20000)
+                                .HasColumnType("nvarchar(max)");
+
+                            b1.HasKey("CustomIslandLayoutId");
+
+                            b1.ToTable("CustomIslandLayouts");
+
+                            b1.WithOwner()
+                                .HasForeignKey("CustomIslandLayoutId");
+                        });
+
+                    b.OwnsOne("Domain.Models.User.UserId", "OwnerId", b1 =>
+                        {
+                            b1.Property<Guid>("CustomIslandLayoutId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<Guid>("Value")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.HasKey("CustomIslandLayoutId");
+
+                            b1.ToTable("CustomIslandLayouts");
+
+                            b1.WithOwner()
+                                .HasForeignKey("CustomIslandLayoutId");
+                        });
+
+                    b.OwnsOne("Domain.Models.IslandLayout.IslandLayoutName", "Name", b1 =>
+                        {
+                            b1.Property<Guid>("CustomIslandLayoutId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<string>("Value")
+                                .IsRequired()
+                                .HasMaxLength(40)
+                                .HasColumnType("nvarchar(40)");
+
+                            b1.HasKey("CustomIslandLayoutId");
+
+                            b1.ToTable("CustomIslandLayouts");
+
+                            b1.WithOwner()
+                                .HasForeignKey("CustomIslandLayoutId");
+                        });
+
+                    b.Navigation("Geometry")
+                        .IsRequired();
+
+                    b.Navigation("Name")
+                        .IsRequired();
+
+                    b.Navigation("OwnerId")
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Domain.Models.Player.Player", b =>

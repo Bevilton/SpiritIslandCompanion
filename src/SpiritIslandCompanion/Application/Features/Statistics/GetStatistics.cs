@@ -1,8 +1,8 @@
 using Application.Abstractions;
 using Application.Data;
+using Application.Features.Games;
 using Domain.Models.Game;
 using Domain.Models.Game.Enums;
-using Domain.Models.User;
 using Domain.Results;
 using Microsoft.EntityFrameworkCore;
 
@@ -127,13 +127,7 @@ internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<Get
     public async Task<Result<StatisticsResponse>> Handle(GetStatisticsQuery request, CancellationToken cancellationToken)
     {
         var games = await db.Games
-            .AsNoTracking()
-            .Include(g => g.Players)
-            .Include(g => g.PlayedAdversaries)
-            .Include(g => g.Result)
-            .Include(g => g.Scenario)
-            .Where(g => g.OwnerId.Value == request.UserId ||
-                        g.Players.Any(p => p.UserId != null && p.UserId.Value == request.UserId))
+            .InvolvingUser(request.UserId)
             .ToListAsync(cancellationToken);
 
         // Resolve display names for every user / player referenced in any game.

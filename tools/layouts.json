@@ -1,0 +1,661 @@
+{
+  "standard-1p": {
+    "boards": 1,
+    "seams": []
+  },
+  "thematic-1p": {
+    "boards": 1,
+    "seams": []
+  },
+  "standard-2p": {
+    "boards": 2,
+    "seams": [
+      {
+        "a": 0,
+        "ae": 3,
+        "b": 1,
+        "be": 3
+      }
+    ]
+  },
+  "coastline-2p": {
+    "boards": 2,
+    "rot": 60,
+    "seams": [
+      {
+        "a": 0,
+        "ae": 3,
+        "b": 1,
+        "be": 1
+      }
+    ]
+  },
+  "opposite-shores-2p": {
+    "boards": 2,
+    "seams": [
+      {
+        "a": 0,
+        "ae": 0,
+        "b": 1,
+        "be": 0
+      }
+    ]
+  },
+  "fragment-2p": {
+    "note": "verified against the printed layout: the two boards meet BC-to-AB, not AB-to-AB",
+    "boards": 2,
+    "rot": 300,
+    "seams": [
+      {
+        "a": 0,
+        "ae": 1,
+        "b": 1,
+        "be": 0
+      }
+    ]
+  },
+  "thematic-2p": {
+    "boards": 2,
+    "seams": [
+      {
+        "a": 0,
+        "ae": 0,
+        "b": 1,
+        "be": 0
+      }
+    ]
+  },
+  "standard-3p": {
+    "boards": 3,
+    "seams": [
+      {
+        "a": 0,
+        "ae": 1,
+        "b": 1,
+        "be": 0
+      },
+      {
+        "a": 1,
+        "ae": 1,
+        "b": 2,
+        "be": 0
+      },
+      {
+        "a": 2,
+        "ae": 1,
+        "b": 0,
+        "be": 0
+      }
+    ]
+  },
+  "coastline-3p": {
+    "boards": 3,
+    "rot": 60,
+    "seams": [
+      {
+        "a": 0,
+        "ae": 3,
+        "b": 1,
+        "be": 1
+      },
+      {
+        "a": 1,
+        "ae": 3,
+        "b": 2,
+        "be": 1
+      }
+    ]
+  },
+  "sunrise-3p": {
+    "boards": 3,
+    "rot": 60,
+    "seams": [
+      {
+        "a": 0,
+        "ae": 3,
+        "b": 1,
+        "be": 0
+      },
+      {
+        "a": 1,
+        "ae": 3,
+        "b": 2,
+        "be": 0
+      }
+    ]
+  },
+  "thematic-3p": {
+    "boards": 3,
+    "seams": [
+      {
+        "a": 0,
+        "ae": 1,
+        "b": 1,
+        "be": 3
+      },
+      {
+        "a": 1,
+        "ae": 0,
+        "b": 2,
+        "be": 0
+      }
+    ]
+  },
+  "standard-4p": {
+    "boards": 4,
+    "seams": [
+      {
+        "a": 0,
+        "ae": 0,
+        "b": 1,
+        "be": 0
+      },
+      {
+        "a": 0,
+        "ae": 1,
+        "b": 2,
+        "be": 3
+      },
+      {
+        "a": 1,
+        "ae": 3,
+        "b": 3,
+        "be": 1
+      },
+      {
+        "a": 3,
+        "ae": 0,
+        "b": 2,
+        "be": 0
+      }
+    ]
+  },
+  "leaf-4p": {
+    "note": "verified against the printed layout: the leaf closes into a ring of four, not an open chain",
+    "boards": 4,
+    "rot": 180,
+    "seams": [
+      {
+        "a": 3,
+        "ae": 0,
+        "b": 2,
+        "be": 0
+      },
+      {
+        "a": 3,
+        "ae": 3,
+        "b": 0,
+        "be": 0
+      },
+      {
+        "a": 2,
+        "ae": 1,
+        "b": 1,
+        "be": 0
+      },
+      {
+        "a": 0,
+        "ae": 3,
+        "b": 1,
+        "be": 1
+      }
+    ]
+  },
+  "snake-4p": {
+    "note": "verified against the printed layout: a snake is an open chain, 1-2-0-3 — no fourth seam",
+    "boards": 4,
+    "rot": 180,
+    "seams": [
+      {
+        "a": 2,
+        "ae": 1,
+        "b": 1,
+        "be": 1
+      },
+      {
+        "a": 2,
+        "ae": 0,
+        "b": 0,
+        "be": 0
+      },
+      {
+        "a": 0,
+        "ae": 1,
+        "b": 3,
+        "be": 1
+      }
+    ]
+  },
+  "thematic-4p": {
+    "boards": 4,
+    "seams": [
+      {
+        "a": 0,
+        "ae": 0,
+        "b": 1,
+        "be": 0
+      },
+      {
+        "a": 0,
+        "ae": 1,
+        "b": 2,
+        "be": 3
+      },
+      {
+        "a": 1,
+        "ae": 3,
+        "b": 3,
+        "be": 1
+      },
+      {
+        "a": 3,
+        "ae": 0,
+        "b": 2,
+        "be": 0
+      }
+    ]
+  },
+  "crab-5p": {
+    "note": "verified against the printed layout: the crab closes a ring around its middle board (5 seams), not an open fan",
+    "boards": 5,
+    "rot": 120,
+    "seams": [
+      {
+        "a": 4,
+        "ae": 3,
+        "b": 0,
+        "be": 0
+      },
+      {
+        "a": 4,
+        "ae": 1,
+        "b": 3,
+        "be": 0
+      },
+      {
+        "a": 3,
+        "ae": 3,
+        "b": 2,
+        "be": 1
+      },
+      {
+        "a": 3,
+        "ae": 1,
+        "b": 1,
+        "be": 0
+      },
+      {
+        "a": 4,
+        "ae": 0,
+        "b": 1,
+        "be": 1
+      }
+    ]
+  },
+  "claw-5p": {
+    "note": "verified against the printed layout: the claw closes a ring, not an open chain of five",
+    "boards": 5,
+    "rot": 180,
+    "seams": [
+      {
+        "a": 4,
+        "ae": 0,
+        "b": 0,
+        "be": 0
+      },
+      {
+        "a": 4,
+        "ae": 1,
+        "b": 3,
+        "be": 3
+      },
+      {
+        "a": 3,
+        "ae": 0,
+        "b": 1,
+        "be": 3
+      },
+      {
+        "a": 0,
+        "ae": 3,
+        "b": 2,
+        "be": 0
+      },
+      {
+        "a": 1,
+        "ae": 0,
+        "b": 2,
+        "be": 3
+      }
+    ]
+  },
+  "peninsula-5p": {
+    "note": "verified against the printed layout: a compact head of three (0-3-4) with a two-board tail, not a chain",
+    "boards": 5,
+    "rot": 120,
+    "seams": [
+      {
+        "a": 4,
+        "ae": 1,
+        "b": 3,
+        "be": 0
+      },
+      {
+        "a": 3,
+        "ae": 1,
+        "b": 0,
+        "be": 0
+      },
+      {
+        "a": 4,
+        "ae": 0,
+        "b": 0,
+        "be": 1
+      },
+      {
+        "a": 0,
+        "ae": 3,
+        "b": 1,
+        "be": 1
+      },
+      {
+        "a": 1,
+        "ae": 3,
+        "b": 2,
+        "be": 1
+      }
+    ]
+  },
+  "snail-5p": {
+    "note": "verified against the printed layout: the snail curls round until its fifth board meets the first (5 seams)",
+    "boards": 5,
+    "rot": 180,
+    "seams": [
+      {
+        "a": 4,
+        "ae": 1,
+        "b": 3,
+        "be": 0
+      },
+      {
+        "a": 3,
+        "ae": 1,
+        "b": 0,
+        "be": 0
+      },
+      {
+        "a": 4,
+        "ae": 0,
+        "b": 0,
+        "be": 1
+      },
+      {
+        "a": 0,
+        "ae": 3,
+        "b": 1,
+        "be": 0
+      },
+      {
+        "a": 1,
+        "ae": 3,
+        "b": 2,
+        "be": 1
+      }
+    ]
+  },
+  "v-5p": {
+    "note": "verified against the printed layout: the V is a single chain, 3-2-1-0-4",
+    "boards": 5,
+    "rot": 180,
+    "seams": [
+      {
+        "a": 3,
+        "ae": 1,
+        "b": 2,
+        "be": 3
+      },
+      {
+        "a": 2,
+        "ae": 1,
+        "b": 1,
+        "be": 0
+      },
+      {
+        "a": 1,
+        "ae": 1,
+        "b": 0,
+        "be": 3
+      },
+      {
+        "a": 0,
+        "ae": 1,
+        "b": 4,
+        "be": 3
+      }
+    ]
+  },
+  "two-centers-6p": {
+    "note": "verified against the printed layout: two rings, hence the name — 7 seams, not 6",
+    "boards": 6,
+    "rot": 240,
+    "seams": [
+      {
+        "a": 4,
+        "ae": 0,
+        "b": 5,
+        "be": 1
+      },
+      {
+        "a": 4,
+        "ae": 1,
+        "b": 0,
+        "be": 0
+      },
+      {
+        "a": 5,
+        "ae": 0,
+        "b": 0,
+        "be": 1
+      },
+      {
+        "a": 0,
+        "ae": 3,
+        "b": 3,
+        "be": 3
+      },
+      {
+        "a": 3,
+        "ae": 1,
+        "b": 2,
+        "be": 0
+      },
+      {
+        "a": 2,
+        "ae": 1,
+        "b": 1,
+        "be": 0
+      },
+      {
+        "a": 3,
+        "ae": 0,
+        "b": 1,
+        "be": 1
+      }
+    ]
+  },
+  "caldera-6p": {
+    "note": "verified against the printed layout: distinct from star-6p — this is the caldera",
+    "boards": 6,
+    "rot": 180,
+    "seams": [
+      {
+        "a": 4,
+        "ae": 3,
+        "b": 5,
+        "be": 1
+      },
+      {
+        "a": 5,
+        "ae": 0,
+        "b": 0,
+        "be": 1
+      },
+      {
+        "a": 1,
+        "ae": 1,
+        "b": 0,
+        "be": 3
+      },
+      {
+        "a": 1,
+        "ae": 0,
+        "b": 2,
+        "be": 1
+      },
+      {
+        "a": 4,
+        "ae": 1,
+        "b": 3,
+        "be": 0
+      },
+      {
+        "a": 2,
+        "ae": 3,
+        "b": 3,
+        "be": 1
+      }
+    ]
+  },
+  "flower-6p": {
+    "note": "verified against the printed layout: the petals join in this exact order",
+    "boards": 6,
+    "rot": 60,
+    "seams": [
+      {
+        "a": 4,
+        "ae": 1,
+        "b": 3,
+        "be": 3
+      },
+      {
+        "a": 3,
+        "ae": 1,
+        "b": 1,
+        "be": 0
+      },
+      {
+        "a": 1,
+        "ae": 3,
+        "b": 2,
+        "be": 1
+      },
+      {
+        "a": 1,
+        "ae": 1,
+        "b": 5,
+        "be": 0
+      },
+      {
+        "a": 3,
+        "ae": 0,
+        "b": 5,
+        "be": 1
+      },
+      {
+        "a": 5,
+        "ae": 3,
+        "b": 0,
+        "be": 1
+      }
+    ]
+  },
+  "star-6p": {
+    "boards": 6,
+    "rot": 120,
+    "seams": [
+      {
+        "a": 0,
+        "ae": 3,
+        "b": 1,
+        "be": 0
+      },
+      {
+        "a": 1,
+        "ae": 3,
+        "b": 2,
+        "be": 0
+      },
+      {
+        "a": 2,
+        "ae": 3,
+        "b": 3,
+        "be": 0
+      },
+      {
+        "a": 3,
+        "ae": 3,
+        "b": 4,
+        "be": 0
+      },
+      {
+        "a": 4,
+        "ae": 3,
+        "b": 5,
+        "be": 0
+      },
+      {
+        "a": 5,
+        "ae": 3,
+        "b": 0,
+        "be": 0
+      }
+    ]
+  },
+  "thematic-6p": {
+    "boards": 6,
+    "seams": [
+      {
+        "a": 0,
+        "ae": 0,
+        "b": 1,
+        "be": 0
+      },
+      {
+        "a": 0,
+        "ae": 1,
+        "b": 2,
+        "be": 3
+      },
+      {
+        "a": 2,
+        "ae": 0,
+        "b": 3,
+        "be": 0
+      },
+      {
+        "a": 2,
+        "ae": 1,
+        "b": 4,
+        "be": 3
+      },
+      {
+        "a": 3,
+        "ae": 3,
+        "b": 5,
+        "be": 1
+      },
+      {
+        "a": 3,
+        "ae": 1,
+        "b": 1,
+        "be": 3
+      },
+      {
+        "a": 5,
+        "ae": 0,
+        "b": 4,
+        "be": 0
+      }
+    ]
+  }
+}

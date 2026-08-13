@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "apphost",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "src/SpiritIslandCompanion/SpiritIslandCompanion.AppHost"],
+      "port": 55543,
+      "url": "https://localhost:55543"
+    }
+  ]
+}

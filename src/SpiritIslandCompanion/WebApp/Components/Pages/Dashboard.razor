@@ -1,6 +1,5 @@
 @page "/app/dashboard"
 @attribute [Authorize]
-@rendermode InteractiveServer
 @inject IMediator Mediator
 @inject ICurrentUserService CurrentUser
 @inject NavigationManager Nav
@@ -73,8 +72,14 @@ else
                     <tbody>
                     @foreach (var g in _games.Take(5))
                     {
-                        <tr @onclick='() => Nav.NavigateTo($"/app/games/{g.Id}")'>
-                            <td class="text-ink-600">@g.StartedAt.LocalDateTime.ToString("MMM dd, yyyy")</td>
+                        <tr @key="g.Id" @onclick='() => Nav.NavigateTo($"/app/games/{g.Id}")' class="cursor-pointer">
+                            @* A real link inside the clickable row, so the game is reachable
+                               by keyboard and middle-click too. *@
+                            <td class="text-ink-600">
+                                <a href="/app/games/@g.Id" class="block rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                                    @g.StartedAt.DateTime.ToString("MMM dd, yyyy")
+                                </a>
+                            </td>
                             <td class="font-medium text-ink-900">@(g.AdversaryIds.Count > 0 ? string.Join(" + ", g.AdversaryIds.Select(id => GameLookups.AdversaryFor(id)?.Name ?? id)) : "—")</td>
                             <td>@g.PlayerCount</td>
                             <td>@g.Difficulty</td>

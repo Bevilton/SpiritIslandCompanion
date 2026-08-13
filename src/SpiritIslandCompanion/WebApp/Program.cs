@@ -5,6 +5,7 @@ using Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
 using WebApp.Auth;
 using WebApp.Components;
+using WebApp.Dev;
 using WebApp.State;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -48,6 +49,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapAuthEndpoints();
+app.MapDevEndpoints();
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

@@ -5,46 +5,61 @@
     <div>
         <span class="eyebrow">Reference</span>
         <h1 class="page-title mt-2">Island boards</h1>
-        <p class="page-sub">@_boardsByExpansion.Sum(g => g.Boards.Count) boards used to assemble the island, plus @GameData.IslandSetups.Count standard setups.</p>
+        <p class="page-sub">@_boardsInScope.Count boards used to assemble the island, plus @GameData.PublishedIslandSetups.Count published setups.</p>
     </div>
 </div>
 
 @* === BOARDS === *@
 <section>
     <span class="eyebrow">Boards</span>
-    <h2 class="mt-2 mb-5 text-2xl font-semibold" style="font-family: var(--font-serif);">Individual boards</h2>
+    <h2 class="mt-2 mb-4 text-2xl font-semibold" style="font-family: var(--font-serif);">Individual boards</h2>
 
-    <div class="space-y-10">
-        @foreach (var grp in _boardsByExpansion)
+    @* Same filter as every other catalogue. Boards have no facets of their own and no difficulty —
+       one board is not harder than another — so it is the shared questions and nothing else. *@
+    <FilterBar Filter="_filter" OwnedExpansions="@OwnedExpansions"
+               PresentExpansions="_filter.ExpansionsIn(_boardsInScope)"
+               ShowingCount="_visibleBoards.Count" TotalCount="_boardsInScope.Count"
+               UntestedLabel="Never used" UntestedHint="Boards you have never played on"
+               Changed="StateHasChanged"/>
+
+    <div class="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        @foreach (var b in _visibleBoards)
         {
-            <div>
-                <h3 class="text-base font-medium text-ink-700 mb-3">@grp.Expansion.Name</h3>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                    @foreach (var b in grp.Boards)
-                    {
-                        var detail = BoardDetails.For(b.Id);
-                        var color = detail?.ColorHex ?? "#78716c";
-                        var letter = detail?.Letter ?? b.Name[^1..];
+            var detail = BoardDetails.For(b.Id);
+            var color = detail?.ColorHex ?? GameLookups.NeutralColor;
+            var letter = GameLookups.BoardLetter(b);
 
-                        <article class="surface p-5 flex items-center gap-4"
-                                 style="border-top: 3px solid @color;">
-                            <span class="inline-flex h-12 w-12 items-center justify-center rounded-xl text-white text-xl font-semibold shrink-0 shadow-sm"
-                                  style="background-color: @color; font-family: var(--font-serif);">
-                                @letter
-                            </span>
-                            <div class="min-w-0 flex-1">
-                                <h4 class="text-base font-semibold text-ink-900">@b.Name</h4>
-                                @if (detail is not null)
-                                {
-                                    <p class="mt-0.5 text-xs text-ink-500">@detail.ThematicName</p>
-                                }
-                            </div>
-                        </article>
+            @* A button like every other catalogue card — boards have a record sheet too. *@
+            <button @key="b.Id.Value" type="button" @onclick="() => OpenDetail(b)"
+                    class="surface p-5 flex items-start gap-4 text-left transition-all hover:-translate-y-px hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40"
+                    style="border-top: 3px solid @color;">
+                <span class="inline-flex h-12 w-12 items-center justify-center rounded-xl text-white text-xl font-semibold shrink-0 shadow-sm"
+                      style="background-color: @color; font-family: var(--font-serif);">
+                    @letter
+                </span>
+                <div class="min-w-0 flex-1">
+                    <h4 class="text-base font-semibold text-ink-900">@b.Name</h4>
+                    @if (detail is not null)
+                    {
+                        <p class="mt-0.5 text-xs text-ink-500">@detail.ThematicName</p>
+                    }
+                    <p class="mt-0.5 text-[11px] text-ink-400">@GameLookups.ExpansionName(b.ExpansionId)</p>
+                    @* Passive pill — the whole card opens the board's sheet. *@
+                    @if (Records is not null)
+                    {
+                        <div class="mt-1.5">
+                            <RecordChip Record="Records.GetValueOrDefault(b.Id.Value)" Subject="@b.Name" NeverLabel="Never used"/>
+                        </div>
                     }
                 </div>
-            </div>
+            </button>
         }
     </div>
+
+    @if (_visibleBoards.Count == 0)
+    {
+        <div class="surface mt-6 py-10 text-center text-ink-500">No boards match the current filters.</div>
+    }
 </section>
 
 @* === SETUPS === *@
@@ -53,83 +68,141 @@
     <h2 class="mt-2 mb-2 text-2xl md:text-3xl font-semibold" style="font-family: var(--font-serif);">Standard island setups</h2>
     <p class="text-sm text-ink-500 mb-4">How boards are arranged for different player counts.</p>
 
-    <div class="surface p-4 mb-6">
-        <div class="flex items-start gap-3 flex-wrap">
-            <span class="text-[11px] uppercase tracking-wide text-ink-500 w-20 shrink-0 mt-1">Players</span>
-            <div class="flex flex-wrap gap-1.5 flex-1">
-                @foreach (var n in _allPlayerCounts)
+    @* Its own Filters panel rather than a bare pill row — the board count is a filter like any
+       other and belongs in the same chrome. Separate from the boards panel above because the two
+       narrow different lists: a board count says nothing about board D. *@
+    <FilterBar @ref="_setupBar" Filter="_setupFilter"
+               ShowingCount="_visibleSetups.Count" TotalCount="_setupsInScope.Count"
+               Changed="StateHasChanged">
+        <Facets>
+            <FilterRow Label="Boards">
+                @foreach (var n in _setupFilter.NumbersIn(_setupsInScope))
                 {
-                    <FilterPill Active="@_selectedPlayerCounts.Contains(n)"
-                                OnToggle="() => TogglePlayerCount(n)">
+                    <FilterPill Active="@_setupFilter.Numbers.Contains(n)"
+                                OnToggle="() => _setupBar!.Set(() => FilterState.Toggle(_setupFilter.Numbers, n))">
                         @n
                     </FilterPill>
                 }
-            </div>
-            @if (_selectedPlayerCounts.Count > 0)
-            {
-                <button type="button" class="text-xs text-accent-700 hover:text-accent-800 hover:underline mt-1" @onclick="() => _selectedPlayerCounts.Clear()">
-                    Clear
-                </button>
-            }
-        </div>
-    </div>
+            </FilterRow>
+        </Facets>
+    </FilterBar>
 
-    <div class="space-y-10">
-        @foreach (var byPlayers in _setupsByPlayerCount)
+    @* Grouped by board count only while that is the order, as elsewhere. *@
+    <div class="mt-6 space-y-10">
+        @if (_setupFilter.SortKey == ByBoardsKey)
         {
-            if (_selectedPlayerCounts.Count > 0 && !_selectedPlayerCounts.Contains(byPlayers.Key)) { continue; }
-
-            <div>
-                <h3 class="text-sm font-medium uppercase tracking-wide text-ink-500 mb-3">@byPlayers.Key player@(byPlayers.Key == 1 ? "" : "s")</h3>
-                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                    @foreach (var setup in byPlayers)
-                    {
-                        <div class="surface p-4 flex flex-col items-center text-center">
-                            <div class="h-32 md:h-40 w-full flex items-center justify-center">
-                                <IslandSetupDiagram Setup="setup" Class="max-h-full max-w-full"/>
-                            </div>
-                            <div class="mt-3 text-sm font-semibold text-ink-900">@setup.Name</div>
-                            <div class="text-xs text-ink-500">@setup.NumberOfPlayers @(setup.NumberOfPlayers == 1 ? "player" : "players")</div>
-                        </div>
-                    }
+            @foreach (var byCount in _visibleSetups.GroupBy(s => s.NumberOfPlayers))
+            {
+                <div>
+                    <h3 class="text-sm font-medium uppercase tracking-wide text-ink-500 mb-3">@byCount.Key board@(byCount.Key == 1 ? "" : "s")</h3>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                        @foreach (var setup in byCount)
+                        {
+                            @SetupCard(setup)
+                        }
+                    </div>
                 </div>
+            }
+        }
+        else
+        {
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                @foreach (var setup in _visibleSetups)
+                {
+                    @SetupCard(setup)
+                }
             </div>
         }
-        @if (_selectedPlayerCounts.Count > 0 && _setupsByPlayerCount.All(g => !_selectedPlayerCounts.Contains(g.Key)))
+
+        @if (_visibleSetups.Count == 0)
         {
-            <div class="surface text-center py-10 text-ink-500">No setups match the current filter.</div>
+            <div class="surface text-center py-10 text-ink-500">No setups match the current filters.</div>
         }
     </div>
 </section>
+
+<BoardDetailModal @ref="_modal" Facts="Facts"/>
+<IslandLayoutDetailModal @ref="_layoutModal" Facts="Facts"/>
 
 @code {
     /// <summary>Null (default) shows everything; non-null restricts to those expansions.</summary>
     [Parameter] public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
 
-    private readonly HashSet<int> _selectedPlayerCounts = new();
+    /// <summary>
+    /// The visitor's record per board, when there is one. Unlocks ordering by how often they have
+    /// played on it and how it went, the never-used filter, and the figures on the cards. Null on
+    /// the public route.
+    /// </summary>
+    [Parameter] public IReadOnlyDictionary<string, SetupInsights.PlayRecord>? Records { get; set; }
 
-    private record ExpansionBoardGroup(Expansion Expansion, IReadOnlyList<Board> Boards);
+    /// <summary>The history behind <see cref="Records"/>, for the detail modal's profile.</summary>
+    [Parameter] public IReadOnlyList<Application.Features.Statistics.SetupGameFact>? Facts { get; set; }
 
-    private IReadOnlyList<ExpansionBoardGroup> _boardsByExpansion =>
-        GameData.Expansions
-            .Where(e => OwnedExpansions is null || OwnedExpansions.Contains(e.Id))
-            .Select(e => new ExpansionBoardGroup(
-                e,
-                GameData.Boards.Where(b => b.ExpansionId == e.Id).ToList()))
-            .Where(g => g.Boards.Count > 0)
-            .ToList();
+    /// No numeric axis: one board is not harder or bigger than another, so no such ordering is
+    /// offered rather than offered and meaningless.
+    private readonly CatalogueFilter<Board> _filter = new(
+        b => b.Id.Value, b => b.Name, b => b.ExpansionId);
 
-    private static readonly IReadOnlyList<IGrouping<int, IslandSetup>> _setupsByPlayerCount =
-        GameData.IslandSetups
-            .OrderBy(s => s.NumberOfPlayers)
-            .ThenBy(s => s.Name)
-            .GroupBy(s => s.NumberOfPlayers)
-            .ToList();
+    private const string ByBoardsKey = "boards";
 
-    private static readonly int[] _allPlayerCounts = [1, 2, 3, 4, 5, 6];
+    /// Layouts belong to no expansion — they are arrangements of boards, not things you buy — so
+    /// that row and ordering drop out. The board count is their one number, and it serves both as
+    /// the pills and as the ordering.
+    private readonly CatalogueFilter<IslandSetup> _setupFilter = new(
+        s => s.Id.Value, s => s.Name,
+        numeric: (new SortOption(ByBoardsKey, "Boards", "Fewest", "Most"), s => s.NumberOfPlayers),
+        defaultSortKey: ByBoardsKey);
 
-    private void TogglePlayerCount(int n)
+    private FilterBar? _setupBar;
+
+    /// <summary>Record per published layout, when there is a history — puts the pill on the
+    /// setup cards below and gives their sheet something to say.</summary>
+    private Dictionary<string, SetupInsights.PlayRecord>? _layoutRecords;
+
+    protected override void OnParametersSet()
     {
-        if (!_selectedPlayerCounts.Add(n)) { _selectedPlayerCounts.Remove(n); }
+        _filter.UseHistory(Records);
+        _layoutRecords = Facts is { Count: > 0 } ? SetupInsights.LayoutRecords(Facts) : null;
+        // The layouts filter gets the same history as the cards below it, so it can offer
+        // the played/win-rate orderings and the never-played pill the boards filter has.
+        _setupFilter.UseHistory(_layoutRecords);
     }
+
+    private IReadOnlyList<Board> _boardsInScope =>
+        GameData.Boards.Where(b => OwnedExpansions is null || OwnedExpansions.Contains(b.ExpansionId)).ToList();
+
+    private IReadOnlyList<Board> _visibleBoards => _filter.Apply(_boardsInScope);
+
+    private BoardDetailModal _modal = default!;
+
+    private void OpenDetail(Board b) => _modal.Show(b);
+
+    private static readonly IReadOnlyList<IslandSetup> _setupsInScope = GameData.PublishedIslandSetups;
+
+    private IReadOnlyList<IslandSetup> _visibleSetups => _setupFilter.Apply(_setupsInScope);
+
+    private IslandLayoutDetailModal _layoutModal = default!;
+
+    private void OpenLayoutDetail(IslandSetup setup) => _layoutModal.Show(setup);
+
+    private RenderFragment SetupCard(IslandSetup setup) => __builder =>
+    {
+        @* A button like the board cards above — layouts have a record sheet too. *@
+        <button @key="setup.Id.Value" type="button" @onclick="() => OpenLayoutDetail(setup)"
+                class="surface p-4 flex flex-col items-center text-center transition-all hover:-translate-y-px hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+            <div class="h-32 md:h-40 w-full flex items-center justify-center">
+                <IslandSetupDiagram Setup="setup" Class="max-h-full max-w-full"/>
+            </div>
+            <div class="mt-3 text-sm font-semibold text-ink-900">@setup.Name</div>
+            <div class="text-xs text-ink-500">
+                @setup.NumberOfPlayers board@(setup.NumberOfPlayers == 1 ? "" : "s")@(setup.IsThematic ? " · thematic" : "")
+            </div>
+            @if (_layoutRecords is not null)
+            {
+                <div class="mt-2">
+                    <RecordChip Record="_layoutRecords.GetValueOrDefault(setup.Id.Value)" Subject="@setup.Name"/>
+                </div>
+            }
+        </button>
+    };
 }

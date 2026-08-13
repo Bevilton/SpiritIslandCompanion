@@ -1,6 +1,7 @@
 using Application.Abstractions;
 using Application.Data;
 using Application.Features.Games.Dtos;
+using Domain.Errors;
 using Domain.Models.Game;
 using Domain.Models.Static.Data;
 using Domain.Results;
@@ -8,8 +9,15 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Application.Features.Games;
 
-public sealed record GetGameQuery(Guid GameId) : IQuery<GetGameResponse>;
+/// <summary>
+/// One game, as seen by <paramref name="UserId"/> — only games they own or sit in are
+/// visible, the same set the list shows (see <see cref="GameQueries.InvolvingUser"/>).
+/// </summary>
+public sealed record GetGameQuery(Guid GameId, Guid UserId) : IQuery<GetGameResponse>;
 
+/// <param name="ExtraBoardId">
+/// Which lettered board was the extra one. Null on games recorded before it was asked for.
+/// </param>
 public sealed record GetGameResponse(
     Guid Id,
     DateTimeOffset StartedAt,
@@ -17,6 +25,7 @@ public sealed record GetGameResponse(
     int Difficulty,
     int DifficultyModifier,
     bool ExtraBoard,
+    string? ExtraBoardId,
     bool ThematicMaps,
     string? Note,
     Guid OwnerId,
@@ -30,16 +39,13 @@ internal sealed class GetGameHandler(IAppDbContext db) : IQueryHandler<GetGameQu
 {
     public async Task<Result<GetGameResponse>> Handle(GetGameQuery request, CancellationToken cancellationToken)
     {
+        // Owned types load with the game — no Includes needed (see GameQueries).
         var game = await db.Games
-            .AsNoTracking()
-            .Include(g => g.Players)
-            .Include(g => g.PlayedAdversaries)
-            .Include(g => g.Scenario)
-            .Include(g => g.Result)
+            .InvolvingUser(request.UserId)
             .FirstOrDefaultAsync(g => g.Id == new GameId(request.GameId), cancellationToken);
 
         if (game is null)
-            return Result.Failure<GetGameResponse>(Error.NotFound("Game.NotFound", "Game not found."));
+            return Result.Failure<GetGameResponse>(DomainErrors.Game.NotFound);
 
         var setup = GameData.IslandSetups.FirstOrDefault(s => s.Id.Value == game.IslandSetupId.Value);
         var extraBoard = setup is not null && setup.NumberOfPlayers > game.Players.Count;
@@ -52,6 +58,7 @@ internal sealed class GetGameHandler(IAppDbContext db) : IQueryHandler<GetGameQu
             game.Difficulty.Value,
             game.DifficultyModifier.Value,
             extraBoard,
+            game.ExtraBoard?.Value,
             thematicMaps,
             game.Note?.Value,
             game.OwnerId.Value,

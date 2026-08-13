@@ -1,0 +1,192 @@
+@* "Your record" — renders a SetupProfiles.Profile: headline numbers, what the
+   subject was paired with, and the most recent games. Used by the entity detail
+   modals (spirit / board / adversary / scenario) so a player can explore their
+   own history before committing to a matchup. *@
+
+@using System.Globalization
+
+<div class="space-y-4">
+    <div class="flex items-baseline justify-between gap-2">
+        <h3 class="text-sm font-medium uppercase tracking-wide text-ink-500">@Title</h3>
+        @if (SubjectName is not null)
+        {
+            <span class="text-[11px] text-ink-400">@(SubjectName)'s games</span>
+        }
+    </div>
+
+    @if (Profile.Record.Played == 0)
+    {
+        <div class="flex items-start gap-2.5 rounded-xl border border-dashed border-amber-300 bg-amber-50/60 px-3.5 py-3">
+            <Icon Name="sparkles" Class="w-4 h-4 text-amber-600 shrink-0 mt-0.5"/>
+            <div class="text-xs leading-relaxed text-amber-800">
+                <span class="font-semibold">@EmptyHeadline</span>
+                <span class="text-amber-700">Pick it and this becomes game one — every number here starts filling in.</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        @* --- headline --- *@
+        <div class="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-xl border border-ink-200 bg-ink-50/40 px-4 py-3.5">
+            @if (Profile.Record.Completed > 0)
+            {
+                <WinRateRing Pct="Profile.Record.WinRate" Size="76" Stroke="7" Caption="wins"/>
+            }
+            else
+            {
+                <div class="flex h-[76px] w-[76px] shrink-0 items-center justify-center rounded-full border-2 border-dashed border-ink-200 text-center">
+                    <span class="px-2 text-[9px] uppercase leading-tight tracking-wide text-ink-400">no results yet</span>
+                </div>
+            }
+            <dl class="grid min-w-0 flex-1 grid-cols-2 gap-x-6 gap-y-1.5 text-xs sm:grid-cols-3">
+                @foreach (var stat in HeroStats)
+                {
+                    <div class="min-w-0">
+                        <dt class="text-[10px] uppercase tracking-wide text-ink-500">@stat.Label</dt>
+                        <dd class="truncate font-semibold tabular-nums text-ink-900">@stat.Value</dd>
+                    </div>
+                }
+            </dl>
+        </div>
+
+        @if (Timeline is { } timeline)
+        {
+            <p class="text-[11px] text-ink-500">@timeline</p>
+        }
+
+        @* --- what it was paired with --- *@
+        @if (Profile.Breakdowns.Count > 0)
+        {
+            <div class="grid gap-4 sm:grid-cols-2">
+                @foreach (var breakdown in Profile.Breakdowns)
+                {
+                    var most = breakdown.Rows.Max(r => r.Record.Played);
+                    <div>
+                        <div class="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-ink-500">@breakdown.Title</div>
+                        <div class="space-y-1">
+                            @foreach (var row in breakdown.Rows)
+                            {
+                                <div class="flex items-center gap-2 rounded-md px-1.5 py-1 text-[11px]"
+                                     style="@ShareStyle(row, most)"
+                                     title="@RowTooltip(row)">
+                                    @if (row.Badge is { } badge)
+                                    {
+                                        <span class="inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded px-1 text-[9px] font-bold text-white"
+                                              style="background-color: @(row.ColorHex ?? "var(--color-ink-400)"); font-family: var(--font-serif);">@badge</span>
+                                    }
+                                    else if (row.ColorHex is { } dot)
+                                    {
+                                        <span class="h-2 w-2 shrink-0 rounded-full" style="background-color: @dot;"></span>
+                                    }
+                                    <span class="min-w-0 flex-1 truncate text-ink-800">@row.Label</span>
+                                    <span class="shrink-0 tabular-nums text-ink-500">@(row.Record.Played)×</span>
+                                    @if (row.Record.Completed > 0)
+                                    {
+                                        <span class="w-8 shrink-0 text-right tabular-nums font-semibold @WinTone.ForRate(row.Record.WinRate)">@($"{row.Record.WinRate:F0}")%</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="w-8 shrink-0 text-right text-ink-300">—</span>
+                                    }
+                                </div>
+                            }
+                        </div>
+                        @if (breakdown.Hidden > 0)
+                        {
+                            <div class="mt-1 px-1.5 text-[10px] text-ink-400">+@breakdown.Hidden more</div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+
+        @* --- recent games --- *@
+        @if (Profile.Recent.Count > 0)
+        {
+            <div>
+                <div class="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-ink-500">Recent games</div>
+                <div class="divide-y divide-ink-100 overflow-hidden rounded-lg border border-ink-200">
+                    @foreach (var game in Profile.Recent)
+                    {
+                        <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-2.5 py-1.5 text-[11px]">
+                            @* As stored, not converted to server-local — see GameDetail. *@
+                            <span class="w-14 shrink-0 tabular-nums text-ink-500">@game.When.DateTime.ToString("MMM d")</span>
+                            <span class="shrink-0 scale-90 origin-left">
+                                <GameStatusBadge IsCompleted="game.IsCompleted" Win="game.Win"/>
+                            </span>
+                            <span class="min-w-0 flex-1 truncate text-ink-700">@game.Context</span>
+                            <span class="shrink-0 tabular-nums text-ink-400">diff @game.Difficulty</span>
+                            <span class="w-7 shrink-0 text-right font-semibold tabular-nums text-ink-800">
+                                @(game.Score?.ToString() ?? "—")
+                            </span>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public SetupProfiles.Profile Profile { get; set; } = default!;
+
+    /// <summary>The subject's display name — used in the never-played message.</summary>
+    [Parameter, EditorRequired] public string Name { get; set; } = "";
+
+    /// <summary>Whose history this is when the stats are scoped to someone else, e.g. "Anna".</summary>
+    [Parameter] public string? SubjectName { get; set; }
+
+    [Parameter] public string Title { get; set; } = "Your record";
+
+    private string EmptyHeadline => Profile.Kind switch
+    {
+        SetupSubjectKind.Spirit => $"You've never played {Name}.",
+        SetupSubjectKind.Board => $"You've never used {Name}.",
+        SetupSubjectKind.Adversary => $"You've never faced {Name}.",
+        SetupSubjectKind.IslandLayout or SetupSubjectKind.SavedLayout => $"You've never played on {Name}.",
+        _ => $"You've never played {Name}."
+    };
+
+    private IEnumerable<(string Label, string Value)> HeroStats
+    {
+        get
+        {
+            var record = Profile.Record;
+            yield return ("Played", $"{record.Played}×");
+            yield return ("Result", record.Completed > 0 ? $"{record.Wins} W · {record.Losses} L" : "drafts only");
+            if (Profile.BestScore is { } best) yield return ("Best score", best.ToString());
+            if (Profile.AverageScore is { } avg) yield return ("Avg score", avg.ToString("F0"));
+            if (Profile.AverageDifficulty is { } diff) yield return ("Avg difficulty", diff.ToString("F1"));
+            if (Profile.HardestWon is { } hardest) yield return ("Hardest won", hardest.ToString());
+        }
+    }
+
+    /// "Last played 3 weeks ago · first played 8 months ago" — omits the first-played
+    /// half when there is only one game to talk about.
+    private string? Timeline
+    {
+        get
+        {
+            if (Profile.LastPlayed is not { } last) return null;
+            var line = $"Last played {SetupInsights.Ago(last)}";
+            return Profile.Record.Played > 1 && Profile.FirstPlayed is { } first
+                ? $"{line} · first played {SetupInsights.Ago(first)}"
+                : line;
+        }
+    }
+
+    /// Tints the row proportionally to its share of the most-played row, so a
+    /// breakdown reads as a bar chart without spending horizontal space on bars.
+    private static string ShareStyle(SetupProfiles.ProfileRow row, int most)
+    {
+        if (most <= 0) return "";
+        var share = Math.Round(row.Record.Played * 100.0 / most, 1).ToString("0.#", CultureInfo.InvariantCulture);
+        var tint = row.ColorHex is { } color ? $"{color}24" : "rgba(120,113,108,.12)";
+        return $"background: linear-gradient(to right, {tint} {share}%, transparent {share}%);";
+    }
+
+    private static string RowTooltip(SetupProfiles.ProfileRow row) =>
+        row.Record.Completed > 0
+            ? $"{row.Label} — {row.Record.Played} played, {row.Record.Wins} won / {row.Record.Losses} lost"
+            : $"{row.Label} — {row.Record.Played} played, no results yet";
+}

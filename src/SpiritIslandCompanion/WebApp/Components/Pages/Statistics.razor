@@ -1,6 +1,5 @@
 @page "/app/statistics"
 @attribute [Authorize]
-@rendermode InteractiveServer
 @inject IMediator Mediator
 @inject ICurrentUserService CurrentUser
 
@@ -111,7 +110,7 @@ else
     {
         var favSpirit = _scoped.FavouriteSpirit is null ? null : GameLookups.SpiritFor(_scoped.FavouriteSpirit);
         var favDetail = favSpirit is null ? null : SpiritDetails.For(favSpirit.Id);
-        var favColor = favDetail?.ColorHex ?? "#78716c";
+        var favColor = favDetail?.ColorHex ?? GameLookups.NeutralColor;
         var headerKind = _scoped.Kind switch
         {
             Application.Features.Statistics.PlayerKind.Me => PlayerAssigneeBadge.AssigneeKind.Me,
@@ -491,7 +490,7 @@ else
                         {
                             var spirit = GameLookups.SpiritFor(s.SpiritId);
                             var detail = spirit is null ? null : SpiritDetails.For(spirit.Id);
-                            var color = detail?.ColorHex ?? "#78716c";
+                            var color = detail?.ColorHex ?? GameLookups.NeutralColor;
                             <tr>
                                 <td>
                                     <div class="flex items-center gap-3 min-w-0">
@@ -524,7 +523,7 @@ else
             @{
                 var spirit = (Domain.Models.Static.Spirit)o;
                 var detail = SpiritDetails.For(spirit.Id);
-                var color = detail?.ColorHex ?? "#78716c";
+                var color = detail?.ColorHex ?? GameLookups.NeutralColor;
             }
             <span class="inline-flex items-center gap-1.5 rounded-full border border-ink-200 bg-white px-2.5 py-1 text-xs">
                 <span class="inline-block h-2 w-2 rounded-full" style="background-color: @color;"></span>
@@ -726,7 +725,7 @@ else
                             {
                                 var board = GameLookups.BoardFor(b.BoardId);
                                 var detail = board is null ? null : BoardDetails.For(board.Id);
-                                var color = detail?.ColorHex ?? "#78716c";
+                                var color = detail?.ColorHex ?? GameLookups.NeutralColor;
                                 var letter = detail?.Letter ?? (board is null ? "?" : board.Name[^1..]);
                                 <tr>
                                     <td>
@@ -758,7 +757,7 @@ else
             @{
                 var board = (Domain.Models.Static.Board)o;
                 var detail = BoardDetails.For(board.Id);
-                var color = detail?.ColorHex ?? "#78716c";
+                var color = detail?.ColorHex ?? GameLookups.NeutralColor;
                 var letter = detail?.Letter ?? board.Name[^1..];
             }
             <span class="inline-flex items-center gap-1.5 rounded-full border border-ink-200 bg-white px-2.5 py-1 text-xs">

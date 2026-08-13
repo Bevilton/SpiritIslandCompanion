@@ -1,0 +1,109 @@
+@* Board reference sheet — the board's letter, thematic position and, given Facts,
+   the player's own record on it (which spirits they place there, how those games
+   went). Given OnSelected the board can be chosen straight from here.
+   z-60 keeps it above the picker modals (z-50) that open it. *@
+
+@using Application.Features.Statistics
+
+@if (_board is not null)
+{
+    var detail = _detail;
+    var color = detail?.ColorHex ?? GameLookups.NeutralColor;
+    var letter = GameLookups.BoardLetter(_board);
+
+    <ModalShell OnClose="Close" ZIndex="z-[60]">
+            <div class="px-6 pt-6 pb-5 relative" style="background: linear-gradient(135deg, @(color)18 0%, @(color)08 100%); border-bottom: 1px solid @(color)33;">
+                <button class="absolute top-4 right-4 inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-500 hover:bg-white/60 hover:text-ink-900 transition-colors" @onclick="Close" aria-label="Close">
+                    <Icon Name="x" Class="w-5 h-5"/>
+                </button>
+
+                <div class="flex items-start gap-4 pr-10">
+                    <span class="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-2xl font-semibold text-white shadow-sm"
+                          style="background-color: @color; font-family: var(--font-serif);">@letter</span>
+                    <div class="min-w-0 flex-1">
+                        <h2 class="text-2xl font-semibold text-ink-900 leading-tight" style="font-family: var(--font-serif);">@_board.Name</h2>
+                        <div class="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
+                            <span class="badge badge-neutral">@GameLookups.ExpansionName(_board.ExpansionId)</span>
+                            @if (detail is not null)
+                            {
+                                @* G and H are standard-side stand-ins — saying they sit on the
+                                   thematic island would contradict the island itself. *@
+                                <span class="text-ink-600">
+                                    · @detail.ThematicName@(ThematicIslandBoards.Includes(_board.Id) ? " on the thematic island" : " — not part of the thematic island")
+                                </span>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="overflow-y-auto px-6 py-5 space-y-6">
+                @if (_profile is not null)
+                {
+                    <SetupProfileSection Profile="_profile" Name="@_board.Name" SubjectName="@SubjectName"
+                                         Title="Your record on this board"/>
+                }
+                else
+                {
+                    <p class="text-ink-500 italic">No game history to show for this board yet.</p>
+                }
+            </div>
+
+            @if (OnSelected.HasDelegate)
+            {
+                <div class="flex items-center justify-between gap-3 border-t border-ink-100 bg-ink-50/40 px-6 py-3.5 md:rounded-b-2xl">
+                    <button type="button" class="btn btn-ghost btn-sm" @onclick="Close">
+                        <Icon Name="arrow-left" Class="w-3.5 h-3.5"/> Back to boards
+                    </button>
+                    <button type="button" class="btn btn-primary" @onclick="Select">
+                        <Icon Name="check" Class="w-4 h-4"/> Use @_board.Name
+                    </button>
+                </div>
+            }
+    </ModalShell>
+}
+
+@code {
+    /// <summary>
+    /// Personal game history. When there is any, the modal profiles the player's record on
+    /// this board; empty or null shows a placeholder (boards carry no reference text).
+    /// </summary>
+    [Parameter] public IReadOnlyList<SetupGameFact>? Facts { get; set; }
+
+    /// <summary>Scopes the record to one person's seats — a friend sitting in the seat being set up.</summary>
+    [Parameter] public Func<SetupFactSeat, bool>? SeatFilter { get; set; }
+
+    /// <summary>Whose record is shown when it isn't the current user's, e.g. "Anna".</summary>
+    [Parameter] public string? SubjectName { get; set; }
+
+    /// <summary>When set, a footer action picks this board — used when opened from the picker.</summary>
+    [Parameter] public EventCallback<Board> OnSelected { get; set; }
+
+    private Board? _board;
+    private BoardDetail? _detail;
+    private SetupProfiles.Profile? _profile;
+
+    public void Show(Board board)
+    {
+        _board = board;
+        _detail = BoardDetails.For(board.Id);
+        _profile = Facts is { Count: > 0 }
+            ? SetupProfiles.Build(SetupSubjectKind.Board, board.Id.Value, Facts, SeatFilter)
+            : null;
+        StateHasChanged();
+    }
+
+    private void Close()
+    {
+        _board = null;
+        _detail = null;
+        _profile = null;
+    }
+
+    private async Task Select()
+    {
+        var board = _board;
+        Close();
+        if (board is not null) await OnSelected.InvokeAsync(board);
+    }
+}

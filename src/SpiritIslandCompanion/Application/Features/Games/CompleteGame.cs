@@ -11,11 +11,12 @@ using Microsoft.EntityFrameworkCore;
 namespace Application.Features.Games;
 
 /// <summary>
-/// Adds result and scoring data to a previously drafted game.
-/// Score is calculated server-side.
+/// Adds result and scoring data to a previously drafted game. Score is calculated
+/// server-side. Only the game's owner can complete it — for anyone else it isn't found.
 /// </summary>
 public sealed record CompleteGameCommand(
     Guid GameId,
+    Guid UserId,
     GameResultDto Result,
     string? Note) : ICommand;
 
@@ -36,18 +37,17 @@ internal sealed class CompleteGameHandler(IAppDbContext db) : ICommandHandler<Co
 {
     public async Task<Result> Handle(CompleteGameCommand request, CancellationToken cancellationToken)
     {
+        // Owned types load with the game — no Includes needed (see GameQueries).
         var game = await db.Games
-            .Include(g => g.Players)
-            .Include(g => g.PlayedAdversaries)
-            .Include(g => g.Scenario)
-            .Include(g => g.Result)
-            .FirstOrDefaultAsync(g => g.Id == new GameId(request.GameId), cancellationToken);
+            .FirstOrDefaultAsync(
+                g => g.Id == new GameId(request.GameId) && g.OwnerId.Value == request.UserId,
+                cancellationToken);
 
         if (game is null)
-            return Result.Failure(Error.NotFound("Game.NotFound", "Game not found."));
+            return Result.Failure(DomainErrors.Game.NotFound);
 
         if (game.Result is not null)
-            return Result.Failure(Error.Conflict("Game.AlreadyCompleted", "Game already has a result."));
+            return Result.Failure(DomainErrors.Game.AlreadyCompleted);
 
         var gameResultOrError = GameFactory.BuildResult(request.Result, game.Difficulty, game.Players.Count);
         if (gameResultOrError.IsFailure)
@@ -61,16 +61,7 @@ internal sealed class CompleteGameHandler(IAppDbContext db) : ICommandHandler<Co
             note = noteResult.Value;
         }
 
-        game.Update(
-            game.StartedAt,
-            game.IslandSetupId,
-            game.Players.ToList(),
-            game.PlayedAdversaries.ToList(),
-            game.Scenario,
-            game.Difficulty,
-            game.DifficultyModifier,
-            gameResultOrError.Value,
-            note);
+        game.Complete(gameResultOrError.Value, note);
 
         return Result.Success();
     }
