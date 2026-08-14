@@ -700,7 +700,9 @@ else
                     <span class="tabular-nums" style="font-family: var(--font-serif);">@ComputedScore</span>
                 </span>
             }
-            <div class="text-xs mr-auto hidden sm:block @(SetupBlockedReason is null ? "text-ink-500" : "text-red-700")">
+            @* min-w-0 + truncate: the hint gives way on narrow screens rather than pushing
+               Cancel onto a second line. *@
+            <div class="text-xs mr-auto hidden sm:block min-w-0 flex-1 truncate @(SetupBlockedReason is null ? "text-ink-500" : "text-red-700")">
                 @if (SetupBlockedReason is { } blocked) { <span>@blocked</span> }
                 else if (_includeResult) { <span>Saving as a <strong class="text-ink-800">finished game</strong>.</span> }
                 else { <span>Saving as a <strong class="text-ink-800">draft</strong> — fill in outcome anytime.</span> }

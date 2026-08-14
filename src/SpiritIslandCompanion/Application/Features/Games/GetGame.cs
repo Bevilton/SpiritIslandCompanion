@@ -18,10 +18,15 @@ public sealed record GetGameQuery(Guid GameId, Guid UserId) : IQuery<GetGameResp
 /// <param name="ExtraBoardId">
 /// Which lettered board was the extra one. Null on games recorded before it was asked for.
 /// </param>
+/// <param name="CustomLayoutName">
+/// The saved layout the island came from, when the player set one up out of their library.
+/// Null for published layouts, one-off hand-built islands, and layouts deleted since.
+/// </param>
 public sealed record GetGameResponse(
     Guid Id,
     DateTimeOffset StartedAt,
     string IslandSetupId,
+    string? CustomLayoutName,
     int Difficulty,
     int DifficultyModifier,
     bool ExtraBoard,
@@ -51,10 +56,22 @@ internal sealed class GetGameHandler(IAppDbContext db) : IQueryHandler<GetGameQu
         var extraBoard = setup is not null && setup.NumberOfPlayers > game.Players.Count;
         var thematicMaps = setup?.IsThematic ?? false;
 
+        // The saved layout's name, when the island came from the player's library. The game has
+        // its own copy of the geometry, so a layout deleted since simply resolves to no name.
+        string? customLayoutName = null;
+        if (game.CustomLayoutId is { } layoutId)
+        {
+            customLayoutName = await db.CustomIslandLayouts
+                .Where(l => l.Id == layoutId)
+                .Select(l => l.Name.Value)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
         var response = new GetGameResponse(
             game.Id.Value,
             game.StartedAt,
             game.IslandSetupId.Value,
+            customLayoutName,
             game.Difficulty.Value,
             game.DifficultyModifier.Value,
             extraBoard,

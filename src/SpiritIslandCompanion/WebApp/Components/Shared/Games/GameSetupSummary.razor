@@ -22,7 +22,7 @@
         <div class="text-xs text-accent-800/70 text-right space-y-0.5">
             @if (isFreeplay)
             {
-                <div>Tutorial / freeplay</div>
+                <div>@GameLookups.FreeplayTitle</div>
             }
             else
             {
@@ -58,13 +58,22 @@
         </div>
         <div class="min-w-0 flex-1">
             <div class="text-[10px] uppercase tracking-wide text-ink-500 font-medium">Island setup</div>
+            @* A hand-built island shows the saved shape's name when it came from the layout
+               library; the placeholder setup only knows it as "Custom". *@
             <div class="mt-0.5 text-base font-semibold text-ink-900 truncate">
-                @(setup?.Name ?? "Unknown layout")
+                @(CustomLayoutName ?? setup?.Name ?? "Unknown layout")
             </div>
             <div class="mt-1 flex flex-wrap items-center gap-1.5">
                 @if (setup is not null)
                 {
                     <span class="text-[11px] text-ink-500">@setup.NumberOfPlayers @(setup.NumberOfPlayers == 1 ? "board" : "boards")</span>
+                }
+                @if (IsCustom)
+                {
+                    <span class="inline-flex items-center text-[10px] uppercase tracking-wider text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded"
+                          title="@(CustomLayoutName is null ? "A one-off island arranged by hand for this game." : $"Played on \"{CustomLayoutName}\", a hand-built shape from the layout library.")">
+                        Custom island
+                    </span>
                 }
                 @if (ThematicMaps)
                 {
@@ -128,6 +137,12 @@
 
 @code {
     [Parameter, EditorRequired] public string IslandSetupId { get; set; } = "";
+
+    /// <summary>The saved layout the island came from, when it was one — see GetGameResponse.</summary>
+    [Parameter] public string? CustomLayoutName { get; set; }
+
+    private bool IsCustom => IslandSetups.IsCustomId(IslandSetupId);
+
     [Parameter] public bool ExtraBoard { get; set; }
 
     /// <summary>Which lettered board was the extra one; null when the game didn't record it.</summary>

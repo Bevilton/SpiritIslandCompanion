@@ -1,0 +1,137 @@
+@using Application.Features.Games
+
+@* The rows only the games list has: adversary, scenario, spirits, players and difficulty.
+   Handed to FilterBar's Facets slot so the shell, the sort row and the Clear come from the
+   same place as every catalogue filter.
+
+   Every row offers only what the recorded games actually contain — a pill for an adversary
+   you have never faced can only ever produce the empty list. A row that ends up with a single
+   answer is dropped for the same reason. *@
+
+@if (AdversaryOptions.Count + (AnyWithoutAdversary ? 1 : 0) > 1)
+{
+    <FilterRow Label="Adversary">
+        @foreach (var adv in AdversaryOptions)
+        {
+            <FilterPill Active="@Filter.Adversaries.Contains(adv.Id.Value)"
+                        OnToggle="() => Bar.Set(() => FilterState.Toggle(Filter.Adversaries, adv.Id.Value))">
+                @adv.Name
+            </FilterPill>
+        }
+        @if (AnyWithoutAdversary)
+        {
+            <FilterPill Active="@Filter.Adversaries.Contains(GamesFilter.None)"
+                        OnToggle="() => Bar.Set(() => FilterState.Toggle(Filter.Adversaries, GamesFilter.None))">
+                <span title="Games played without an adversary">None</span>
+            </FilterPill>
+        }
+    </FilterRow>
+}
+
+@if (ScenarioOptions.Count + (AnyWithoutScenario ? 1 : 0) > 1)
+{
+    <FilterRow Label="Scenario">
+        @foreach (var sc in ScenarioOptions)
+        {
+            <FilterPill Active="@Filter.Scenarios.Contains(sc.Id.Value)"
+                        OnToggle="() => Bar.Set(() => FilterState.Toggle(Filter.Scenarios, sc.Id.Value))">
+                @sc.Name
+            </FilterPill>
+        }
+        @if (AnyWithoutScenario)
+        {
+            <FilterPill Active="@Filter.Scenarios.Contains(GamesFilter.None)"
+                        OnToggle="() => Bar.Set(() => FilterState.Toggle(Filter.Scenarios, GamesFilter.None))">
+                <span title="Games played without a scenario">None</span>
+            </FilterPill>
+        }
+    </FilterRow>
+}
+
+@if (SpiritOptions.Count > 1)
+{
+    <FilterRow Label="Spirits">
+        <ChildContent>
+            @foreach (var spirit in SpiritOptions)
+            {
+                var color = SpiritDetails.For(spirit.Id)?.ColorHex ?? GameLookups.NeutralColor;
+                <FilterPill Active="@Filter.Spirits.Contains(spirit.Id.Value)"
+                            OnToggle="() => Bar.Set(() => FilterState.Toggle(Filter.Spirits, spirit.Id.Value))">
+                    <span class="h-2 w-2 shrink-0 rounded-full" style="background-color: @color;"></span>
+                    <span>@spirit.Name</span>
+                </FilterPill>
+            }
+        </ChildContent>
+        <Switch>
+            <SegmentedToggle TValue="MatchMode" Value="Filter.SpiritMode"
+                             ValueChanged="m => Bar.Set(() => Filter.SpiritMode = m)"
+                             FirstValue="MatchMode.All" FirstLabel="all" FirstHint="Games with every picked spirit at the table"
+                             SecondValue="MatchMode.Any" SecondLabel="any" SecondHint="Games with at least one of them"
+                             Disabled="@(Filter.Spirits.Count < 2)"
+                             DisabledHint="Pick two or more spirits to choose how they combine"/>
+        </Switch>
+    </FilterRow>
+}
+
+@if (PlayerCountOptions.Count > 1)
+{
+    <FilterRow Label="Players">
+        @foreach (var count in PlayerCountOptions)
+        {
+            <FilterPill Active="@Filter.PlayerCounts.Contains(count)"
+                        OnToggle="() => Bar.Set(() => FilterState.Toggle(Filter.PlayerCounts, count))">
+                <Icon Name="@(count == 1 ? "user" : "users")" Class="w-3 h-3"/> @count
+            </FilterPill>
+        }
+    </FilterRow>
+}
+
+@if (DifficultyBandOptions.Count > 1)
+{
+    <FilterRow Label="Difficulty">
+        @foreach (var band in DifficultyBandOptions)
+        {
+            <FilterPill Active="@Filter.Difficulties.Contains(band.Key)"
+                        OnToggle="() => Bar.Set(() => FilterState.Toggle(Filter.Difficulties, band.Key))">
+                @band.Label
+            </FilterPill>
+        }
+    </FilterRow>
+}
+
+@code {
+    [Parameter, EditorRequired] public GamesFilter Filter { get; set; } = default!;
+
+    /// <summary>The bar these rows sit in — its Set() applies a change and tells the host to re-render.</summary>
+    [Parameter, EditorRequired] public FilterBar Bar { get; set; } = default!;
+
+    /// <summary>Everything the player has recorded, before any filtering — the facets offer only what's in here.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<ListGamesResponse> Games { get; set; } = [];
+
+    private IReadOnlyList<Adversary> AdversaryOptions =>
+        Games.SelectMany(g => g.Adversaries).Select(a => a.AdversaryId).Distinct()
+            .Select(GameLookups.AdversaryFor).OfType<Adversary>()
+            .OrderBy(a => a.Name).ToList();
+
+    private bool AnyWithoutAdversary => Games.Any(g => g.Adversaries.Count == 0);
+
+    private IReadOnlyList<Scenario> ScenarioOptions =>
+        Games.Select(g => g.ScenarioId).Distinct()
+            .Select(GameLookups.ScenarioFor).OfType<Scenario>()
+            .OrderBy(s => s.Name).ToList();
+
+    private bool AnyWithoutScenario => Games.Any(g => g.ScenarioId is null);
+
+    private IReadOnlyList<Spirit> SpiritOptions =>
+        Games.SelectMany(g => g.Players).Select(p => p.SpiritId).Distinct()
+            .Select(GameLookups.SpiritFor).OfType<Spirit>()
+            .OrderBy(s => s.Name).ToList();
+
+    private IReadOnlyList<int> PlayerCountOptions =>
+        Games.Select(g => g.PlayerCount).Distinct().OrderBy(c => c).ToList();
+
+    private IReadOnlyList<GamesFilter.DifficultyBand> DifficultyBandOptions =>
+        GamesFilter.AllDifficultyBands
+            .Where(band => Games.Any(g => band.Contains(g.Difficulty)))
+            .ToList();
+}

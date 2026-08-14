@@ -18,6 +18,10 @@ public sealed record GamePlayerSummary(
     GamePlayerKind Kind,
     string SpiritId);
 
+/// <param name="CustomLayoutName">
+/// The saved layout the island came from, when the player set one up out of their library.
+/// Null for published layouts, one-off hand-built islands, and layouts deleted since.
+/// </param>
 public sealed record ListGamesResponse(
     Guid Id,
     DateTimeOffset StartedAt,
@@ -26,8 +30,10 @@ public sealed record ListGamesResponse(
     bool? Win,
     int? Score,
     int PlayerCount,
-    List<string> AdversaryIds,
+    List<Dtos.GameAdversaryResponse> Adversaries,
     string? ScenarioId,
+    string IslandSetupId,
+    string? CustomLayoutName,
     List<GamePlayerSummary> Players);
 
 internal sealed class ListGamesHandler(IAppDbContext db) : IQueryHandler<ListGamesQuery, List<ListGamesResponse>>
@@ -52,6 +58,19 @@ internal sealed class ListGamesHandler(IAppDbContext db) : IQueryHandler<ListGam
             .ToListAsync(cancellationToken))
             .ToDictionary(u => u.Id.Value, u => u.Nickname.Value);
 
+        // Saved-layout names, for the games set up from the player's layout library. The game
+        // keeps its own geometry, so a layout deleted since simply resolves to no name here.
+        var layoutIds = games
+            .Where(g => g.CustomLayoutId is not null)
+            .Select(g => g.CustomLayoutId!)
+            .Distinct()
+            .ToList();
+        var layoutLookup = (await db.CustomIslandLayouts
+            .Where(l => layoutIds.Contains(l.Id))
+            .Select(l => new { l.Id, Name = l.Name.Value })
+            .ToListAsync(cancellationToken))
+            .ToDictionary(l => l.Id, l => l.Name);
+
         var playerIds = games.SelectMany(g => g.Players)
             .Where(p => p.PlayerId is not null)
             .Select(p => p.PlayerId!)
@@ -71,8 +90,10 @@ internal sealed class ListGamesHandler(IAppDbContext db) : IQueryHandler<ListGam
             g.Result?.Win,
             g.Result?.Score.Value,
             g.Players.Count,
-            g.PlayedAdversaries.Select(a => a.AdversaryId.Value).ToList(),
+            g.PlayedAdversaries.Select(a => new Dtos.GameAdversaryResponse(a.AdversaryId.Value, a.Level.Value)).ToList(),
             g.Scenario?.ScenarioId.Value,
+            g.IslandSetupId.Value,
+            g.CustomLayoutId is { } layoutId ? layoutLookup.GetValueOrDefault(layoutId) : null,
             g.Players.Select(p => ResolvePlayer(p, request.UserId, userLookup, playerLookup)).ToList())).ToList();
 
         return response;

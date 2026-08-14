@@ -1,10 +1,11 @@
 @page "/app/games/{Id:guid}"
 @attribute [Authorize]
+@using Application.Features.Games
 @inject IMediator Mediator
 @inject ICurrentUserService CurrentUser
 @inject NavigationManager Nav
 
-<PageTitle>Game Detail</PageTitle>
+<PageTitle>@(_game is null ? "Game" : GameLookups.MatchTitle(_game.Adversaries, _game.ScenarioId))</PageTitle>
 
 @if (_loading)
 {
@@ -19,14 +20,28 @@ else if (_game is null)
 }
 else
 {
+    var isFreeplay = _game.Adversaries.Count == 0 && _game.ScenarioId is null;
+
     <div class="page-head">
-        <div>
-            <a href="/app/games" class="text-sm text-ink-500 hover:text-ink-700 flex w-fit items-center gap-1 mb-2">
+        <div class="min-w-0">
+            <a href="/app/games" class="mb-2 flex w-fit items-center gap-1 text-sm text-ink-500 hover:text-ink-700">
                 <Icon Name="arrow-left" Class="w-3.5 h-3.5"/> Games
             </a>
-            <span class="eyebrow">@(_game.IsCompleted ? "Recorded match" : "Draft")</span>
-            <h1 class="page-title mt-2">@_game.StartedAt.DateTime.ToString("MMMM dd, yyyy")</h1>
-            <div class="mt-2"><GameStatusBadge IsCompleted="_game.IsCompleted" Win="_game.Result?.Win"/></div>
+            <span class="eyebrow">@(_game.IsCompleted ? "Recorded match" : "Draft in progress")</span>
+            <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                <h1 class="page-title @(isFreeplay ? "italic" : "")">
+                    @GameLookups.MatchTitle(_game.Adversaries, _game.ScenarioId)
+                </h1>
+                <GameStatusBadge IsCompleted="_game.IsCompleted" Win="_game.Result?.Win"/>
+            </div>
+            @* StartedAt is read back as stored, not converted: it carries the wall clock the
+               player wrote down at offset zero, and converting it to server-local time would
+               shift a late-evening game onto the wrong day. *@
+            <p class="page-sub">
+                @_game.StartedAt.DateTime.ToString("MMMM d, yyyy · HH:mm")
+                · @_game.Players.Count player@(_game.Players.Count == 1 ? "" : "s")
+                · difficulty @_game.Difficulty
+            </p>
         </div>
         <div class="flex flex-wrap gap-2">
             @if (!_game.IsCompleted && !_showCompleteForm)
@@ -45,53 +60,15 @@ else
     <FormErrorSummary Errors="@_form.Errors" Attempt="_form.Attempt"/>
 
     <div class="lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-6">
-        <div class="lg:min-w-0 space-y-8">
-            @* ============================== SETUP ============================== *@
-            <section>
-                <div class="flex items-end justify-between mb-3">
-                    <h2 class="text-xl font-semibold" style="font-family: var(--font-serif);">Setup</h2>
-                </div>
-                <GameSetupSummary
-                    IslandSetupId="@_game.IslandSetupId"
-                    ExtraBoard="_game.ExtraBoard"
-                    ExtraBoardId="@_game.ExtraBoardId"
-                    ThematicMaps="_game.ThematicMaps"
-                    Difficulty="_game.Difficulty"
-                    DifficultyModifier="_game.DifficultyModifier"
-                    ScenarioId="@_game.ScenarioId"
-                    Adversaries="_game.Adversaries"/>
-            </section>
-
-            @* ============================== PLAYERS ============================== *@
-            <section>
-                <div class="flex items-end justify-between mb-3">
-                    <h2 class="text-xl font-semibold" style="font-family: var(--font-serif);">
-                        Players <span class="text-ink-500 font-normal text-base">· @_game.Players.Count</span>
-                    </h2>
-                </div>
-                <div class="grid gap-3">
-                    @for (var i = 0; i < _game.Players.Count; i++)
-                    {
-                        <GamePlayerCard
-                            Player="_game.Players[i]"
-                            Index="i"
-                            CurrentUserId="CurrentUser.UserId"
-                            Friends="_friends"
-                            LocalPlayers="_localPlayers"/>
-                    }
-                </div>
-            </section>
-
+        <div class="space-y-8 lg:min-w-0">
             @* ============================== OUTCOME ============================== *@
+            @* First, not last: on a finished game the result is what the page was opened for,
+               and on a draft it is the one thing still to do. *@
             <section>
-                <div class="flex items-end justify-between mb-3">
-                    <h2 class="text-xl font-semibold" style="font-family: var(--font-serif);">Outcome</h2>
-                </div>
-
                 @if (_showCompleteForm)
                 {
-                    <div class="rounded-2xl border border-amber-300 bg-gradient-to-br from-amber-50 via-white to-amber-50/40 shadow-sm p-5 md:p-6">
-                        <div class="flex items-center gap-3 mb-5">
+                    <div class="rounded-2xl border border-amber-300 bg-gradient-to-br from-amber-50 via-white to-amber-50/40 p-5 shadow-sm md:p-6">
+                        <div class="mb-5 flex items-center gap-3">
                             <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
                                 <Icon Name="trophy" Class="w-5 h-5"/>
                             </span>
@@ -125,27 +102,70 @@ else
                 }
                 else
                 {
-                    <div class="rounded-2xl border-2 border-dashed border-ink-300 bg-ink-50/40 p-8 text-center">
-                        <div class="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white border border-ink-200 text-ink-500 mb-3">
-                            <Icon Name="trophy" Class="w-5 h-5"/>
+                    @* The same amber invitation the setup screen's "Did you finish this game?"
+                       panel uses, so finishing a draft looks like the step it is. *@
+                    <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-300 bg-gradient-to-br from-amber-50 via-white to-amber-50/40 px-5 py-4 shadow-sm md:px-6">
+                        <div class="flex items-center gap-3">
+                            <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+                                <Icon Name="trophy" Class="w-5 h-5"/>
+                            </span>
+                            <div>
+                                <div class="text-sm font-semibold text-ink-900">This match is still a draft</div>
+                                <div class="text-xs text-ink-500">Record the outcome and the score is computed for you.</div>
+                            </div>
                         </div>
-                        <div class="text-sm font-medium text-ink-900">Outcome not recorded yet</div>
-                        <div class="mt-1 text-xs text-ink-500">Click <em>Complete game</em> to add the result and score.</div>
-                        <button class="btn btn-primary mt-4" @onclick="StartComplete">
+                        <button class="btn btn-primary" @onclick="StartComplete">
                             <Icon Name="check-circle" Class="w-4 h-4"/> Complete game
                         </button>
                     </div>
                 }
             </section>
 
+            @* ============================== SETUP ============================== *@
+            <section>
+                <div class="mb-3 flex items-end justify-between">
+                    <h2 class="text-xl font-semibold" style="font-family: var(--font-serif);">Setup</h2>
+                </div>
+                <GameSetupSummary
+                    IslandSetupId="@_game.IslandSetupId"
+                    CustomLayoutName="@_game.CustomLayoutName"
+                    ExtraBoard="_game.ExtraBoard"
+                    ExtraBoardId="@_game.ExtraBoardId"
+                    ThematicMaps="_game.ThematicMaps"
+                    Difficulty="_game.Difficulty"
+                    DifficultyModifier="_game.DifficultyModifier"
+                    ScenarioId="@_game.ScenarioId"
+                    Adversaries="_game.Adversaries"/>
+            </section>
+
+            @* ============================== PLAYERS ============================== *@
+            <section>
+                <div class="mb-3 flex items-end justify-between">
+                    <h2 class="text-xl font-semibold" style="font-family: var(--font-serif);">
+                        Players <span class="text-base font-normal text-ink-500">· @_game.Players.Count</span>
+                    </h2>
+                </div>
+                <div class="grid gap-3">
+                    @for (var i = 0; i < _game.Players.Count; i++)
+                    {
+                        <GamePlayerCard
+                            Player="_game.Players[i]"
+                            Index="i"
+                            CurrentUserId="CurrentUser.UserId"
+                            Friends="_friends"
+                            LocalPlayers="_localPlayers"/>
+                    }
+                </div>
+            </section>
+
             @* ============================== NOTE ============================== *@
             @if (!_showCompleteForm && !string.IsNullOrWhiteSpace(_game.Note))
             {
                 <section>
-                    <div class="flex items-end justify-between mb-3">
+                    <div class="mb-3 flex items-end justify-between">
                         <h2 class="text-xl font-semibold" style="font-family: var(--font-serif);">Notes</h2>
                     </div>
-                    <div class="surface px-5 md:px-6 py-4 text-ink-700 whitespace-pre-wrap">@_game.Note</div>
+                    <div class="surface whitespace-pre-wrap px-5 py-4 text-ink-700 md:px-6">@_game.Note</div>
                 </section>
             }
 
@@ -153,8 +173,18 @@ else
             @if (_showCompleteForm)
             {
                 <div class="sticky bottom-3 z-10">
-                    <div class="surface px-5 py-3 flex flex-wrap items-center gap-2 shadow-sm">
-                        <div class="text-xs text-ink-500 mr-auto">
+                    <div class="surface flex flex-wrap items-center gap-3 px-4 py-3 shadow-lg md:px-5">
+                        <span class="inline-flex items-center gap-1.5 rounded-full border border-accent-200 bg-accent-50 px-3 py-1.5 text-sm font-semibold text-accent-900">
+                            <span class="text-[10px] font-semibold uppercase tracking-wider text-accent-700">Difficulty</span>
+                            <span class="tabular-nums" style="font-family: var(--font-serif);">@_game.Difficulty</span>
+                        </span>
+                        <span class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold @(_resultWin ? "border-accent-200 bg-accent-50 text-accent-900" : "border-red-200 bg-red-50 text-red-900")">
+                            <span class="text-[10px] font-semibold uppercase tracking-wider opacity-70">Score</span>
+                            <span class="tabular-nums" style="font-family: var(--font-serif);">@ProvisionalScore</span>
+                        </span>
+                        @* min-w-0 + truncate: the hint is the part that gives way on narrow
+                           screens — otherwise it pushes Cancel onto a second line. *@
+                        <div class="mr-auto hidden min-w-0 flex-1 truncate text-xs text-ink-500 sm:block">
                             Saving will convert this draft into a <strong class="text-ink-800">completed game</strong>.
                         </div>
                         <button class="btn btn-primary" @onclick="CompleteGame" disabled="@_saving">
@@ -167,20 +197,20 @@ else
         </div>
 
         @* ============================== STICKY SUMMARY (lg+) ============================== *@
-        <aside class="hidden lg:block lg:sticky lg:top-6 lg:self-start mt-8 lg:mt-0">
+        <aside class="hidden lg:sticky lg:top-6 lg:block lg:self-start">
             <div class="surface overflow-hidden">
                 @{
                     var headerWin = _game.Result?.Win == true;
                     var headerLoss = _game.Result is not null && _game.Result.Win == false;
                 }
                 <div class="@(headerWin ? "bg-gradient-to-br from-accent-700 to-accent-900 text-white" : headerLoss ? "bg-gradient-to-br from-red-700 to-red-900 text-white" : "bg-gradient-to-br from-ink-700 to-ink-900 text-white") px-5 py-4">
-                    <div class="text-[10px] uppercase tracking-wider opacity-80 font-semibold">
+                    <div class="text-[10px] font-semibold uppercase tracking-wider opacity-80">
                         @(_game.Result is null ? "Difficulty" : "Score")
                     </div>
-                    <div class="text-3xl font-bold leading-none mt-1" style="font-family: var(--font-serif);">
+                    <div class="mt-1 text-3xl font-bold leading-none" style="font-family: var(--font-serif);">
                         @(_game.Result?.Score ?? _game.Difficulty)
                     </div>
-                    <div class="text-[11px] opacity-80 mt-1.5">
+                    <div class="mt-1.5 text-[11px] opacity-80">
                         @if (_game.Result is null)
                         {
                             <span>Draft · outcome not recorded</span>
@@ -194,7 +224,7 @@ else
 
                 @* Players quick list *@
                 <div class="px-5 py-4">
-                    <div class="text-[10px] uppercase tracking-wider text-ink-500 mb-2 font-medium">
+                    <div class="mb-2 text-[10px] font-medium uppercase tracking-wider text-ink-500">
                         Players · @_game.Players.Count
                     </div>
                     <ul class="space-y-2">
@@ -208,12 +238,12 @@ else
                             var aspect = GameLookups.AspectFor(p.AspectId);
 
                             <li class="flex items-start gap-2 text-xs">
-                                <span class="inline-block h-7 w-1 rounded-full shrink-0 mt-0.5" style="background-color: @color;"></span>
+                                <span class="mt-0.5 inline-block h-7 w-1 shrink-0 rounded-full" style="background-color: @color;"></span>
                                 <div class="min-w-0 flex-1">
-                                    <div class="text-ink-900 truncate font-medium">
-                                        @(spirit?.Name ?? "Unknown spirit")@if (aspect is not null) { <span class="text-ink-500 font-normal"> · @aspect.Name</span> }
+                                    <div class="truncate font-medium text-ink-900">
+                                        @(spirit?.Name ?? "Unknown spirit")@if (aspect is not null) { <span class="font-normal text-ink-500"> · @aspect.Name</span> }
                                     </div>
-                                    <div class="text-[11px] text-ink-500 truncate">
+                                    <div class="truncate text-[11px] text-ink-500">
                                         @if (board is not null)
                                         {
                                             <span>Board @GameLookups.BoardLetter(board)</span>
@@ -229,18 +259,15 @@ else
                     </ul>
                 </div>
 
-                @* Date. StartedAt is the wall clock the player wrote down, stored at offset zero,
-                   so it is read back as-is — converting to server-local time would shift it, and
-                   a late-evening game onto the wrong day. *@
-                <div class="px-5 py-4 border-t border-ink-100">
-                    <div class="text-[10px] uppercase tracking-wider text-ink-500 mb-1 font-medium">Date played</div>
+                <div class="border-t border-ink-100 px-5 py-4">
+                    <div class="mb-1 text-[10px] font-medium uppercase tracking-wider text-ink-500">Date played</div>
                     <div class="text-xs text-ink-700">@_game.StartedAt.DateTime.ToString("MMMM d, yyyy · HH:mm")</div>
                 </div>
 
                 @if (_game.Result is not null)
                 {
-                    <div class="px-5 py-4 border-t border-ink-100">
-                        <div class="text-[10px] uppercase tracking-wider text-ink-500 mb-1 font-medium">Duration</div>
+                    <div class="border-t border-ink-100 px-5 py-4">
+                        <div class="mb-1 text-[10px] font-medium uppercase tracking-wider text-ink-500">Duration</div>
                         <div class="text-xs text-ink-700">@FormatDuration(_game.Result.Duration)</div>
                     </div>
                 }
@@ -254,7 +281,14 @@ else
 @code {
     [Parameter] public Guid Id { get; set; }
 
-    private Application.Features.Games.GetGameResponse? _game;
+    /// <summary>
+    /// Opened from a draft's "Finish" shortcut in the games list — lands straight in the
+    /// result form instead of asking for a second click on the same intent.
+    /// </summary>
+    [SupplyParameterFromQuery(Name = "finish")]
+    public bool Finish { get; set; }
+
+    private GetGameResponse? _game;
     private List<Application.Features.Friendships.FriendResponse> _friends = [];
     private List<Application.Features.Players.ListPlayersResponse> _localPlayers = [];
 
@@ -275,11 +309,21 @@ else
 
     private ConfirmDialog _confirmDialog = default!;
 
+    private int ProvisionalScore =>
+        Domain.Services.ScoreCalculator.Compute(
+            win: _resultWin,
+            difficulty: _game?.Difficulty ?? 0,
+            dahan: _resultDahan,
+            cards: _resultCards,
+            blight: _resultBlight,
+            playerCount: _game?.Players.Count ?? 1,
+            scoreModifier: _resultScoreModifier);
+
     protected override async Task OnInitializedAsync()
     {
         if (CurrentUser.UserId is { } uid)
         {
-            var gameResult = await Mediator.Send(new Application.Features.Games.GetGameQuery(Id, uid));
+            var gameResult = await Mediator.Send(new GetGameQuery(Id, uid));
             if (gameResult.IsSuccess) _game = gameResult.Value;
 
             var friendsResult = await Mediator.Send(new Application.Features.Friendships.ListFriendsQuery(uid));
@@ -288,6 +332,8 @@ else
             var playersResult = await Mediator.Send(new Application.Features.Players.ListPlayersQuery(uid));
             if (playersResult.IsSuccess) _localPlayers = playersResult.Value;
         }
+
+        if (Finish && _game is { IsCompleted: false }) _showCompleteForm = true;
 
         _loading = false;
     }
@@ -311,13 +357,13 @@ else
             _resultWin, TimeSpan.FromMinutes(_resultDurationMinutes),
             _resultCards, _resultTerror, _resultBlight, _resultDahan, _resultScoreModifier);
 
-        var result = await Mediator.Send(new Application.Features.Games.CompleteGameCommand(Id, CurrentUser.UserId!.Value, dto, _resultNote));
+        var result = await Mediator.Send(new CompleteGameCommand(Id, CurrentUser.UserId!.Value, dto, _resultNote));
         _saving = false;
 
         if (!_form.Apply(result, "Game completed successfully!")) return;
 
         _showCompleteForm = false;
-        var reload = await Mediator.Send(new Application.Features.Games.GetGameQuery(Id, CurrentUser.UserId!.Value));
+        var reload = await Mediator.Send(new GetGameQuery(Id, CurrentUser.UserId!.Value));
         if (reload.IsSuccess) _game = reload.Value;
     }
 
@@ -325,7 +371,7 @@ else
     {
         if (!await _confirmDialog.ShowAsync()) return;
 
-        var result = await Mediator.Send(new Application.Features.Games.DeleteGameCommand(Id, CurrentUser.UserId!.Value));
+        var result = await Mediator.Send(new DeleteGameCommand(Id, CurrentUser.UserId!.Value));
         if (_form.Apply(result)) Nav.NavigateTo("/app/games");
     }
 

@@ -80,7 +80,7 @@ else
                                     @g.StartedAt.DateTime.ToString("MMM dd, yyyy")
                                 </a>
                             </td>
-                            <td class="font-medium text-ink-900">@(g.AdversaryIds.Count > 0 ? string.Join(" + ", g.AdversaryIds.Select(id => GameLookups.AdversaryFor(id)?.Name ?? id)) : "—")</td>
+                            <td class="font-medium text-ink-900">@(GameLookups.AdversaryLabel(g.Adversaries) ?? "—")</td>
                             <td>@g.PlayerCount</td>
                             <td>@g.Difficulty</td>
                             <td><GameStatusBadge IsCompleted="g.IsCompleted" Win="g.Win"/></td>

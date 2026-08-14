@@ -1,5 +1,6 @@
 @page "/app/games"
 @attribute [Authorize]
+@using Application.Features.Games
 @inject IMediator Mediator
 @inject ICurrentUserService CurrentUser
 @inject NavigationManager Nav
@@ -8,185 +9,235 @@
 
 <div class="page-head">
     <div>
-        <h1 class="page-title">Games</h1>
-        <p class="page-sub">Every match you've recorded.</p>
+        <span class="eyebrow">Match history</span>
+        <h1 class="page-title mt-2">Games</h1>
+        <p class="page-sub">@HeaderSummary</p>
     </div>
-    <a href="/app/games/new" class="btn btn-primary">
-        <Icon Name="plus" Class="w-4 h-4"/> New game
-    </a>
+    <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+        <input type="search" class="input w-full sm:w-64" placeholder="Search games…" aria-label="Search games"
+               @bind="_filter.Query" @bind:event="oninput"/>
+        <a href="/app/games/new" class="btn btn-primary shrink-0">
+            <Icon Name="plus" Class="w-4 h-4"/> New game
+        </a>
+    </div>
 </div>
 
 @if (_loading)
 {
     <LoadingSpinner/>
 }
+else if (_games.Count == 0)
+{
+    <div class="surface px-6 py-16 text-center">
+        <div class="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-50 text-accent-700">
+            <Icon Name="trophy" Class="w-6 h-6"/>
+        </div>
+        <h2 class="text-lg font-semibold text-ink-900" style="font-family: var(--font-serif);">No games yet</h2>
+        <p class="mx-auto mt-1 max-w-sm text-sm text-ink-500">
+            Set up your first island and the record starts here — victories, defeats and drafts alike.
+        </p>
+        <a href="/app/games/new" class="btn btn-primary mt-5">
+            <Icon Name="plus" Class="w-4 h-4"/> Record your first game
+        </a>
+    </div>
+}
 else
 {
-    <div class="flex items-center gap-2 mb-4">
-        <FilterPill Active="@(_filter == "all")" OnToggle='() => SetFilter("all")'>
-            All <span class="ml-1 text-ink-500 tabular-nums">@_games.Count</span>
+    @* The first question of the page — which slice — stays out in the open; everything finer
+       lives in the filter bar below, the same shell the catalogue pages use. *@
+    <div class="mb-3 flex flex-wrap items-center gap-2">
+        <FilterPill Active="@(_filter.Status == GameStatusTab.All)" OnToggle="() => SetStatus(GameStatusTab.All)">
+            All <span class="tabular-nums opacity-60">@_games.Count</span>
         </FilterPill>
-        <FilterPill Active="@(_filter == "completed")" OnToggle='() => SetFilter("completed")'>
-            Completed <span class="ml-1 text-ink-500 tabular-nums">@_games.Count(g => g.IsCompleted)</span>
+        <FilterPill Active="@(_filter.Status == GameStatusTab.Victories)" OnToggle="() => SetStatus(GameStatusTab.Victories)">
+            Victories <span class="tabular-nums opacity-60">@_games.Count(g => g.Win == true)</span>
         </FilterPill>
-        <FilterPill Active="@(_filter == "draft")" OnToggle='() => SetFilter("draft")'>
-            Drafts <span class="ml-1 text-ink-500 tabular-nums">@_games.Count(g => !g.IsCompleted)</span>
+        <FilterPill Active="@(_filter.Status == GameStatusTab.Defeats)" OnToggle="() => SetStatus(GameStatusTab.Defeats)">
+            Defeats <span class="tabular-nums opacity-60">@_games.Count(g => g.Win == false)</span>
+        </FilterPill>
+        <FilterPill Active="@(_filter.Status == GameStatusTab.Drafts)" OnToggle="() => SetStatus(GameStatusTab.Drafts)">
+            Drafts <span class="tabular-nums opacity-60">@_games.Count(g => !g.IsCompleted)</span>
         </FilterPill>
     </div>
 
-    <div class="surface">
-        @if (FilteredGames.Count == 0)
+    <FilterBar @ref="_bar" Filter="_filter"
+               ShowingCount="Visible.Count" TotalCount="_games.Count"
+               Changed="StateHasChanged">
+        <Facets>
+            @if (_bar is not null)
+            {
+                <GameFacets Filter="_filter" Bar="_bar" Games="_games"/>
+            }
+        </Facets>
+    </FilterBar>
+
+    @if (Visible.Count == 0)
+    {
+        <div class="surface mt-6 py-10 text-center text-ink-500">
+            <p class="text-sm">No games match the current filters.</p>
+            <button type="button" class="btn btn-secondary btn-sm mt-4" @onclick="_filter.Reset">Reset filters</button>
+        </div>
+    }
+    else if (_filter.GroupsByMonth)
+    {
+        @* Month sections only while the list is in date order — cutting a difficulty ordering
+           into months would show neither. *@
+        @foreach (var month in Visible.GroupBy(g => new { g.StartedAt.Year, g.StartedAt.Month }))
         {
-            <div class="px-6 py-16 text-center text-ink-500">
-                <div class="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-ink-100 text-ink-500 mb-3">
-                    <Icon Name="trophy" Class="w-5 h-5"/>
+            var games = month.ToList();
+            var wins = games.Count(g => g.Win == true);
+            var losses = games.Count(g => g.Win == false);
+            <section class="mt-6">
+                <div class="mb-2 flex items-baseline justify-between px-1">
+                    <h2 class="text-base font-semibold" style="font-family: var(--font-serif);">
+                        @games[0].StartedAt.DateTime.ToString("MMMM yyyy")
+                    </h2>
+                    <span class="text-xs tabular-nums text-ink-500">
+                        @games.Count game@(games.Count == 1 ? "" : "s")@if (wins + losses > 0)
+                        {
+                            <span title="@wins won, @losses lost"> · @wins–@losses</span>
+                        }
+                    </span>
                 </div>
-                <p class="text-sm">No games match this filter.</p>
-                @if (_filter == "all")
-                {
-                    <a href="/app/games/new" class="btn btn-primary mt-4">Record your first game</a>
-                }
-            </div>
-        }
-        else
-        {
-            <div class="table-wrap">
-                <table class="table table-hover">
-                    <thead>
-                    <tr>
-                        <th class="whitespace-nowrap">Date</th>
-                        <th>Adversary</th>
-                        <th>Scenario</th>
-                        <th>Players</th>
-                        <th class="text-center">Difficulty</th>
-                        <th>Result</th>
-                        <th class="text-right">Score</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    @foreach (var g in FilteredGames)
+                <div class="surface divide-y divide-ink-100 overflow-hidden">
+                    @foreach (var g in games)
                     {
-                        var adversaries = g.AdversaryIds
-                            .Select(id => GameLookups.AdversaryFor(id))
-                            .Where(a => a is not null)
-                            .ToList();
-                        var scenario = GameLookups.ScenarioFor(g.ScenarioId);
-
-                        <tr @key="g.Id" @onclick='() => Nav.NavigateTo($"/app/games/{g.Id}")' class="cursor-pointer">
-                            <td class="whitespace-nowrap">
-                                @* Read back as stored, not converted: StartedAt carries the wall
-                                   clock the player wrote down at offset zero. *@
-                                @* A real link inside the clickable row, so the game is reachable
-                                   by keyboard and middle-click too. *@
-                                <a href="/app/games/@g.Id" class="block rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
-                                    <div class="text-sm text-ink-900 font-medium">@g.StartedAt.DateTime.ToString("MMM dd")</div>
-                                    <div class="text-[11px] text-ink-500">@g.StartedAt.DateTime.ToString("yyyy")</div>
-                                </a>
-                            </td>
-                            <td>
-                                @if (adversaries.Count == 0)
-                                {
-                                    <span class="text-ink-400 text-sm">—</span>
-                                }
-                                else
-                                {
-                                    <div class="flex items-center gap-2 min-w-0">
-                                        <span class="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-accent-50 text-accent-700 shrink-0">
-                                            <Icon Name="shield" Class="w-3.5 h-3.5"/>
-                                        </span>
-                                        <span class="text-sm text-ink-900 font-medium truncate">
-                                            @string.Join(" + ", adversaries.Select(a => a!.Name))
-                                        </span>
-                                    </div>
-                                }
-                            </td>
-                            <td>
-                                @if (scenario is null)
-                                {
-                                    <span class="text-ink-400 text-sm">—</span>
-                                }
-                                else
-                                {
-                                    <div class="flex items-center gap-2 min-w-0">
-                                        <span class="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-accent-100 text-accent-700 shrink-0">
-                                            <Icon Name="book" Class="w-3.5 h-3.5"/>
-                                        </span>
-                                        <span class="text-sm text-ink-700 truncate">@scenario.Name</span>
-                                    </div>
-                                }
-                            </td>
-                            <td>
-                                <div class="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
-                                    @foreach (var p in g.Players.Take(3))
-                                    {
-                                        <span class="inline-flex items-center gap-1 min-w-0" title="@p.Name">
-                                            <span class="@PlayerAvatarClass(p.Kind)">@PlayerInitial(p.Name)</span>
-                                            <span class="text-sm @(p.Kind == Application.Features.Games.GamePlayerKind.Me ? "text-accent-800 font-medium" : "text-ink-700") truncate max-w-[8rem]">@p.Name</span>
-                                        </span>
-                                    }
-                                    @if (g.Players.Count > 3)
-                                    {
-                                        <span class="text-xs text-ink-500 font-medium">+@(g.Players.Count - 3)</span>
-                                    }
-                                </div>
-                            </td>
-                            <td class="text-center">
-                                <span class="inline-flex min-w-7 h-7 items-center justify-center px-2 rounded-lg bg-accent-50 text-accent-800 text-sm font-semibold tabular-nums" style="font-family: var(--font-serif);">
-                                    @g.Difficulty
-                                </span>
-                            </td>
-                            <td><GameStatusBadge IsCompleted="g.IsCompleted" Win="g.Win"/></td>
-                            <td class="text-right">
-                                @if (g.Score is { } score)
-                                {
-                                    <span class="text-base font-semibold tabular-nums @(g.Win == true ? "text-accent-800" : "text-red-700")" style="font-family: var(--font-serif);">@score</span>
-                                }
-                                else
-                                {
-                                    <span class="text-ink-400 text-sm">—</span>
-                                }
-                            </td>
-                        </tr>
+                        @GameRow(g)
                     }
-                    </tbody>
-                </table>
-            </div>
+                </div>
+            </section>
         }
-    </div>
+    }
+    else
+    {
+        <div class="surface mt-6 divide-y divide-ink-100 overflow-hidden">
+            @foreach (var g in Visible)
+            {
+                @GameRow(g)
+            }
+        </div>
+    }
 }
 
 @code {
-    private List<Application.Features.Games.ListGamesResponse> _games = [];
-    private string _filter = "all";
+    private List<ListGamesResponse> _games = [];
     private bool _loading = true;
 
-    private List<Application.Features.Games.ListGamesResponse> FilteredGames => _filter switch
-    {
-        "completed" => _games.Where(g => g.IsCompleted).ToList(),
-        "draft" => _games.Where(g => !g.IsCompleted).ToList(),
-        _ => _games
-    };
+    private readonly GamesFilter _filter = new();
+    private FilterBar? _bar;
+
+    private List<ListGamesResponse> Visible => _filter.Apply(_games);
 
     protected override async Task OnInitializedAsync()
     {
         if (CurrentUser.UserId is not { } userId) return;
-        var result = await Mediator.Send(new Application.Features.Games.ListGamesQuery(userId));
+        var result = await Mediator.Send(new ListGamesQuery(userId));
         if (result.IsSuccess) _games = result.Value;
         _loading = false;
     }
 
-    private void SetFilter(string filter) => _filter = filter;
+    private void SetStatus(GameStatusTab status) => _filter.Status = status;
 
-    private static string PlayerAvatarClass(Application.Features.Games.GamePlayerKind kind) => kind switch
+    private string HeaderSummary
     {
-        Application.Features.Games.GamePlayerKind.Me     => "inline-flex h-5 w-5 items-center justify-center rounded-full bg-accent-600 text-white text-[10px] font-semibold shrink-0",
-        Application.Features.Games.GamePlayerKind.Friend => "inline-flex h-5 w-5 items-center justify-center rounded-full bg-sky-100 text-sky-700 text-[10px] font-semibold ring-1 ring-sky-200 shrink-0",
-        Application.Features.Games.GamePlayerKind.Local  => "inline-flex h-5 w-5 items-center justify-center rounded-full bg-ink-100 text-ink-600 text-[10px] font-semibold ring-1 ring-ink-200 shrink-0",
-        _                                                => "inline-flex h-5 w-5 items-center justify-center rounded-full bg-ink-100 text-ink-400 text-[10px] font-semibold shrink-0",
-    };
+        get
+        {
+            if (_games.Count == 0) return "Every match you've recorded.";
+            var completed = _games.Count(g => g.IsCompleted);
+            var wins = _games.Count(g => g.Win == true);
+            var drafts = _games.Count - completed;
+            var parts = new List<string> { $"{_games.Count} match{(_games.Count == 1 ? "" : "es")}" };
+            if (completed > 0) parts.Add($"{100.0 * wins / completed:F0}% victories");
+            if (drafts > 0) parts.Add($"{drafts} draft{(drafts == 1 ? "" : "s")} waiting");
+            return string.Join(" · ", parts);
+        }
+    }
 
-    private static string PlayerInitial(string name) =>
-        string.IsNullOrWhiteSpace(name)
-            ? "?"
-            : char.ToUpperInvariant(name.TrimStart()[0]).ToString();
+    private void Open(Guid id) => Nav.NavigateTo($"/app/games/{id}");
+
+    private void Finish(Guid id) => Nav.NavigateTo($"/app/games/{id}?finish=true");
+
+    private RenderFragment GameRow(ListGamesResponse g) => __builder =>
+    {
+        var isFreeplay = g.Adversaries.Count == 0 && g.ScenarioId is null;
+        var title = GameLookups.MatchTitle(g.Adversaries, g.ScenarioId);
+        // The scenario gets its own chip only when the adversaries took the title.
+        var scenarioChip = g.Adversaries.Count > 0 ? GameLookups.ScenarioFor(g.ScenarioId) : null;
+        // Only a hand-built island is worth a chip — the saved shape's name, or a plain
+        // "Custom island" for a one-off arrangement. Published layouts stay unremarkable.
+        var islandChip = IslandSetups.IsCustomId(g.IslandSetupId) ? g.CustomLayoutName ?? "Custom island" : null;
+        var spiritIds = g.Players.Select(p => p.SpiritId).ToList();
+
+        <div @key="g.Id" @onclick="() => Open(g.Id)"
+             class="group flex cursor-pointer items-center gap-3 px-4 py-3.5 transition-colors hover:bg-ink-50/70 md:gap-4 md:px-5">
+            @* StartedAt is read back as stored, not converted: it carries the wall clock the
+               player wrote down at offset zero (see GameDetail). *@
+            @* The title carries the year, which the cell has no room for and month sections
+               only show while grouping by date. *@
+            <div class="w-11 shrink-0 text-center" title="@g.StartedAt.DateTime.ToString("MMMM d, yyyy")">
+                <div class="text-lg font-semibold leading-none tabular-nums text-ink-900" style="font-family: var(--font-serif);">
+                    @g.StartedAt.DateTime.ToString("dd")
+                </div>
+                <div class="mt-0.5 text-[10px] uppercase tracking-wide text-ink-500">@g.StartedAt.DateTime.ToString("MMM")</div>
+            </div>
+
+            <div class="min-w-0 flex-1">
+                <div class="flex min-w-0 items-center gap-2">
+                    @* A real link inside the clickable row, so the game is reachable by keyboard
+                       and middle-click too. *@
+                    <a href="/app/games/@g.Id"
+                       class="truncate rounded text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40
+                              @(isFreeplay ? "font-normal italic text-ink-500" : "font-semibold text-ink-900")">
+                        @title
+                    </a>
+                    @if (scenarioChip is not null)
+                    {
+                        <span class="hidden shrink-0 items-center gap-1 rounded-full border border-amber-200/70 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800 sm:inline-flex">
+                            <Icon Name="book" Class="w-3 h-3"/> @scenarioChip.Name
+                        </span>
+                    }
+                    @if (islandChip is not null)
+                    {
+                        <span class="hidden shrink-0 items-center gap-1 rounded-full border border-sky-200/70 bg-sky-50 px-2 py-0.5 text-[10px] font-medium text-sky-800 sm:inline-flex"
+                              title="Played on a hand-built island">
+                            <Icon Name="map" Class="w-3 h-3"/> @islandChip
+                        </span>
+                    }
+                </div>
+                <div class="mt-1 flex min-w-0 items-center gap-2">
+                    <SpiritAvatarStack SpiritIds="spiritIds" Max="4"/>
+                    <span class="truncate text-xs text-ink-500">@string.Join(", ", g.Players.Select(p => p.Name))</span>
+                </div>
+            </div>
+
+            <span class="hidden h-8 min-w-8 shrink-0 items-center justify-center rounded-lg bg-accent-50 px-2 text-sm font-semibold tabular-nums text-accent-800 md:inline-flex"
+                  style="font-family: var(--font-serif);" title="Difficulty @g.Difficulty">
+                @g.Difficulty
+            </span>
+
+            <span class="hidden shrink-0 sm:block"><GameStatusBadge IsCompleted="g.IsCompleted" Win="g.Win"/></span>
+
+            <div class="flex w-20 shrink-0 items-center justify-end">
+                @if (!g.IsCompleted)
+                {
+                    <button type="button" @onclick="() => Finish(g.Id)" @onclick:stopPropagation="true"
+                            title="Record the outcome and finish this draft"
+                            class="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800 transition-colors hover:bg-amber-100">
+                        Finish <Icon Name="arrow-right" Class="w-3 h-3"/>
+                    </button>
+                }
+                else if (g.Score is { } score)
+                {
+                    <span class="text-base font-semibold tabular-nums @(g.Win == true ? "text-accent-800" : "text-red-700")"
+                          style="font-family: var(--font-serif);" title="Score">@score</span>
+                }
+                else
+                {
+                    <span class="text-sm text-ink-400">—</span>
+                }
+            </div>
+
+            <Icon Name="chevron-right" Class="w-4 h-4 shrink-0 text-ink-300 transition-colors group-hover:text-ink-500"/>
+        </div>
+    };
 }
