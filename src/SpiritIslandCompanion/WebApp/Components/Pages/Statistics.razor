@@ -1,5 +1,7 @@
 @page "/app/statistics"
 @attribute [Authorize]
+@using Application.Features.IslandLayouts
+@using Application.Features.Statistics
 @inject IMediator Mediator
 @inject ICurrentUserService CurrentUser
 
@@ -7,8 +9,9 @@
 
 <div class="page-head">
     <div>
-        <h1 class="page-title">Statistics</h1>
-        <p class="page-sub">@(_scoped is not null ? $"Scoped to {_scoped.Name}." : "Your game history, distilled.")</p>
+        <span class="eyebrow">Insights</span>
+        <h1 class="page-title mt-2">Statistics</h1>
+        <p class="page-sub">@HeaderSummary</p>
     </div>
     @if (_unfilteredPlayers.Count > 1)
     {
@@ -16,15 +19,6 @@
             <button type="button" @onclick="ToggleScopePicker"
                     class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-ink-200 bg-white hover:bg-ink-50 transition-colors text-left
                            focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/30 min-w-[14rem]">
-                @{
-                    var scopedKind = _scoped?.Kind switch
-                    {
-                        Application.Features.Statistics.PlayerKind.Me => PlayerAssigneeBadge.AssigneeKind.Me,
-                        Application.Features.Statistics.PlayerKind.Friend => PlayerAssigneeBadge.AssigneeKind.Friend,
-                        Application.Features.Statistics.PlayerKind.Local => PlayerAssigneeBadge.AssigneeKind.Player,
-                        _ => PlayerAssigneeBadge.AssigneeKind.Unknown,
-                    };
-                }
                 @if (_scoped is null)
                 {
                     <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-accent-50 text-accent-700 shrink-0">
@@ -37,7 +31,7 @@
                 }
                 else
                 {
-                    <PlayerAssigneeBadge Kind="scopedKind" Name="@_scoped.Name"
+                    <PlayerAssigneeBadge Kind="BadgeKind(_scoped.Kind)" Name="@_scoped.Name"
                                          DetailLabel="@($"{_scoped.GamesPlayed} games")"/>
                 }
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none"
@@ -48,6 +42,8 @@
 
             @if (_scopeOpen)
             {
+                <button type="button" class="fixed inset-0 z-20 cursor-default" aria-hidden="true" tabindex="-1"
+                        @onclick="() => _scopeOpen = false"></button>
                 <div class="absolute z-30 mt-1 right-0 w-72 surface shadow-lg p-2 max-h-80 overflow-y-auto">
                     <button type="button" @onclick="() => SetScope(null)" class="@ScopeRowClass(_scoped is null)">
                         <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-accent-50 text-accent-700 shrink-0">
@@ -63,14 +59,8 @@
                     @foreach (var p in _unfilteredPlayers)
                     {
                         var isSelected = SameScope(p, _scoped);
-                        var rowKind = p.Kind switch
-                        {
-                            Application.Features.Statistics.PlayerKind.Me => PlayerAssigneeBadge.AssigneeKind.Me,
-                            Application.Features.Statistics.PlayerKind.Friend => PlayerAssigneeBadge.AssigneeKind.Friend,
-                            _ => PlayerAssigneeBadge.AssigneeKind.Player,
-                        };
                         <button type="button" @onclick="() => SetScope(p)" class="@ScopeRowClass(isSelected)">
-                            <PlayerAssigneeBadge Kind="rowKind" Name="@p.Name"
+                            <PlayerAssigneeBadge Kind="BadgeKind(p.Kind)" Name="@p.Name"
                                                  DetailLabel="@($"{p.GamesPlayed} games · {p.WinRate:F0}% win")"/>
                             @if (isSelected) { <Icon Name="check" Class="w-4 h-4 text-accent-700 ml-auto"/> }
                         </button>
@@ -87,19 +77,25 @@
 }
 else if (_stats is null || _stats.TotalGames == 0)
 {
-    <div class="surface text-center py-16">
-        <div class="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-ink-100 text-ink-500 mb-3">
-            <Icon Name="chart" Class="w-5 h-5"/>
+    <div class="surface px-6 py-16 text-center">
+        <div class="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-50 text-accent-700">
+            <Icon Name="chart" Class="w-6 h-6"/>
         </div>
         @if (_scoped is null)
         {
-            <p class="text-ink-600">No statistics yet — record some games to see them here.</p>
-            <a href="/app/games/new" class="btn btn-primary mt-4">Record a game</a>
+            <h2 class="text-lg font-semibold text-ink-900" style="font-family: var(--font-serif);">No statistics yet</h2>
+            <p class="mx-auto mt-1 max-w-sm text-sm text-ink-500">
+                Record your first game and the numbers start telling the story — win rates, matchups, coverage.
+            </p>
+            <a href="/app/games/new" class="btn btn-primary mt-5">
+                <Icon Name="plus" Class="w-4 h-4"/> Record a game
+            </a>
         }
         else
         {
-            <p class="text-ink-600">No games recorded with @_scoped.Name yet.</p>
-            <button class="btn btn-secondary mt-4" @onclick="() => SetScope(null)">Clear filter</button>
+            <h2 class="text-lg font-semibold text-ink-900" style="font-family: var(--font-serif);">No games with @_scoped.Name yet</h2>
+            <p class="mx-auto mt-1 max-w-sm text-sm text-ink-500">Nothing has been recorded for this player so far.</p>
+            <button class="btn btn-secondary mt-5" @onclick="() => SetScope(null)">Clear filter</button>
         }
     </div>
 }
@@ -111,14 +107,8 @@ else
         var favSpirit = _scoped.FavouriteSpirit is null ? null : GameLookups.SpiritFor(_scoped.FavouriteSpirit);
         var favDetail = favSpirit is null ? null : SpiritDetails.For(favSpirit.Id);
         var favColor = favDetail?.ColorHex ?? GameLookups.NeutralColor;
-        var headerKind = _scoped.Kind switch
-        {
-            Application.Features.Statistics.PlayerKind.Me => PlayerAssigneeBadge.AssigneeKind.Me,
-            Application.Features.Statistics.PlayerKind.Friend => PlayerAssigneeBadge.AssigneeKind.Friend,
-            _ => PlayerAssigneeBadge.AssigneeKind.Player,
-        };
         <div class="surface px-5 py-4 mb-6 flex flex-wrap items-center gap-5">
-            <PlayerAssigneeBadge Kind="headerKind" Name="@_scoped.Name"
+            <PlayerAssigneeBadge Kind="BadgeKind(_scoped.Kind)" Name="@_scoped.Name"
                                  DetailLabel="@($"{_scoped.GamesPlayed} games recorded")"
                                  ContainerClass="inline-flex items-center gap-3 min-w-0 flex-1"/>
             <div class="flex items-center gap-4 ml-auto">
@@ -145,15 +135,15 @@ else
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-3">
         <StatHero Value="@_stats.TotalGames.ToString()"
                   Label="Total games"
-                  Caption="@($"{_stats.InProgress} in progress")"
+                  Caption="@TotalGamesCaption"
                   Icon="controller"/>
         <StatHero Value="@($"{_stats.WinRate:F0}%")"
                   Label="Win rate"
-                  Caption="@($"{_stats.Wins} W / {_stats.Losses} L")"
+                  Caption="@($"{_stats.Wins} W · {_stats.Losses} L")"
                   Icon="trophy"/>
-        <StatHero Value="@_stats.BestScore.ToString()"
+        <StatHero Value="@(_stats.BestScoreGameId is not null ? _stats.BestScore.ToString() : "—")"
                   Label="Best score"
-                  Caption="@(_stats.BestScoreGameId is not null ? "View that match →" : "—")"
+                  Caption="@(_stats.BestScoreGameId is not null ? "View that match →" : "no completed games")"
                   Icon="star"
                   Href="@(_stats.BestScoreGameId is { } id ? $"/app/games/{id}" : null)"/>
     </div>
@@ -174,7 +164,7 @@ else
         <StatHero Value="@(_stats.MinScore?.ToString() ?? "—")"
                   Label="Lowest score"
                   Caption="@(_stats.MinScoreGameId is not null ? "View that match →" : "no completed games")"
-                  Icon="chart"
+                  Icon="minus"
                   Href="@(_stats.MinScoreGameId is { } minId ? $"/app/games/{minId}" : null)"/>
         <StatHero Value="@($"{_stats.AverageDahan:F1}")"
                   Label="Avg dahan"
@@ -187,10 +177,18 @@ else
     </div>
 
     @* ============================== TABS ============================== *@
-    <div class="flex items-center gap-1 border-b border-ink-200 mb-6 overflow-x-auto">
+    @* Same pill row the games list slices with — one pill active at a time. *@
+    <div class="mb-6 flex flex-wrap items-center gap-2">
         @foreach (var t in _tabs)
         {
-            <button @onclick="() => SetTab(t.Key)" class="@TabClass(t.Key)">@t.Label</button>
+            var count = TabCount(t.Key);
+            <FilterPill Active="@(_tab == t.Key)" OnToggle="() => SetTab(t.Key)">
+                @t.Label
+                @if (count is { } c)
+                {
+                    <span class="tabular-nums opacity-60">@c</span>
+                }
+            </FilterPill>
         }
     </div>
 
@@ -214,6 +212,17 @@ else
     }
 }
 
+@* Record sheets — the same reference modals the catalogue pages and the setup screen open.
+   Spirit and board sheets scope their profile to the picked player; the game-level sheets
+   (adversary / scenario / layout) always show the full table history. *@
+<SpiritDetailModal @ref="_spiritModal" OwnedExpansions="OwnedExpansions" Facts="_facts"
+                   SeatFilter="ScopeSeatFilter" SubjectName="@ScopeSubjectName"/>
+<AdversaryDetailModal @ref="_adversaryModal" Facts="_facts"/>
+<ScenarioDetailModal @ref="_scenarioModal" Facts="_facts"/>
+<BoardDetailModal @ref="_boardModal" Facts="_facts"
+                  SeatFilter="ScopeSeatFilter" SubjectName="@ScopeSubjectName"/>
+<IslandLayoutDetailModal @ref="_layoutModal" Facts="_facts"/>
+
 @* ============================== OVERVIEW TAB ============================== *@
 @code {
     private RenderFragment OverviewTab() =>
@@ -223,8 +232,6 @@ else
                 var bestSpirit = _stats.SpiritStatistics.Where(s => s.GamesPlayed >= 3).OrderByDescending(s => s.WinRate).FirstOrDefault();
                 var toughAdv = _stats.AdversaryStatistics.Where(a => a.GamesPlayed >= 3).OrderBy(a => a.WinRate).FirstOrDefault();
                 var favAdv = _stats.AdversaryStatistics.OrderByDescending(a => a.GamesPlayed).FirstOrDefault();
-                var topBoard = _stats.BoardStatistics.OrderByDescending(b => b.GamesPlayed).FirstOrDefault();
-                var topScenario = _stats.ScenarioStatistics.OrderByDescending(s => s.GamesPlayed).FirstOrDefault();
             }
 
             @* ===== Outcome donut + Highlights row ===== *@
@@ -240,7 +247,7 @@ else
                                 <span class="font-semibold tabular-nums text-ink-900">@_stats.Wins</span>
                             </div>
                             <div class="flex items-center justify-between gap-2">
-                                <span class="inline-flex items-center gap-2 text-ink-700"><span class="h-2.5 w-2.5 rounded-full bg-red-300"></span>Losses</span>
+                                <span class="inline-flex items-center gap-2 text-ink-700"><span class="h-2.5 w-2.5 rounded-full bg-red-400"></span>Losses</span>
                                 <span class="font-semibold tabular-nums text-ink-900">@_stats.Losses</span>
                             </div>
                             <div class="flex items-center justify-between gap-2 pt-2 border-t border-ink-100">
@@ -262,7 +269,8 @@ else
                                      Secondary="@($"{topSpirit.WinRate:F0}% win · {topSpirit.AverageScore:F0} avg score")"
                                      Metric="@topSpirit.GamesPlayed.ToString()"
                                      MetricLabel="games"
-                                     AccentColor="@color"/>
+                                     AccentColor="@color"
+                                     OnClick="() => OpenSpirit(topSpirit.SpiritId)"/>
                     }
                     @if (bestSpirit is not null && bestSpirit.SpiritId != topSpirit?.SpiritId)
                     {
@@ -273,8 +281,9 @@ else
                                      Secondary="@($"{bestSpirit.GamesPlayed} games")"
                                      Metric="@($"{bestSpirit.WinRate:F0}%")"
                                      MetricLabel="wins"
-                                     MetricColorClass="text-accent-700"
-                                     AccentColor="@color"/>
+                                     MetricColorClass="@WinTone.ForRate(bestSpirit.WinRate)"
+                                     AccentColor="@color"
+                                     OnClick="() => OpenSpirit(bestSpirit.SpiritId)"/>
                     }
                 </div>
 
@@ -287,7 +296,8 @@ else
                                      Subject="@(adv?.Name ?? favAdv.AdversaryId)"
                                      Secondary="@($"avg L{favAdv.AverageLevel:F1} · {favAdv.WinRate:F0}% win")"
                                      Metric="@favAdv.GamesPlayed.ToString()"
-                                     MetricLabel="games"/>
+                                     MetricLabel="games"
+                                     OnClick="() => OpenAdversary(favAdv.AdversaryId)"/>
                     }
                     @if (toughAdv is not null && toughAdv.AdversaryId != favAdv?.AdversaryId)
                     {
@@ -297,7 +307,8 @@ else
                                      Secondary="@($"{toughAdv.GamesPlayed} games")"
                                      Metric="@($"{toughAdv.WinRate:F0}%")"
                                      MetricLabel="wins"
-                                     MetricColorClass="text-red-700"/>
+                                     MetricColorClass="@WinTone.ForRate(toughAdv.WinRate)"
+                                     OnClick="() => OpenAdversary(toughAdv.AdversaryId)"/>
                     }
                 </div>
             </div>
@@ -406,7 +417,7 @@ else
                     <div class="flex items-baseline justify-between mb-4">
                         <div>
                             <h2 class="text-base font-semibold" style="font-family: var(--font-serif);">Terror level at game end</h2>
-                            @if (topTerror is not null && topTerror.GamesPlayed > 0)
+                            @if (topTerror is not null)
                             {
                                 <p class="text-[11px] text-ink-500 mt-0.5">
                                     Most games end at <span class="text-ink-800 font-medium">Terror @TerrorBar.TerrorLabel(topTerror.TerrorLevel)</span>
@@ -433,10 +444,17 @@ else
                                 <div class="mt-2 h-1.5 bg-ink-100 rounded-full overflow-hidden">
                                     <div class="h-full rounded-full" style="width:@($"{pct:F0}")%; background-color: @TerrorBar.TerrorColor(t.TerrorLevel);"></div>
                                 </div>
-                                <div class="mt-2 flex items-center justify-between text-[11px] text-ink-500 tabular-nums">
-                                    <span><span class="text-accent-700 font-medium">@t.Wins W</span> / <span class="text-red-600 font-medium">@losses L</span></span>
-                                    <span>@($"{winPct:F0}% win")</span>
-                                </div>
+                                @if (t.GamesPlayed > 0)
+                                {
+                                    <div class="mt-2 flex items-center justify-between text-[11px] text-ink-500 tabular-nums">
+                                        <span><span class="text-accent-700 font-medium">@t.Wins W</span> · <span class="text-red-600 font-medium">@losses L</span></span>
+                                        <span class="font-medium @WinTone.ForRate(winPct)">@($"{winPct:F0}% win")</span>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="mt-2 text-[11px] text-ink-400">no game ended here</div>
+                                }
                             </div>
                         }
                     </div>
@@ -460,7 +478,7 @@ else
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                 @if (topSpirit is not null) { @SpiritInsight("Most played", topSpirit, $"{topSpirit.GamesPlayed} games") }
-                @if (bestRateSpirit is not null) { @SpiritInsight("Highest win rate", bestRateSpirit, $"{bestRateSpirit.WinRate:F0}%") }
+                @if (bestRateSpirit is not null) { @SpiritInsight("Highest win rate", bestRateSpirit, $"{bestRateSpirit.WinRate:F0}%", WinTone.ForRate(bestRateSpirit.WinRate)) }
                 @if (bestScoreSpirit is not null) { @SpiritInsight("Highest score", bestScoreSpirit, $"{bestScoreSpirit.BestScore} pts") }
             </div>
 
@@ -472,9 +490,12 @@ else
             </div>
 
             <div class="surface">
-                <div class="surface-head"><h2 class="text-base font-semibold">All spirits</h2></div>
+                <div class="surface-head">
+                    <h2 class="text-base font-semibold">All spirits</h2>
+                    <span class="text-[11px] text-ink-500">Tap a row for the record sheet</span>
+                </div>
                 <div class="table-wrap">
-                    <table class="table">
+                    <table class="table table-hover">
                         <thead><tr>
                             <th>Spirit</th>
                             <th class="text-right">Games</th>
@@ -491,12 +512,17 @@ else
                             var spirit = GameLookups.SpiritFor(s.SpiritId);
                             var detail = spirit is null ? null : SpiritDetails.For(spirit.Id);
                             var color = detail?.ColorHex ?? GameLookups.NeutralColor;
-                            <tr>
+                            <tr @onclick="() => OpenSpirit(s.SpiritId)">
                                 <td>
                                     <div class="flex items-center gap-3 min-w-0">
                                         <span class="inline-block h-8 w-1.5 rounded-full shrink-0" style="background-color: @color;"></span>
                                         <div class="min-w-0">
-                                            <div class="text-sm font-semibold text-ink-900 truncate">@(spirit?.Name ?? s.SpiritId)</div>
+                                            @* A real button inside the clickable row, so the sheet is reachable by keyboard too. *@
+                                            <button type="button" @onclick="() => OpenSpirit(s.SpiritId)" @onclick:stopPropagation
+                                                    class="block max-w-full truncate rounded text-left text-sm font-semibold text-ink-900
+                                                           focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                                                @(spirit?.Name ?? s.SpiritId)
+                                            </button>
                                             @if (detail is not null) { <div class="text-[11px] text-ink-500 truncate">@detail.PlayStyle</div> }
                                         </div>
                                     </div>
@@ -504,8 +530,11 @@ else
                                 <td class="text-right tabular-nums">@s.GamesPlayed</td>
                                 <td class="text-right text-accent-700 tabular-nums">@s.Wins</td>
                                 <td class="text-right text-red-600 tabular-nums">@s.Losses</td>
-                                <td><WinRateBar Pct="s.WinRate"/></td>
-                                <td class="text-right tabular-nums">@($"{s.AverageScore:F0}")</td>
+                                <td>
+                                    @if (s.Wins + s.Losses > 0) { <WinRateBar Pct="s.WinRate"/> }
+                                    else { <span class="text-xs text-ink-400">—</span> }
+                                </td>
+                                <td class="text-right tabular-nums">@(s.Wins + s.Losses > 0 ? $"{s.AverageScore:F0}" : "—")</td>
                                 <td class="text-right tabular-nums">@(s.BestScore?.ToString() ?? "—")</td>
                                 <td><TerrorBar Counts="s.TerrorCounts" WidthClass="w-28"/></td>
                             </tr>
@@ -521,17 +550,19 @@ else
     private RenderFragment<object> SpiritPill => o =>
         @<text>
             @{
-                var spirit = (Domain.Models.Static.Spirit)o;
+                var spirit = (Spirit)o;
                 var detail = SpiritDetails.For(spirit.Id);
                 var color = detail?.ColorHex ?? GameLookups.NeutralColor;
             }
-            <span class="inline-flex items-center gap-1.5 rounded-full border border-ink-200 bg-white px-2.5 py-1 text-xs">
+            <button type="button" @onclick="() => _spiritModal.Show(spirit)" title="@($"{spirit.Name} — details and full record")"
+                    class="inline-flex items-center gap-1.5 rounded-full border border-dashed border-amber-300 bg-amber-50/60 px-2.5 py-1 text-xs transition-colors
+                           hover:border-amber-400 hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
                 <span class="inline-block h-2 w-2 rounded-full" style="background-color: @color;"></span>
-                <span class="text-ink-700">@spirit.Name</span>
-            </span>
+                <span class="text-amber-800">@spirit.Name</span>
+            </button>
         </text>;
 
-    private RenderFragment SpiritInsight(string title, Application.Features.Statistics.SpiritStats s, string metric) =>
+    private RenderFragment SpiritInsight(string title, SpiritStats s, string metric, string? metricColor = null) =>
         @<text>
             @{
                 var sp = GameLookups.SpiritFor(s.SpiritId);
@@ -542,7 +573,9 @@ else
                          Subject="@(sp?.Name ?? s.SpiritId)"
                          Secondary="@($"{s.GamesPlayed} games · {s.AverageScore:F0} avg")"
                          Metric="@metric"
-                         AccentColor="@color"/>
+                         MetricColorClass="@(metricColor ?? "text-ink-900")"
+                         AccentColor="@color"
+                         OnClick="() => OpenSpirit(s.SpiritId)"/>
         </text>;
 }
 
@@ -566,8 +599,8 @@ else
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                 @if (topAdv is not null) { @AdversaryInsight("Most played", topAdv, $"{topAdv.GamesPlayed} games", null) }
-                @if (bestAdv is not null) { @AdversaryInsight("Highest win rate", bestAdv, $"{bestAdv.WinRate:F0}%", "text-accent-700") }
-                @if (worstAdv is not null && worstAdv.AdversaryId != bestAdv?.AdversaryId) { @AdversaryInsight("Toughest", worstAdv, $"{worstAdv.WinRate:F0}%", "text-red-700") }
+                @if (bestAdv is not null) { @AdversaryInsight("Highest win rate", bestAdv, $"{bestAdv.WinRate:F0}%", WinTone.ForRate(bestAdv.WinRate)) }
+                @if (worstAdv is not null && worstAdv.AdversaryId != bestAdv?.AdversaryId) { @AdversaryInsight("Toughest", worstAdv, $"{worstAdv.WinRate:F0}%", WinTone.ForRate(worstAdv.WinRate)) }
             </div>
 
             <div class="grid sm:grid-cols-2 gap-4">
@@ -575,18 +608,45 @@ else
                 {
                     var adv = GameLookups.AdversaryFor(a.AdversaryId);
                     var allLevels = adv?.Modes.Select(m => m.Level).OrderBy(l => l).ToList() ?? a.Levels.Select(l => l.Level).ToList();
-                    <div class="surface px-5 py-4">
+                    @* A button like the catalogue cards — the whole card opens the foe's record sheet. *@
+                    <button type="button" @onclick="() => OpenAdversary(a.AdversaryId)"
+                            title="@($"{adv?.Name ?? a.AdversaryId} — details and full record")"
+                            class="surface px-5 py-4 text-left transition-all hover:-translate-y-px hover:shadow-sm
+                                   focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
                         <div class="flex items-start justify-between gap-3 mb-3">
                             <div class="min-w-0">
                                 <div class="text-base font-semibold text-ink-900 truncate" style="font-family: var(--font-serif);">@(adv?.Name ?? a.AdversaryId)</div>
-                                <div class="text-[11px] text-ink-500 mt-0.5">
-                                    @a.GamesPlayed games · @a.Wins W / @a.Losses L · avg L@(a.AverageLevel.ToString("F1"))
+                                <div class="text-[11px] text-ink-500 mt-0.5 tabular-nums">
+                                    @a.GamesPlayed game@(a.GamesPlayed == 1 ? "" : "s") ·
+                                    <span class="text-accent-700 font-medium">@a.Wins W</span> ·
+                                    <span class="text-red-600 font-medium">@a.Losses L</span> ·
+                                    avg L@(a.AverageLevel.ToString("F1"))
                                 </div>
                             </div>
                             <WinRateRing Pct="a.WinRate" Size="56"/>
                         </div>
-                        <AdversaryLevelChart Levels="a.Levels" AllLevels="allLevels"/>
-                    </div>
+                        @* Same level strip the adversary reference sheet uses — one tile per
+                           level, tinted by the record at that level. *@
+                        <div class="grid grid-cols-4 gap-1.5 sm:grid-cols-7">
+                            @foreach (var level in allLevels)
+                            {
+                                var stat = a.Levels.FirstOrDefault(l => l.Level == level);
+                                var played = stat?.GamesPlayed ?? 0;
+                                var finished = stat is null ? 0 : stat.Wins + stat.Losses;
+                                var rate = finished > 0 ? 100.0 * stat!.Wins / finished : 0;
+                                var tone = finished == 0 ? "text-ink-400" : WinTone.ForRate(rate);
+                                <div class="rounded-md border px-1 py-1.5 text-center @(played > 0 ? "border-ink-300 bg-white" : "border-ink-200 bg-ink-50/60")"
+                                     title="@(played == 0
+                                               ? $"Level {level} — never played"
+                                               : $"Level {level} — played {played}×{(finished > 0 ? $", {stat!.Wins} won / {stat.Losses} lost" : "")}")">
+                                    <div class="text-[9px] uppercase tracking-wide text-ink-500">L@(level)</div>
+                                    <div class="mt-0.5 text-[11px] font-semibold leading-tight tabular-nums @tone">
+                                        @(played == 0 ? "—" : finished > 0 ? $"{played}× · {rate:F0}%" : $"{played}×")
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </button>
                 }
             </div>
 
@@ -602,14 +662,16 @@ else
             @{
                 var entry = (MissingAdversaryGroup)o;
             }
-            <span class="inline-flex items-center gap-1.5 rounded-full border border-ink-200 bg-white px-2.5 py-1 text-xs">
-                <Icon Name="shield" Class="w-3 h-3 text-ink-400"/>
-                <span class="text-ink-700 font-medium">@entry.AdversaryName</span>
-                <span class="text-ink-500">@string.Join(", ", entry.Levels.Select(l => $"L{l}"))</span>
-            </span>
+            <button type="button" @onclick="() => OpenAdversary(entry.AdversaryId)" title="@($"{entry.AdversaryName} — details and full record")"
+                    class="inline-flex items-center gap-1.5 rounded-full border border-dashed border-amber-300 bg-amber-50/60 px-2.5 py-1 text-xs transition-colors
+                           hover:border-amber-400 hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                <Icon Name="shield" Class="w-3 h-3 text-amber-600"/>
+                <span class="text-amber-800 font-medium">@entry.AdversaryName</span>
+                <span class="text-amber-700">@string.Join(", ", entry.Levels.Select(l => $"L{l}"))</span>
+            </button>
         </text>;
 
-    private RenderFragment AdversaryInsight(string title, Application.Features.Statistics.AdversaryStats a, string metric, string? metricColor) =>
+    private RenderFragment AdversaryInsight(string title, AdversaryStats a, string metric, string? metricColor) =>
         @<text>
             @{
                 var adv = GameLookups.AdversaryFor(a.AdversaryId);
@@ -618,7 +680,8 @@ else
                          Subject="@(adv?.Name ?? a.AdversaryId)"
                          Secondary="@($"avg L{a.AverageLevel:F1}")"
                          Metric="@metric"
-                         MetricColorClass="@(metricColor ?? "text-ink-900")"/>
+                         MetricColorClass="@(metricColor ?? "text-ink-900")"
+                         OnClick="() => OpenAdversary(a.AdversaryId)"/>
         </text>;
 }
 
@@ -640,40 +703,52 @@ else
                     var s = GameLookups.ScenarioFor(topScen.ScenarioId);
                     <InsightCard Title="Most played scenario" Subject="@(s?.Name ?? topScen.ScenarioId)"
                                  Secondary="@($"{topScen.WinRate:F0}% win · {topScen.AverageScore:F0} avg")"
-                                 Metric="@topScen.GamesPlayed.ToString()" MetricLabel="games"/>
+                                 Metric="@topScen.GamesPlayed.ToString()" MetricLabel="games"
+                                 OnClick="() => OpenScenario(topScen.ScenarioId)"/>
                 }
                 @if (bestScen is not null && bestScen.ScenarioId != topScen?.ScenarioId)
                 {
                     var s = GameLookups.ScenarioFor(bestScen.ScenarioId);
                     <InsightCard Title="Highest win rate" Subject="@(s?.Name ?? bestScen.ScenarioId)"
                                  Secondary="@($"{bestScen.GamesPlayed} games")"
-                                 Metric="@($"{bestScen.WinRate:F0}%")" MetricColorClass="text-accent-700"/>
+                                 Metric="@($"{bestScen.WinRate:F0}%")" MetricColorClass="@WinTone.ForRate(bestScen.WinRate)"
+                                 OnClick="() => OpenScenario(bestScen.ScenarioId)"/>
                 }
             </div>
 
             @if (_stats.ScenarioStatistics.Count > 0)
             {
                 <div class="surface">
-                    <div class="surface-head"><h2 class="text-base font-semibold">All scenarios played</h2></div>
+                    <div class="surface-head">
+                        <h2 class="text-base font-semibold">All scenarios played</h2>
+                        <span class="text-[11px] text-ink-500">Tap a row for the record sheet</span>
+                    </div>
                     <div class="table-wrap">
-                        <table class="table">
+                        <table class="table table-hover">
                             <thead><tr><th>Scenario</th><th class="text-right">Games</th><th class="text-right">W</th><th class="text-right">L</th><th>Win rate</th><th class="text-right">Avg score</th></tr></thead>
                             <tbody>
                             @foreach (var s in _stats.ScenarioStatistics)
                             {
                                 var sc = GameLookups.ScenarioFor(s.ScenarioId);
-                                <tr>
+                                <tr @onclick="() => OpenScenario(s.ScenarioId)">
                                     <td>
                                         <div class="flex items-center gap-2 min-w-0">
                                             <span class="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-accent-50 text-accent-700 shrink-0"><Icon Name="book" Class="w-3.5 h-3.5"/></span>
-                                            <span class="text-sm font-semibold text-ink-900 truncate">@(sc?.Name ?? s.ScenarioId)</span>
+                                            <button type="button" @onclick="() => OpenScenario(s.ScenarioId)" @onclick:stopPropagation
+                                                    class="truncate rounded text-left text-sm font-semibold text-ink-900
+                                                           focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                                                @(sc?.Name ?? s.ScenarioId)
+                                            </button>
                                         </div>
                                     </td>
                                     <td class="text-right tabular-nums">@s.GamesPlayed</td>
                                     <td class="text-right text-accent-700 tabular-nums">@s.Wins</td>
                                     <td class="text-right text-red-600 tabular-nums">@s.Losses</td>
-                                    <td><WinRateBar Pct="s.WinRate"/></td>
-                                    <td class="text-right tabular-nums">@($"{s.AverageScore:F0}")</td>
+                                    <td>
+                                        @if (s.Wins + s.Losses > 0) { <WinRateBar Pct="s.WinRate"/> }
+                                        else { <span class="text-xs text-ink-400">—</span> }
+                                    </td>
+                                    <td class="text-right tabular-nums">@(s.Wins + s.Losses > 0 ? $"{s.AverageScore:F0}" : "—")</td>
                                 </tr>
                             }
                             </tbody>
@@ -687,12 +762,14 @@ else
 
     private RenderFragment<object> ScenarioPill => o =>
         @<text>
-            @{ var s = (Domain.Models.Static.Scenario)o; }
-            <span class="inline-flex items-center gap-1.5 rounded-full border border-ink-200 bg-white px-2.5 py-1 text-xs">
-                <Icon Name="book" Class="w-3 h-3 text-ink-400"/>
-                <span class="text-ink-700">@s.Name</span>
-                <span class="text-ink-500">+@s.Difficulty</span>
-            </span>
+            @{ var s = (Scenario)o; }
+            <button type="button" @onclick="() => _scenarioModal.Show(s)" title="@($"{s.Name} — details and full record")"
+                    class="inline-flex items-center gap-1.5 rounded-full border border-dashed border-amber-300 bg-amber-50/60 px-2.5 py-1 text-xs transition-colors
+                           hover:border-amber-400 hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                <Icon Name="book" Class="w-3 h-3 text-amber-600"/>
+                <span class="text-amber-800">@s.Name</span>
+                <span class="text-amber-700">+@s.Difficulty</span>
+            </button>
         </text>;
 }
 
@@ -706,19 +783,43 @@ else
                 var playedIds = _stats.BoardStatistics.Select(b => b.BoardId).ToHashSet();
                 var ownedBoards = OwnedBoardsList();
                 var missing = ownedBoards.Where(b => !playedIds.Contains(b.Id.Value)).Cast<object>().ToList();
+
+                var playedSetups = GameData.PublishedIslandSetups
+                    .Select(s => (Setup: s, Record: _layoutRecords.GetValueOrDefault(s.Id.Value)))
+                    .Where(x => x.Record is { Played: > 0 })
+                    .OrderByDescending(x => x.Record!.Played)
+                    .ToList();
+                var savedIds = _savedLayouts.Select(l => l.Id).ToHashSet();
+                var playedSaved = _savedLayouts
+                    .Select(l => (Layout: l, Record: _savedLayoutRecords.GetValueOrDefault(l.Id)))
+                    .Where(x => x.Record is { Played: > 0 })
+                    .OrderByDescending(x => x.Record!.Played)
+                    .ToList();
+                // Hand-built islands that never made it into the library (or whose shape was deleted).
+                var oneOffFacts = ScopedFacts
+                    .Where(f => IslandSetups.IsCustomId(f.IslandSetupId)
+                                && (f.CustomLayoutId is null || !savedIds.Contains(f.CustomLayoutId.Value)))
+                    .ToList();
+                var oneOffRecord = new SetupInsights.PlayRecord(
+                    oneOffFacts.Count,
+                    oneOffFacts.Count(g => g.IsCompleted && g.Win == true),
+                    oneOffFacts.Count(g => g.IsCompleted && g.Win == false));
             }
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 @if (topBoard is not null) { @BoardInsight("Most played board", topBoard, $"{topBoard.GamesPlayed} games", null) }
-                @if (bestBoard is not null && bestBoard.BoardId != topBoard?.BoardId) { @BoardInsight("Highest win rate", bestBoard, $"{bestBoard.WinRate:F0}%", "text-accent-700") }
+                @if (bestBoard is not null && bestBoard.BoardId != topBoard?.BoardId) { @BoardInsight("Highest win rate", bestBoard, $"{bestBoard.WinRate:F0}%", WinTone.ForRate(bestBoard.WinRate)) }
             </div>
 
             @if (_stats.BoardStatistics.Count > 0)
             {
                 <div class="surface">
-                    <div class="surface-head"><h2 class="text-base font-semibold">All boards played</h2></div>
+                    <div class="surface-head">
+                        <h2 class="text-base font-semibold">All boards played</h2>
+                        <span class="text-[11px] text-ink-500">Tap a row for the record sheet</span>
+                    </div>
                     <div class="table-wrap">
-                        <table class="table">
+                        <table class="table table-hover">
                             <thead><tr><th>Board</th><th class="text-right">Games</th><th class="text-right">W</th><th class="text-right">L</th><th>Win rate</th></tr></thead>
                             <tbody>
                             @foreach (var b in _stats.BoardStatistics)
@@ -727,12 +828,16 @@ else
                                 var detail = board is null ? null : BoardDetails.For(board.Id);
                                 var color = detail?.ColorHex ?? GameLookups.NeutralColor;
                                 var letter = detail?.Letter ?? (board is null ? "?" : board.Name[^1..]);
-                                <tr>
+                                <tr @onclick="() => OpenBoard(b.BoardId)">
                                     <td>
                                         <div class="flex items-center gap-3 min-w-0">
                                             <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-white text-sm font-semibold shrink-0" style="background-color: @color; font-family: var(--font-serif);">@letter</span>
                                             <div class="min-w-0">
-                                                <div class="text-sm font-semibold text-ink-900 truncate">@(board?.Name ?? b.BoardId)</div>
+                                                <button type="button" @onclick="() => OpenBoard(b.BoardId)" @onclick:stopPropagation
+                                                        class="block max-w-full truncate rounded text-left text-sm font-semibold text-ink-900
+                                                               focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                                                    @(board?.Name ?? b.BoardId)
+                                                </button>
                                                 @if (detail is not null) { <div class="text-[11px] text-ink-500 truncate">@detail.ThematicName</div> }
                                             </div>
                                         </div>
@@ -740,11 +845,71 @@ else
                                     <td class="text-right tabular-nums">@b.GamesPlayed</td>
                                     <td class="text-right text-accent-700 tabular-nums">@b.Wins</td>
                                     <td class="text-right text-red-600 tabular-nums">@b.Losses</td>
-                                    <td><WinRateBar Pct="b.WinRate"/></td>
+                                    <td>
+                                        @if (b.Wins + b.Losses > 0) { <WinRateBar Pct="b.WinRate"/> }
+                                        else { <span class="text-xs text-ink-400">—</span> }
+                                    </td>
                                 </tr>
                             }
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            }
+
+            @* ===== Island layouts ===== *@
+            @if (playedSetups.Count > 0 || playedSaved.Count > 0 || oneOffRecord.Played > 0)
+            {
+                <div>
+                    <div class="flex items-baseline justify-between mb-3">
+                        <h2 class="text-base font-semibold" style="font-family: var(--font-serif);">Island layouts</h2>
+                        <span class="text-[11px] text-ink-500">Standard setups and your saved shapes</span>
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                        @foreach (var (setup, rec) in playedSetups)
+                        {
+                            <button @key="setup.Id.Value" type="button" @onclick="() => _layoutModal.Show(setup)"
+                                    title="@($"{setup.Name} — details and full record")"
+                                    class="surface p-4 flex flex-col items-center text-center transition-all hover:-translate-y-px hover:shadow-sm
+                                           focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                                <div class="h-20 w-full flex items-center justify-center">
+                                    <IslandSetupDiagram Setup="setup" Class="max-h-full max-w-full"/>
+                                </div>
+                                <div class="mt-2 max-w-full truncate text-sm font-semibold text-ink-900">@setup.Name</div>
+                                <div class="text-[11px] text-ink-500">
+                                    @setup.NumberOfPlayers board@(setup.NumberOfPlayers == 1 ? "" : "s")@(setup.IsThematic ? " · thematic" : "")
+                                </div>
+                                <div class="mt-1.5"><RecordChip Record="rec" Subject="@setup.Name"/></div>
+                            </button>
+                        }
+                        @foreach (var (saved, rec) in playedSaved)
+                        {
+                            <button @key="saved.Id" type="button" @onclick="() => _layoutModal.Show(saved)"
+                                    title="@($"{saved.Name} — details and full record")"
+                                    class="surface p-4 flex flex-col items-center text-center transition-all hover:-translate-y-px hover:shadow-sm
+                                           focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                                <div class="h-20 w-full flex items-center justify-center">
+                                    <span class="inline-flex h-12 w-12 items-center justify-center rounded-xl border border-dashed border-sky-300 bg-sky-50/60 text-sky-700">
+                                        <Icon Name="map" Class="w-5 h-5"/>
+                                    </span>
+                                </div>
+                                <div class="mt-2 max-w-full truncate text-sm font-semibold text-ink-900">@saved.Name</div>
+                                <div class="text-[11px] text-ink-500">@saved.BoardCount board@(saved.BoardCount == 1 ? "" : "s") · your saved shape</div>
+                                <div class="mt-1.5"><RecordChip Record="rec" Subject="@saved.Name"/></div>
+                            </button>
+                        }
+                        @if (oneOffRecord.Played > 0)
+                        {
+                            <div class="surface border-dashed p-4 flex flex-col items-center justify-center text-center"
+                                 title="Hand-built islands that weren't saved to your library">
+                                <span class="inline-flex h-12 w-12 items-center justify-center rounded-xl border border-dashed border-ink-300 bg-white text-ink-500">
+                                    <Icon Name="map" Class="w-5 h-5"/>
+                                </span>
+                                <div class="mt-2 text-sm font-semibold text-ink-900">One-off islands</div>
+                                <div class="text-[11px] text-ink-500">hand-built, not saved</div>
+                                <div class="mt-1.5"><RecordChip Record="oneOffRecord" Subject="One-off islands"/></div>
+                            </div>
+                        }
                     </div>
                 </div>
             }
@@ -755,18 +920,20 @@ else
     private RenderFragment<object> BoardPill => o =>
         @<text>
             @{
-                var board = (Domain.Models.Static.Board)o;
+                var board = (Board)o;
                 var detail = BoardDetails.For(board.Id);
                 var color = detail?.ColorHex ?? GameLookups.NeutralColor;
                 var letter = detail?.Letter ?? board.Name[^1..];
             }
-            <span class="inline-flex items-center gap-1.5 rounded-full border border-ink-200 bg-white px-2.5 py-1 text-xs">
+            <button type="button" @onclick="() => _boardModal.Show(board)" title="@($"{board.Name} — details and full record")"
+                    class="inline-flex items-center gap-1.5 rounded-full border border-dashed border-amber-300 bg-amber-50/60 px-2.5 py-1 text-xs transition-colors
+                           hover:border-amber-400 hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
                 <span class="inline-flex h-5 w-5 items-center justify-center rounded text-white text-[10px] font-semibold" style="background-color: @color; font-family: var(--font-serif);">@letter</span>
-                <span class="text-ink-700">@board.Name</span>
-            </span>
+                <span class="text-amber-800">@board.Name</span>
+            </button>
         </text>;
 
-    private RenderFragment BoardInsight(string title, Application.Features.Statistics.BoardStats b, string metric, string? metricColor) =>
+    private RenderFragment BoardInsight(string title, BoardStats b, string metric, string? metricColor) =>
         @<text>
             @{
                 var board = GameLookups.BoardFor(b.BoardId);
@@ -777,7 +944,8 @@ else
                          Secondary="@(detail?.ThematicName)"
                          Metric="@metric"
                          MetricColorClass="@(metricColor ?? "text-ink-900")"
-                         AccentColor="@(detail?.ColorHex)"/>
+                         AccentColor="@(detail?.ColorHex)"
+                         OnClick="() => OpenBoard(b.BoardId)"/>
         </text>;
 }
 
@@ -785,12 +953,58 @@ else
     [CascadingParameter(Name = "OwnedExpansions")]
     public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
 
-    private Application.Features.Statistics.StatisticsResponse? _stats;
-    private List<Application.Features.Statistics.PlayerStats> _unfilteredPlayers = [];
-    private Application.Features.Statistics.PlayerStats? _scoped;
+    private StatisticsResponse? _stats;
+    private List<PlayerStats> _unfilteredPlayers = [];
+    private PlayerStats? _scoped;
     private bool _loading = true;
     private bool _scopeOpen;
     private string _tab = "overview";
+
+    // The raw per-game history behind the record sheets and the layout tallies —
+    // the same facts the setup screen and the catalogue pages load.
+    private IReadOnlyList<SetupGameFact>? _facts;
+    private List<IslandLayoutResponse> _savedLayouts = [];
+    private Dictionary<string, SetupInsights.PlayRecord> _layoutRecords = new();
+    private Dictionary<Guid, SetupInsights.PlayRecord> _savedLayoutRecords = new();
+
+    private SpiritDetailModal _spiritModal = default!;
+    private AdversaryDetailModal _adversaryModal = default!;
+    private ScenarioDetailModal _scenarioModal = default!;
+    private BoardDetailModal _boardModal = default!;
+    private IslandLayoutDetailModal _layoutModal = default!;
+
+    private void OpenSpirit(string id) { if (GameLookups.SpiritFor(id) is { } s) _spiritModal.Show(s); }
+    private void OpenAdversary(string id) { if (GameLookups.AdversaryFor(id) is { } a) _adversaryModal.Show(a); }
+    private void OpenScenario(string? id) { if (GameLookups.ScenarioFor(id) is { } s) _scenarioModal.Show(s); }
+    private void OpenBoard(string id) { if (GameLookups.BoardFor(id) is { } b) _boardModal.Show(b); }
+
+    /// <summary>Seat predicate for the picked player, so the spirit/board sheets profile their seats.</summary>
+    private Func<SetupFactSeat, bool>? ScopeSeatFilter =>
+        _scoped switch
+        {
+            null => null,
+            { UserId: { } u } => s => s.UserId == u,
+            { PlayerId: { } p } => s => s.PlayerId == p,
+            _ => null,
+        };
+
+    /// <summary>Whose record the sheets are labelled with — null for "you".</summary>
+    private string? ScopeSubjectName =>
+        _scoped is null || _scoped.Kind == PlayerKind.Me ? null : _scoped.Name;
+
+    /// <summary>The history narrowed to the page scope: games the picked player sat in.</summary>
+    private IReadOnlyList<SetupGameFact> ScopedFacts =>
+        _facts is null ? []
+        : ScopeSeatFilter is { } filter ? _facts.Where(g => g.Seats.Any(filter)).ToList()
+        : _facts;
+
+    /// Layout tallies follow the page scope the way the server-side stats do.
+    private void RecomputeLayoutRecords()
+    {
+        var facts = ScopedFacts;
+        _layoutRecords = SetupInsights.LayoutRecords(facts);
+        _savedLayoutRecords = SetupInsights.SavedLayoutRecords(facts);
+    }
 
     private record TabDef(string Key, string Label);
     private readonly TabDef[] _tabs =
@@ -802,12 +1016,37 @@ else
         new("boards", "Boards"),
     ];
 
-    private string TabClass(string key)
-        => key == _tab
-            ? "px-4 py-2.5 text-sm font-medium text-accent-800 border-b-2 border-accent-600 -mb-px whitespace-nowrap"
-            : "px-4 py-2.5 text-sm text-ink-500 hover:text-ink-800 border-b-2 border-transparent -mb-px whitespace-nowrap";
+    /// <summary>Played-entity count shown on the tab pill; null for tabs that aren't a list.</summary>
+    private int? TabCount(string key) => key switch
+    {
+        "spirits"     => _stats?.SpiritStatistics.Count,
+        "adversaries" => _stats?.AdversaryStatistics.Count,
+        "scenarios"   => _stats?.ScenarioStatistics.Count,
+        "boards"      => _stats?.BoardStatistics.Count,
+        _             => null,
+    };
 
     private void SetTab(string key) => _tab = key;
+
+    /// "42 matches · 63% victories · 118h on the island" — same one-line summary
+    /// idiom the games list leads with, scoped when the stats are.
+    private string HeaderSummary
+    {
+        get
+        {
+            if (_stats is null || _stats.TotalGames == 0)
+                return "Your game history, distilled.";
+            var parts = new List<string> { $"{_stats.TotalGames} match{(_stats.TotalGames == 1 ? "" : "es")}" };
+            if (_stats.Wins + _stats.Losses > 0) parts.Add($"{_stats.WinRate:F0}% victories");
+            if (_stats.TotalPlayTime > TimeSpan.Zero) parts.Add($"{FormatHours(_stats.TotalPlayTime)} on the island");
+            var line = string.Join(" · ", parts);
+            return _scoped is null ? line : $"{_scoped.Name} · {line}";
+        }
+    }
+
+    private string TotalGamesCaption => _stats!.InProgress > 0
+        ? $"{_stats.InProgress} draft{(_stats.InProgress == 1 ? "" : "s")} waiting"
+        : "all completed";
 
     public sealed record MissingLevel(string AdversaryId, string AdversaryName, int Level);
     public sealed record MissingAdversaryGroup(string AdversaryId, string AdversaryName, List<int> Levels);
@@ -815,22 +1054,31 @@ else
     protected override async Task OnInitializedAsync()
     {
         if (CurrentUser.UserId is not { } userId) return;
+
+        // Sequential sends — the scoped DbContext behind IMediator is not thread-safe.
         await LoadStats(scopeUserId: null, scopePlayerId: null);
         _unfilteredPlayers = _stats?.PlayerStatistics ?? [];
+
+        var facts = await Mediator.Send(new GetSetupFactsQuery(userId));
+        if (facts.IsSuccess) _facts = facts.Value;
+        var layouts = await Mediator.Send(new ListIslandLayoutsQuery(userId));
+        if (layouts.IsSuccess) _savedLayouts = layouts.Value;
+        RecomputeLayoutRecords();
+
         _loading = false;
     }
 
     private async Task LoadStats(Guid? scopeUserId, Guid? scopePlayerId)
     {
         if (CurrentUser.UserId is not { } userId) return;
-        var query = new Application.Features.Statistics.GetStatisticsQuery(userId, scopeUserId, scopePlayerId);
+        var query = new GetStatisticsQuery(userId, scopeUserId, scopePlayerId);
         var result = await Mediator.Send(query);
         if (result.IsSuccess) _stats = result.Value;
     }
 
     private void ToggleScopePicker() => _scopeOpen = !_scopeOpen;
 
-    private async Task SetScope(Application.Features.Statistics.PlayerStats? player)
+    private async Task SetScope(PlayerStats? player)
     {
         _scopeOpen = false;
         if (SameScope(player, _scoped)) return;
@@ -839,17 +1087,25 @@ else
         _loading = true;
         StateHasChanged();
         await LoadStats(player?.UserId, player?.PlayerId);
+        RecomputeLayoutRecords();
         _loading = false;
     }
 
     private static bool SameScope(
-        Application.Features.Statistics.PlayerStats? a,
-        Application.Features.Statistics.PlayerStats? b)
+        PlayerStats? a,
+        PlayerStats? b)
     {
         if (a is null && b is null) return true;
         if (a is null || b is null) return false;
         return a.UserId == b.UserId && a.PlayerId == b.PlayerId;
     }
+
+    private static PlayerAssigneeBadge.AssigneeKind BadgeKind(PlayerKind kind) => kind switch
+    {
+        PlayerKind.Me => PlayerAssigneeBadge.AssigneeKind.Me,
+        PlayerKind.Friend => PlayerAssigneeBadge.AssigneeKind.Friend,
+        _ => PlayerAssigneeBadge.AssigneeKind.Player,
+    };
 
     private static string ScopeRowClass(bool active) =>
         (active
@@ -857,21 +1113,21 @@ else
             : "hover:bg-ink-50 ")
         + "w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg transition-colors";
 
-    private IReadOnlyList<Domain.Models.Static.Spirit> OwnedSpiritsList() =>
+    private IReadOnlyList<Spirit> OwnedSpiritsList() =>
         GameData.Spirits.Where(s => OwnedExpansions is null || OwnedExpansions.Contains(s.ExpansionId)).ToList();
 
-    private IReadOnlyList<Domain.Models.Static.Adversary> OwnedAdversariesList() =>
+    private IReadOnlyList<Adversary> OwnedAdversariesList() =>
         GameData.Adversaries.Where(a => OwnedExpansions is null || OwnedExpansions.Contains(a.ExpansionId)).ToList();
 
-    private IReadOnlyList<Domain.Models.Static.Scenario> OwnedScenariosList() =>
+    private IReadOnlyList<Scenario> OwnedScenariosList() =>
         GameData.Scenarios.Where(s => OwnedExpansions is null || OwnedExpansions.Contains(s.ExpansionId)).ToList();
 
-    private IReadOnlyList<Domain.Models.Static.Board> OwnedBoardsList() =>
+    private IReadOnlyList<Board> OwnedBoardsList() =>
         GameData.Boards.Where(b => OwnedExpansions is null || OwnedExpansions.Contains(b.ExpansionId)).ToList();
 
     private static List<MissingLevel> MissingAdversaryLevels(
-        IReadOnlyList<Application.Features.Statistics.AdversaryStats> stats,
-        IReadOnlyList<Domain.Models.Static.Adversary> ownedAdversaries)
+        IReadOnlyList<AdversaryStats> stats,
+        IReadOnlyList<Adversary> ownedAdversaries)
     {
         var statsByAdv = stats.ToDictionary(a => a.AdversaryId);
         var missing = new List<MissingLevel>();

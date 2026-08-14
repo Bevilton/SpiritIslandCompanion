@@ -40,7 +40,10 @@
             <div class="overflow-y-auto px-6 py-5 space-y-6">
                 @if (_profile is not null)
                 {
+                    @* Facts only when unscoped — a sheet already scoped to one person
+                       has nothing for the owner toggle to switch between. *@
                     <SetupProfileSection Profile="_profile" Name="@_board.Name" SubjectName="@SubjectName"
+                                         Facts="@(SeatFilter is null ? Facts : null)" SubjectId="@_board.Id.Value"
                                          Title="Your record on this board"/>
                 }
                 else

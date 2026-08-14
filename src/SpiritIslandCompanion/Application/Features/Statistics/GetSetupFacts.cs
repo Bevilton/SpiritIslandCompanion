@@ -20,8 +20,17 @@ public sealed record SetupFactAdversary(string AdversaryId, int Level);
 /// One seat at the table. <see cref="IsMine"/> marks the requesting user's seat;
 /// <see cref="UserId"/>/<see cref="PlayerId"/> identify a friend or local player
 /// so seat stats can be scoped to whoever will sit there.
+/// <see cref="PlayerName"/> is the display name behind that identity (user
+/// nickname or local player name; null for an unassigned seat) — the record
+/// sheets use it to say who played what.
 /// </summary>
-public sealed record SetupFactSeat(string SpiritId, string BoardId, bool IsMine, Guid? UserId, Guid? PlayerId);
+public sealed record SetupFactSeat(
+    string SpiritId,
+    string BoardId,
+    bool IsMine,
+    Guid? UserId,
+    Guid? PlayerId,
+    string? PlayerName = null);
 
 /// <param name="CustomLayoutId">
 /// The player's saved layout the island came from, for games built by hand out of one.
@@ -48,6 +57,31 @@ internal sealed class GetSetupFactsHandler(IAppDbContext db) : IQueryHandler<Get
             .OrderByDescending(g => g.StartedAt)
             .ToListAsync(cancellationToken);
 
+        // Resolve display names for every user / player sitting in any seat, the same
+        // way GetStatistics does — the value-object types go in directly so EF Core's
+        // configured HasConversion translates Contains into a SQL IN clause.
+        var userIds = games.SelectMany(g => g.Players)
+            .Where(p => p.UserId is not null)
+            .Select(p => p.UserId!)
+            .Distinct()
+            .ToList();
+        var userLookup = (await db.Users
+            .AsNoTracking()
+            .Where(u => userIds.Contains(u.Id))
+            .ToListAsync(cancellationToken))
+            .ToDictionary(u => u.Id.Value, u => u.Nickname.Value);
+
+        var playerIds = games.SelectMany(g => g.Players)
+            .Where(p => p.PlayerId is not null)
+            .Select(p => p.PlayerId!)
+            .Distinct()
+            .ToList();
+        var playerLookup = (await db.Players
+            .AsNoTracking()
+            .Where(p => playerIds.Contains(p.Id))
+            .ToListAsync(cancellationToken))
+            .ToDictionary(p => p.Id.Value, p => p.Name.Value);
+
         return games.Select(g => new SetupGameFact(
             g.Id.Value,
             g.StartedAt,
@@ -67,7 +101,10 @@ internal sealed class GetSetupFactsHandler(IAppDbContext db) : IQueryHandler<Get
                     p.StartingBoard.Value,
                     p.UserId != null && p.UserId.Value == request.UserId,
                     p.UserId?.Value,
-                    p.PlayerId?.Value))
+                    p.PlayerId?.Value,
+                    p.UserId is not null ? userLookup.GetValueOrDefault(p.UserId.Value)
+                        : p.PlayerId is not null ? playerLookup.GetValueOrDefault(p.PlayerId.Value)
+                        : null))
                 .ToList())).ToList();
     }
 }

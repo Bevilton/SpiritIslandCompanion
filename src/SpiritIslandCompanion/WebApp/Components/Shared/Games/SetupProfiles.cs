@@ -70,8 +70,9 @@ public static class SetupProfiles
     /// <summary>
     /// Profiles one catalogue entity against the history. <paramref name="seatFilter"/>
     /// scopes seat-based numbers to one person (a friend sitting in the seat being
-    /// edited); without it the own-seats heuristic of
-    /// <see cref="SetupInsights.OwnSeats"/> applies.
+    /// edited); without it every seat at the table counts, so friends' and local
+    /// players' games with the subject show up too — the "Who played it" breakdown
+    /// then says whose they were.
     /// </summary>
     public static Profile Build(
         SetupSubjectKind kind,
@@ -109,14 +110,58 @@ public static class SetupProfiles
                     m.Game.Score,
                     Context(kind, id, m)))
                 .ToList(),
-            Breakdowns(kind, id, matched));
+            // A scoped profile skips the who-played rows: they'd hold the one
+            // person the sheet is already labelled with.
+            Breakdowns(kind, matched, includePlayers: seatFilter is null));
     }
+
+    /// <summary>One person who has played the subject — an option for the sheet's owner toggle.</summary>
+    public sealed record OwnerOption(
+        string Key, string Label, string? ColorHex, int Played, Func<SetupFactSeat, bool> Filter);
+
+    /// <summary>
+    /// Who has played the subject, most-played first with the user's own seats leading.
+    /// Only seat-bound subjects (spirit, board) have owners; other kinds return empty.
+    /// </summary>
+    public static IReadOnlyList<OwnerOption> Owners(
+        SetupSubjectKind kind, string id, IReadOnlyList<SetupGameFact> facts)
+    {
+        if (kind is not (SetupSubjectKind.Spirit or SetupSubjectKind.Board)) return [];
+        return facts
+            .SelectMany(g => SubjectSeats(kind, id, g, null))
+            .GroupBy(OwnerKeyOf)
+            .Select(grp =>
+            {
+                var owner = OwnerOf(grp.First());
+                return new OwnerOption(grp.Key, owner.Label, owner.ColorHex, grp.Count(), FilterFor(grp.First()));
+            })
+            .OrderByDescending(o => o.Key == "me")
+            .ThenByDescending(o => o.Played)
+            .ThenBy(o => o.Label)
+            .ToList();
+    }
+
+    private static string OwnerKeyOf(SetupFactSeat s) => s switch
+    {
+        { IsMine: true }       => "me",
+        { UserId: { } user }   => $"u:{user}",
+        { PlayerId: { } local } => $"p:{local}",
+        _                      => "unassigned"
+    };
+
+    private static Func<SetupFactSeat, bool> FilterFor(SetupFactSeat seat) => seat switch
+    {
+        { IsMine: true }       => s => s.IsMine,
+        { UserId: { } user }   => s => s.UserId == user,
+        { PlayerId: { } local } => s => s.PlayerId == local,
+        _                      => s => !s.IsMine && s.UserId is null && s.PlayerId is null
+    };
 
     /// <summary>The seats carrying the subject — every counted seat when it isn't seat-bound.</summary>
     private static List<SetupFactSeat> SubjectSeats(
         SetupSubjectKind kind, string id, SetupGameFact game, Func<SetupFactSeat, bool>? seatFilter)
     {
-        var counted = seatFilter is null ? SetupInsights.OwnSeats(game) : game.Seats.Where(seatFilter);
+        var counted = game.Seats.Where(s => seatFilter is null || seatFilter(s));
         return kind switch
         {
             SetupSubjectKind.Spirit => counted.Where(s => s.SpiritId == id).ToList(),
@@ -144,12 +189,16 @@ public static class SetupProfiles
     }
 
     private static IReadOnlyList<ProfileBreakdown> Breakdowns(
-        SetupSubjectKind kind, string id, List<Match> matched)
+        SetupSubjectKind kind, List<Match> matched, bool includePlayers)
     {
+        var players = includePlayers
+            ? PlayerRowsIfShared(matched)
+            : new ProfileBreakdown("Who played it", [], 0);
         ProfileBreakdown[] all = kind switch
         {
             SetupSubjectKind.Spirit =>
             [
+                players,
                 AdversaryRows(matched),
                 BoardRows(matched),
                 ScenarioRows(matched),
@@ -157,6 +206,7 @@ public static class SetupProfiles
             ],
             SetupSubjectKind.Board =>
             [
+                players,
                 SpiritRows(matched),
                 AdversaryRows(matched),
                 TableSizeRows(matched)
@@ -230,6 +280,35 @@ public static class SetupProfiles
             key => GameLookups.SpiritFor(key) is { } spirit
                 ? new RowLabel(spirit.Name, null, SpiritDetails.For(spirit.Id)?.ColorHex)
                 : null);
+
+    /// <summary>
+    /// Groups the subject's seats by who sat in them. Equality is on the resolved
+    /// label, so "You" is one row and two unnamed seats stay together. Dot colours
+    /// follow the assignee badge: accent for you, sky for friends, ink for locals.
+    /// </summary>
+    private sealed record SeatOwner(string Label, string? ColorHex);
+
+    private static SeatOwner OwnerOf(SetupFactSeat s) => s switch
+    {
+        { IsMine: true }       => new SeatOwner("You", "#059669"),
+        { UserId: not null }   => new SeatOwner(s.PlayerName ?? "Friend", "#0284c7"),
+        { PlayerId: not null } => new SeatOwner(s.PlayerName ?? "Player", "#a8a29e"),
+        _                      => new SeatOwner("Unassigned", null)
+    };
+
+    /// <summary>
+    /// "Who played it" — only when the answer isn't just "you": a lone "You" row
+    /// would restate every other number on the sheet.
+    /// </summary>
+    private static ProfileBreakdown PlayerRowsIfShared(List<Match> matched)
+    {
+        var rows = Breakdown(
+            "Who played it",
+            matched.SelectMany(m => m.Seats.Select(s => (Key: OwnerOf(s), Game: m.Game))),
+            key => new RowLabel(key.Label, null, key.ColorHex));
+        var informative = rows.Rows.Count > 1 || rows.Rows.Any(r => r.Label != "You");
+        return informative ? rows : rows with { Rows = [] };
+    }
 
     private static ProfileBreakdown ScenarioRows(List<Match> matched) =>
         Breakdown(

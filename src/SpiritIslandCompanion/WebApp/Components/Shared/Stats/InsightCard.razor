@@ -1,33 +1,20 @@
 @* Compact "highlight" card for the overview page. Shows a title, a coloured
-   icon, a primary subject (e.g. a spirit's name), and a secondary stat. *@
+   icon, a primary subject (e.g. a spirit's name), and a secondary stat.
+   With OnClick the whole card is a button — it opens the subject's record
+   sheet, the same affordance the catalogue cards have. *@
 
-<div class="surface px-5 py-4">
-    <div class="flex items-start gap-3">
-        @if (!string.IsNullOrEmpty(AccentColor))
-        {
-            <span class="inline-block w-1.5 self-stretch rounded-full shrink-0" style="background-color: @AccentColor;"></span>
-        }
-        <div class="min-w-0 flex-1">
-            <div class="text-[10px] uppercase tracking-wide text-ink-500 font-medium">@Title</div>
-            <div class="mt-1 flex items-start justify-between gap-3">
-                <div class="min-w-0">
-                    <div class="text-base font-semibold text-ink-900 truncate" style="font-family: var(--font-serif);">@Subject</div>
-                    @if (!string.IsNullOrEmpty(Secondary))
-                    {
-                        <div class="mt-0.5 text-[11px] text-ink-500 truncate">@Secondary</div>
-                    }
-                </div>
-                <div class="text-right shrink-0">
-                    <div class="text-lg font-bold @MetricColorClass tabular-nums leading-none" style="font-family: var(--font-serif);">@Metric</div>
-                    @if (!string.IsNullOrEmpty(MetricLabel))
-                    {
-                        <div class="text-[10px] uppercase tracking-wide text-ink-500 mt-1">@MetricLabel</div>
-                    }
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+@if (OnClick.HasDelegate)
+{
+    <button type="button" @onclick="OnClick" title="@($"{Subject} — details and full record")"
+            class="surface px-5 py-4 w-full text-left transition-all hover:-translate-y-px hover:shadow-sm
+                   focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+        @Body
+    </button>
+}
+else
+{
+    <div class="surface px-5 py-4">@Body</div>
+}
 
 @code {
     [Parameter, EditorRequired] public string Title { get; set; } = "";
@@ -37,4 +24,36 @@
     [Parameter] public string? MetricLabel { get; set; }
     [Parameter] public string? AccentColor { get; set; }
     [Parameter] public string MetricColorClass { get; set; } = "text-ink-900";
+
+    /// <summary>Opens the subject's record sheet. Omit for a passive card.</summary>
+    [Parameter] public EventCallback OnClick { get; set; }
+
+    private RenderFragment Body => __builder =>
+    {
+        <div class="flex items-start gap-3">
+            @if (!string.IsNullOrEmpty(AccentColor))
+            {
+                <span class="inline-block w-1.5 self-stretch rounded-full shrink-0" style="background-color: @AccentColor;"></span>
+            }
+            <div class="min-w-0 flex-1">
+                <div class="text-[10px] uppercase tracking-wide text-ink-500 font-medium">@Title</div>
+                <div class="mt-1 flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <div class="text-base font-semibold text-ink-900 truncate" style="font-family: var(--font-serif);">@Subject</div>
+                        @if (!string.IsNullOrEmpty(Secondary))
+                        {
+                            <div class="mt-0.5 text-[11px] text-ink-500 truncate">@Secondary</div>
+                        }
+                    </div>
+                    <div class="text-right shrink-0">
+                        <div class="text-lg font-bold @MetricColorClass tabular-nums leading-none" style="font-family: var(--font-serif);">@Metric</div>
+                        @if (!string.IsNullOrEmpty(MetricLabel))
+                        {
+                            <div class="text-[10px] uppercase tracking-wide text-ink-500 mt-1">@MetricLabel</div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    };
 }

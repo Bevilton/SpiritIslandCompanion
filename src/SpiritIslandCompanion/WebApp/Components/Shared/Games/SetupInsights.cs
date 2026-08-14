@@ -157,23 +157,18 @@ public static class SetupInsights
     }
 
     /// <summary>
-    /// The seats attributed to the user: their own seat(s) when they sat at the
-    /// table, otherwise every seat (games recorded for a table without the user).
-    /// </summary>
-    public static IEnumerable<SetupFactSeat> OwnSeats(SetupGameFact g)
-        => g.Seats.Any(s => s.IsMine) ? g.Seats.Where(s => s.IsMine) : g.Seats;
-
-    /// <summary>
-    /// Per-spirit record inside a set of games. With <paramref name="seatFilter"/>
-    /// set, only seats of that person count (e.g. a friend's seats); otherwise the
-    /// own-seats heuristic applies.
+    /// Per-spirit record inside a set of games. Counts every recorded seat at the
+    /// table — friends' and local players' picks contribute too, matching how
+    /// <see cref="BoardRecords"/> and the server-side statistics count. Pass
+    /// <paramref name="seatFilter"/> to scope to one person.
     /// </summary>
     public static Dictionary<string, PlayRecord> SpiritRecords(
         IEnumerable<SetupGameFact> games,
         Func<SetupFactSeat, bool>? seatFilter = null)
     {
         return games
-            .SelectMany(g => (seatFilter is null ? OwnSeats(g) : g.Seats.Where(seatFilter))
+            .SelectMany(g => g.Seats
+                .Where(s => seatFilter is null || seatFilter(s))
                 .Select(s => (s.SpiritId, g.IsCompleted, g.Win)))
             .GroupBy(x => x.SpiritId)
             .ToDictionary(

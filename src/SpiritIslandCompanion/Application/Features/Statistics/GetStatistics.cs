@@ -83,7 +83,7 @@ public sealed record AdversaryStats(
     double AverageLevel,
     List<AdversaryLevelStats> Levels);
 
-public sealed record AdversaryLevelStats(int Level, int GamesPlayed, int Wins);
+public sealed record AdversaryLevelStats(int Level, int GamesPlayed, int Wins, int Losses);
 
 public enum PlayerKind { Me, Friend, Local }
 
@@ -284,10 +284,12 @@ internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<Get
                     .Select(lg =>
                     {
                         var levelCompleted = lg.Where(x => x.Result is not null).ToList();
+                        var levelWins = levelCompleted.Count(x => x.Result!.Win);
                         return new AdversaryLevelStats(
                             lg.Key,
                             lg.Count(),
-                            levelCompleted.Count(x => x.Result!.Win));
+                            levelWins,
+                            levelCompleted.Count - levelWins);
                     })
                     .ToList();
                 return new AdversaryStats(

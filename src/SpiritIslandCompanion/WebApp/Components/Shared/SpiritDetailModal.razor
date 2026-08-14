@@ -67,7 +67,10 @@
 
                 @if (_profile is not null)
                 {
+                    @* Facts only when unscoped — a sheet already scoped to one person
+                       has nothing for the owner toggle to switch between. *@
                     <SetupProfileSection Profile="_profile" Name="@_spirit.Name" SubjectName="@SubjectName"
+                                         Facts="@(SeatFilter is null ? Facts : null)" SubjectId="@_spirit.Id.Value"
                                          Title="Your record with this spirit"/>
                 }
 
