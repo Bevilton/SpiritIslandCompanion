@@ -78,6 +78,14 @@ public static class SetupInsights
         public Dictionary<string, PlayRecord> SpiritRecords() =>
             SetupInsights.SpiritRecords(Facts, SeatFilter);
 
+        /// <summary>Per-aspect record for one spirit — see <see cref="SetupInsights.AspectRecords"/>.</summary>
+        public Dictionary<string, PlayRecord> AspectRecords(string? spiritId) =>
+            SetupInsights.AspectRecords(Facts, string.IsNullOrEmpty(spiritId) ? null : spiritId, SeatFilter);
+
+        /// <summary>Every spirit's aspect records at once — see <see cref="SetupInsights.AspectRecordsBySpirit"/>.</summary>
+        public Dictionary<string, Dictionary<string, PlayRecord>> AspectRecordsBySpirit() =>
+            SetupInsights.AspectRecordsBySpirit(Facts, SeatFilter);
+
         /// <summary>Per-board record, scoped to one spirit when <paramref name="spiritId"/> is set.</summary>
         public Dictionary<string, PlayRecord> BoardRecords(string? spiritId = null) =>
             SetupInsights.BoardRecords(Facts, string.IsNullOrEmpty(spiritId) ? null : spiritId, SeatFilter);
@@ -105,6 +113,24 @@ public static class SetupInsights
     {
         public int Completed => Wins + Losses;
         public double WinRate => Completed > 0 ? (double)Wins / Completed * 100 : 0;
+    }
+
+    /// <summary>
+    /// How a record reads on hover wherever one is offered as a small tally — "Anna: Wind — 3
+    /// played, 2 won / 1 lost". One helper so the chips, the variant rows and anything else
+    /// that puts a <see cref="PlayRecord"/> on a control word it the same way.
+    /// <paramref name="subjectName"/> names whose record it is when it isn't the reader's own;
+    /// with <paramref name="hasHistory"/> false there is nothing to be never-played against, so
+    /// the label stands alone.
+    /// </summary>
+    public static string RecordTooltip(
+        string label, PlayRecord? record, string? subjectName, bool hasHistory = true)
+    {
+        if (!hasHistory) return label;
+        var whose = subjectName is null ? "" : $"{subjectName}: ";
+        if (record is not { Played: > 0 }) return $"{whose}never played {label}";
+        var wins = record.Completed > 0 ? $", {record.Wins} won / {record.Losses} lost" : ", no results yet";
+        return $"{whose}{label} — {record.Played} played{wins}";
     }
 
     /// <summary>Overall record against one adversary, regardless of level.</summary>
@@ -177,6 +203,69 @@ public static class SetupInsights
                     g.Count(),
                     g.Count(x => x.IsCompleted && x.Win == true),
                     g.Count(x => x.IsCompleted && x.Win == false)));
+    }
+
+    /// <summary>
+    /// The key standing for "the spirit as printed" in an aspect tally — the same empty-string
+    /// convention <see cref="ScenarioRecords"/> uses for a game played without a scenario.
+    /// </summary>
+    public const string BaseAspectKey = "";
+
+    /// <summary>
+    /// Per-aspect record, for one spirit when <paramref name="spiritId"/> is set. An aspect
+    /// rewrites the spirit enough that "played Lightning 11×" says little about how Wind went,
+    /// so every surface that reports a spirit's record can report its variants too. Games played
+    /// without an aspect land under <see cref="BaseAspectKey"/>, so the rows sum to the spirit's
+    /// own total. Pass <paramref name="seatFilter"/> to scope to one person.
+    /// <para>
+    /// Aspect ids are unique across the catalogue, but <see cref="BaseAspectKey"/> is not: left
+    /// unscoped it pools every spirit's aspect-less games into one bucket. Name the spirit, or
+    /// use <see cref="AspectRecordsBySpirit"/>, whenever that row is going to be shown.
+    /// </para>
+    /// </summary>
+    public static Dictionary<string, PlayRecord> AspectRecords(
+        IEnumerable<SetupGameFact> games,
+        string? spiritId = null,
+        Func<SetupFactSeat, bool>? seatFilter = null)
+    {
+        return games
+            .SelectMany(g => g.Seats
+                .Where(s => seatFilter is null || seatFilter(s))
+                .Where(s => spiritId is null || s.SpiritId == spiritId)
+                .Select(s => (Key: s.AspectId ?? BaseAspectKey, g.IsCompleted, g.Win)))
+            .GroupBy(x => x.Key)
+            .ToDictionary(
+                g => g.Key,
+                g => new PlayRecord(
+                    g.Count(),
+                    g.Count(x => x.IsCompleted && x.Win == true),
+                    g.Count(x => x.IsCompleted && x.Win == false)));
+    }
+
+    /// <summary>
+    /// <see cref="AspectRecords"/> for every spirit at once, keyed by spirit id then by aspect —
+    /// for surfaces showing many spirits together, where each spirit's aspect-less games have to
+    /// stay its own rather than pooling under a shared <see cref="BaseAspectKey"/>.
+    /// </summary>
+    public static Dictionary<string, Dictionary<string, PlayRecord>> AspectRecordsBySpirit(
+        IEnumerable<SetupGameFact> games,
+        Func<SetupFactSeat, bool>? seatFilter = null)
+    {
+        return games
+            .SelectMany(g => g.Seats
+                .Where(s => seatFilter is null || seatFilter(s))
+                .Select(s => (s.SpiritId, Key: s.AspectId ?? BaseAspectKey, g.IsCompleted, g.Win)))
+            .GroupBy(x => x.SpiritId)
+            .ToDictionary(
+                spirit => spirit.Key,
+                spirit => spirit
+                    .GroupBy(x => x.Key)
+                    .ToDictionary(
+                        a => a.Key,
+                        a => new PlayRecord(
+                            a.Count(),
+                            a.Count(x => x.IsCompleted && x.Win == true),
+                            a.Count(x => x.IsCompleted && x.Win == false))));
     }
 
     private static readonly IReadOnlyDictionary<int, PlayRecord> _noLevels = new Dictionary<int, PlayRecord>();

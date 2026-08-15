@@ -7,6 +7,8 @@ namespace WebApp.Components.Shared.Games;
 public enum SetupSubjectKind
 {
     Spirit,
+    /// <summary>One variant of a spirit, matched by aspect id — profiled like the spirit itself.</summary>
+    Aspect,
     Board,
     Adversary,
     Scenario,
@@ -126,7 +128,7 @@ public static class SetupProfiles
     public static IReadOnlyList<OwnerOption> Owners(
         SetupSubjectKind kind, string id, IReadOnlyList<SetupGameFact> facts)
     {
-        if (kind is not (SetupSubjectKind.Spirit or SetupSubjectKind.Board)) return [];
+        if (kind is not (SetupSubjectKind.Spirit or SetupSubjectKind.Aspect or SetupSubjectKind.Board)) return [];
         return facts
             .SelectMany(g => SubjectSeats(kind, id, g, null))
             .GroupBy(OwnerKeyOf)
@@ -165,6 +167,7 @@ public static class SetupProfiles
         return kind switch
         {
             SetupSubjectKind.Spirit => counted.Where(s => s.SpiritId == id).ToList(),
+            SetupSubjectKind.Aspect => counted.Where(s => s.AspectId == id).ToList(),
             SetupSubjectKind.Board => counted.Where(s => s.BoardId == id).ToList(),
             _ => counted.ToList()
         };
@@ -172,7 +175,7 @@ public static class SetupProfiles
 
     private static bool IsMatch(SetupSubjectKind kind, string id, Match m) => kind switch
     {
-        SetupSubjectKind.Spirit or SetupSubjectKind.Board => m.Seats.Count > 0,
+        SetupSubjectKind.Spirit or SetupSubjectKind.Aspect or SetupSubjectKind.Board => m.Seats.Count > 0,
         SetupSubjectKind.Adversary => m.Game.Adversaries.Any(a => a.AdversaryId == id),
         SetupSubjectKind.IslandLayout => m.Game.IslandSetupId == id,
         SetupSubjectKind.SavedLayout => m.Game.CustomLayoutId?.ToString() == id,
@@ -197,6 +200,17 @@ public static class SetupProfiles
         ProfileBreakdown[] all = kind switch
         {
             SetupSubjectKind.Spirit =>
+            [
+                players,
+                AspectRowsIfVaried(matched),
+                AdversaryRows(matched),
+                BoardRows(matched),
+                ScenarioRows(matched),
+                TableSizeRows(matched)
+            ],
+            // An aspect reads like the spirit it varies, minus the aspect breakdown that
+            // would be a single row naming this sheet.
+            SetupSubjectKind.Aspect =>
             [
                 players,
                 AdversaryRows(matched),
@@ -272,6 +286,23 @@ public static class SetupProfiles
                 return new RowLabel(detail?.ThematicName ?? board.Name, GameLookups.BoardLetter(board), detail?.ColorHex);
             },
             max: 8);
+
+    /// <summary>
+    /// "Aspects played" on a spirit's sheet. The spirit as printed is a row of its own, so the
+    /// counts add up to the headline above them rather than accounting only for the variants —
+    /// and, as with "Who played it", a single row is left out: it would only restate that
+    /// headline under a title claiming to split it.
+    /// </summary>
+    private static ProfileBreakdown AspectRowsIfVaried(List<Match> matched)
+    {
+        var rows = Breakdown(
+            "Aspects played",
+            matched.SelectMany(m => m.Seats.Select(s => (Key: s.AspectId ?? SetupInsights.BaseAspectKey, Game: m.Game))),
+            key => key.Length == 0
+                ? new RowLabel("No aspect", null, null)
+                : GameLookups.AspectFor(key) is { } aspect ? new RowLabel(aspect.Name, null, null) : null);
+        return rows.Rows.Count > 1 ? rows : rows with { Rows = [] };
+    }
 
     private static ProfileBreakdown SpiritRows(List<Match> matched) =>
         Breakdown(
@@ -371,7 +402,9 @@ public static class SetupProfiles
             parts.Add(string.Join(" + ", levels));
         }
 
-        if (kind != SetupSubjectKind.Spirit)
+        // A spirit sheet (and an aspect's, which is one spirit's) names the boards it sat on;
+        // every other sheet names the spirits at the table.
+        if (kind is not (SetupSubjectKind.Spirit or SetupSubjectKind.Aspect))
         {
             var spirits = m.Seats
                 .Select(s => GameLookups.SpiritFor(s.SpiritId)?.Name)

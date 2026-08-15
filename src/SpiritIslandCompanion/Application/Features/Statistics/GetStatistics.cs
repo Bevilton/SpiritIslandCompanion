@@ -72,7 +72,21 @@ public sealed record SpiritStats(
     double WinRate,
     double AverageScore,
     int? BestScore,
-    Dictionary<TerrorLevel, int> TerrorCounts);
+    Dictionary<TerrorLevel, int> TerrorCounts,
+    List<AspectStats> Aspects);
+
+/// <summary>
+/// One variant of a spirit as it was actually played. An aspect rewrites enough of a
+/// spirit that its record is its own; <see cref="AspectId"/> is null for the games
+/// played with the spirit as printed, so the rows always add up to the spirit's total.
+/// Like <see cref="AdversaryLevelStats"/> this is a breakdown of the row above it and
+/// carries the tally only — the win rate is the reader's to derive.
+/// </summary>
+public sealed record AspectStats(
+    string? AspectId,
+    int GamesPlayed,
+    int Wins,
+    int Losses);
 
 public sealed record AdversaryStats(
     string AdversaryId,
@@ -233,7 +247,7 @@ internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<Get
     private static List<SpiritStats> GetSpiritStats(List<Game> games, Func<GamePlayer, bool> playerFilter)
     {
         return games
-            .SelectMany(g => g.Players.Where(playerFilter).Select(p => new { p.SpiritId, g.Result }))
+            .SelectMany(g => g.Players.Where(playerFilter).Select(p => new { p.SpiritId, p.AspectId, g.Result }))
             .GroupBy(x => x.SpiritId.Value)
             .Select(g =>
             {
@@ -242,6 +256,18 @@ internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<Get
                 var terrorCounts = completed
                     .GroupBy(x => x.Result!.TerrorLevel)
                     .ToDictionary(tg => tg.Key, tg => tg.Count());
+                // Null groups with null, so the spirit as printed is a row like any aspect
+                // and the rows still sum to the spirit's own total.
+                var aspects = g
+                    .GroupBy(x => x.AspectId?.Value)
+                    .Select(ag =>
+                    {
+                        var done = ag.Where(x => x.Result is not null).ToList();
+                        var aw = done.Count(x => x.Result!.Win);
+                        return new AspectStats(ag.Key, ag.Count(), aw, done.Count - aw);
+                    })
+                    .OrderByDescending(a => a.GamesPlayed)
+                    .ToList();
                 return new SpiritStats(
                     g.Key,
                     g.Count(),
@@ -250,7 +276,8 @@ internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<Get
                     completed.Count > 0 ? (double)w / completed.Count * 100 : 0,
                     completed.Count > 0 ? completed.Average(x => x.Result!.Score.Value) : 0,
                     completed.Count > 0 ? completed.Max(x => x.Result!.Score.Value) : null,
-                    terrorCounts);
+                    terrorCounts,
+                    aspects);
             })
             .OrderByDescending(s => s.GamesPlayed)
             .ToList();

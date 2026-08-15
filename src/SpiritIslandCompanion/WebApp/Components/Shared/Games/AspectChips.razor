@@ -1,0 +1,92 @@
+@* A spirit's aspects as one row of chips, each carrying its own record. An aspect rewrites
+   the spirit enough that "played Lightning 11×" says nothing about how Wind went, so wherever
+   a spirit's record is shown its variants are shown beside it.
+
+   With OnPick the chips are buttons that choose the spirit as that aspect; without one they
+   are passive labels. Records come from SetupInsights.AspectRecords, keyed by aspect id with
+   BaseAspectKey standing for the spirit played with no aspect. *@
+
+@if (Aspects.Count > 0)
+{
+    <div class="flex flex-wrap items-center gap-1">
+        @if (ShowBase)
+        {
+            @Chip(null, "No aspect", Records?.GetValueOrDefault(SetupInsights.BaseAspectKey))
+        }
+        @foreach (var aspect in Aspects)
+        {
+            @Chip(aspect, aspect.Name, Records?.GetValueOrDefault(aspect.Id.Value))
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<Aspect> Aspects { get; set; } = [];
+
+    /// <summary>Plays per aspect id. Null means there is no history to report at all.</summary>
+    [Parameter] public IReadOnlyDictionary<string, SetupInsights.PlayRecord>? Records { get; set; }
+
+    /// <summary>Marks the aspect currently chosen — null selects the "No aspect" chip.</summary>
+    [Parameter] public string? SelectedAspectId { get; set; }
+
+    /// <summary>Whether "No aspect" leads the row as a chip of its own.</summary>
+    [Parameter] public bool ShowBase { get; set; }
+
+    /// <summary>Makes the chips choosable. A null aspect is the spirit with no aspect.</summary>
+    [Parameter] public EventCallback<Aspect?> OnPick { get; set; }
+
+    /// <summary>Whose record the counts are, for the tooltip — "Anna" or null for your own.</summary>
+    [Parameter] public string? SubjectName { get; set; }
+
+    private RenderFragment Chip(Aspect? aspect, string label, SetupInsights.PlayRecord? record) => __builder =>
+    {
+        var selected = SelectedAspectId == aspect?.Id.Value;
+        var played = record?.Played ?? 0;
+        var never = Records is not null && played == 0;
+        var css = ChipClass(selected, never);
+        var title = SetupInsights.RecordTooltip(label, record, SubjectName, Records is not null);
+
+        if (OnPick.HasDelegate)
+        {
+            <button type="button" @key="@(aspect?.Id.Value ?? "base")" class="@css" title="@title"
+                    @onclick="() => OnPick.InvokeAsync(aspect)" @onclick:stopPropagation>
+                @ChipBody(label, record, never)
+            </button>
+        }
+        else
+        {
+            <span @key="@(aspect?.Id.Value ?? "base")" class="@css" title="@title">
+                @ChipBody(label, record, never)
+            </span>
+        }
+    };
+
+    private RenderFragment ChipBody(string label, SetupInsights.PlayRecord? record, bool never) => __builder =>
+    {
+        <span class="truncate">@label</span>
+        @if (never)
+        {
+            <span class="text-[9px] font-semibold uppercase">new</span>
+        }
+        else if (record is { Played: > 0 })
+        {
+            <span class="tabular-nums opacity-70">@(record.Played)×</span>
+            @if (record.Completed > 0)
+            {
+                <span class="tabular-nums font-semibold @WinTone.ForRate(record.WinRate)">@($"{record.WinRate:F0}")%</span>
+            }
+        }
+    };
+
+    /// Same three states the record pills use everywhere else: chosen, never played, played.
+    private string ChipClass(bool selected, bool never) =>
+        "inline-flex max-w-full items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium transition-colors "
+        + (selected
+            ? "border-accent-400 bg-accent-100 text-accent-800"
+            : never
+                ? "border-dashed border-amber-300 bg-amber-50/60 text-amber-700"
+                    + (OnPick.HasDelegate ? " hover:border-amber-400 hover:bg-amber-100" : "")
+                : "border-ink-200 bg-white text-ink-600"
+                    + (OnPick.HasDelegate ? " hover:border-accent-300 hover:text-ink-900" : ""))
+        + (OnPick.HasDelegate ? " focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40" : "");
+}

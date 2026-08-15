@@ -82,6 +82,17 @@
   }
   .btn-ghost:hover:not(:disabled) { @apply bg-ink-100; }
 
+  /* The primary action of a card, where that card is one of twenty on screen. btn-primary's
+     fill is sized for the one action a page is about; tiled across a grid it becomes a wall
+     of colour that drowns out whatever the cards themselves are coloured by. Same place in
+     the hierarchy, a fraction of the weight. */
+  .btn-soft {
+    @apply bg-accent-50 text-accent-800 border border-accent-200;
+  }
+  .btn-soft:hover:not(:disabled) { @apply bg-accent-100 border-accent-300; }
+  /* Held open — the card's variants are showing below it. */
+  .btn-soft.is-active { @apply bg-accent-100 border-accent-400; }
+
   .btn-danger {
     @apply bg-red-600 text-white shadow-sm;
   }

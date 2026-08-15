@@ -82,6 +82,7 @@
                             @foreach (var aspect in _aspects)
                             {
                                 var aspectDetail = AspectDetails.For(aspect.Id);
+                                var record = _aspectRecords?.GetValueOrDefault(aspect.Id.Value);
                                 <li class="rounded-lg border border-ink-200 p-4">
                                     <div class="flex items-center gap-2">
                                         <span class="h-2 w-2 rounded-full shrink-0" style="background-color: @color;"></span>
@@ -91,6 +92,37 @@
                                     @if (aspectDetail is not null)
                                     {
                                         <p class="mt-2 text-sm text-ink-600 leading-relaxed">@aspectDetail.Summary</p>
+                                    }
+                                    @* An aspect's own record, and the door to playing it: the sheet is
+                                       where you compare the variants, so it is where you commit to one. *@
+                                    @if (_aspectRecords is not null || OnSelected.HasDelegate)
+                                    {
+                                        <div class="mt-3 flex flex-wrap items-center gap-2">
+                                            @if (_aspectRecords is not null)
+                                            {
+                                                <RecordChip Record="record" Subject="@($"{_spirit.Name} · {aspect.Name}")"
+                                                            NeverLabel="@(SubjectName is null ? "Never played" : $"{SubjectName}: never played")"
+                                                            OnClick="() => ShowAspectProfile(aspect)"/>
+                                            }
+                                            @if (OnSelected.HasDelegate)
+                                            {
+                                                <button type="button" class="btn btn-secondary btn-sm"
+                                                        @onclick="() => Select(aspect)">
+                                                    <Icon Name="check" Class="w-3.5 h-3.5"/> Play as @aspect.Name
+                                                </button>
+                                            }
+                                        </div>
+                                    }
+                                    @* The variant's full profile, in place — the same section the spirit
+                                       itself gets, so the two are read the same way. *@
+                                    @if (_openAspectId == aspect.Id.Value && _aspectProfile is not null)
+                                    {
+                                        <div class="mt-3 border-t border-ink-100 pt-3">
+                                            <SetupProfileSection Profile="_aspectProfile" Name="@($"{_spirit.Name} · {aspect.Name}")"
+                                                                 SubjectName="@SubjectName"
+                                                                 Facts="@(SeatFilter is null ? Facts : null)" SubjectId="@aspect.Id.Value"
+                                                                 Title="@($"Your record as {aspect.Name}")"/>
+                                        </div>
                                     }
                                 </li>
                             }
@@ -113,8 +145,11 @@
                     <button type="button" class="btn btn-ghost btn-sm" @onclick="Close">
                         <Icon Name="arrow-left" Class="w-3.5 h-3.5"/> Back to spirits
                     </button>
-                    <button type="button" class="btn btn-primary" @onclick="Select">
-                        <Icon Name="check" Class="w-4 h-4"/> Play @_spirit.Name
+                    @* Each aspect has its own action above, so this one has to say it takes the
+                       spirit plain rather than whichever variant was last read. *@
+                    <button type="button" class="btn btn-primary" @onclick="() => Select(null)">
+                        <Icon Name="check" Class="w-4 h-4"/>
+                        Play @_spirit.Name@(_aspects.Count > 0 ? " · no aspect" : "")
                     </button>
                 </div>
             }
@@ -141,15 +176,24 @@
     /// <summary>Whose record is shown when it isn't the current user's, e.g. "Anna".</summary>
     [Parameter] public string? SubjectName { get; set; }
 
-    /// <summary>When set, a footer action picks this spirit — used when opened from the picker.</summary>
-    [Parameter] public EventCallback<Spirit> OnSelected { get; set; }
+    /// <summary>When set, a footer action picks this spirit — used when opened from the picker.
+    /// Each aspect gets an action of its own, so a variant can be chosen straight from here.</summary>
+    [Parameter] public EventCallback<SpiritPick> OnSelected { get; set; }
 
     private Spirit? _spirit;
     private SpiritDetail? _detail;
     private IReadOnlyList<Aspect> _aspects = [];
     private SetupProfiles.Profile? _profile;
 
-    public void Show(Spirit spirit)
+    /// Per-aspect plays for this spirit; null when there is no history to report.
+    private Dictionary<string, SetupInsights.PlayRecord>? _aspectRecords;
+
+    /// The aspect whose full profile is expanded in place, and that profile.
+    private string? _openAspectId;
+    private SetupProfiles.Profile? _aspectProfile;
+
+    /// <param name="aspectId">The aspect already chosen for the seat, if any — its row opens expanded.</param>
+    public void Show(Spirit spirit, string? aspectId = null)
     {
         _spirit = spirit;
         _detail = SpiritDetails.For(spirit.Id);
@@ -159,6 +203,12 @@
         _profile = Facts is { Count: > 0 }
             ? SetupProfiles.Build(SetupSubjectKind.Spirit, spirit.Id.Value, Facts, SeatFilter)
             : null;
+        _aspectRecords = Facts is { Count: > 0 }
+            ? SetupInsights.AspectRecords(Facts, spirit.Id.Value, SeatFilter)
+            : null;
+        _openAspectId = null;
+        _aspectProfile = null;
+        if (!string.IsNullOrEmpty(aspectId) && _aspects.Any(a => a.Id.Value == aspectId)) OpenAspectProfile(aspectId);
         StateHasChanged();
     }
 
@@ -168,12 +218,36 @@
         _detail = null;
         _aspects = [];
         _profile = null;
+        _aspectRecords = null;
+        _openAspectId = null;
+        _aspectProfile = null;
     }
 
-    private async Task Select()
+    /// Toggles the aspect's profile open in place rather than opening a sheet on top of this
+    /// one — the point is comparing the variants against each other and against the spirit.
+    private void ShowAspectProfile(Aspect aspect)
+    {
+        if (_openAspectId == aspect.Id.Value)
+        {
+            _openAspectId = null;
+            _aspectProfile = null;
+            return;
+        }
+        OpenAspectProfile(aspect.Id.Value);
+    }
+
+    private void OpenAspectProfile(string aspectId)
+    {
+        _openAspectId = aspectId;
+        _aspectProfile = Facts is { Count: > 0 }
+            ? SetupProfiles.Build(SetupSubjectKind.Aspect, aspectId, Facts, SeatFilter)
+            : null;
+    }
+
+    private async Task Select(Aspect? aspect = null)
     {
         var spirit = _spirit;
         Close();
-        if (spirit is not null) await OnSelected.InvokeAsync(spirit);
+        if (spirit is not null) await OnSelected.InvokeAsync(new SpiritPick(spirit, aspect));
     }
 }

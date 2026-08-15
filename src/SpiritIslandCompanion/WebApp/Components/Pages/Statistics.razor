@@ -474,6 +474,13 @@ else
                 var playedSpiritIds = _stats.SpiritStatistics.Select(s => s.SpiritId).ToHashSet();
                 var ownedSpirits = OwnedSpiritsList();
                 var missingSpirits = ownedSpirits.Where(s => !playedSpiritIds.Contains(s.Id.Value)).Cast<object>().ToList();
+                var missingAspects = MissingAspects(ownedSpirits);
+                var missingAspectGroups = missingAspects
+                    .GroupBy(m => (m.SpiritId, m.SpiritName))
+                    .OrderBy(g => g.Key.SpiritName)
+                    .Select(g => new MissingAspectGroup(g.Key.SpiritId, g.Key.SpiritName, g.Select(m => m.AspectName).ToList()))
+                    .Cast<object>().ToList();
+                var totalAspects = ownedSpirits.Sum(s => OwnedAspectsFor(s).Count);
             }
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -524,6 +531,14 @@ else
                                                 @(spirit?.Name ?? s.SpiritId)
                                             </button>
                                             @if (detail is not null) { <div class="text-[11px] text-ink-500 truncate">@detail.PlayStyle</div> }
+                                            @* Which variants the plays were: the row's own numbers pool
+                                               them, and an aspect is a different spirit to play. *@
+                                            @if (PlayedAspects(s) is { Count: > 0 } playedAspects)
+                                            {
+                                                <div class="mt-1">
+                                                    <AspectChips Aspects="playedAspects" Records="AspectRecordsOf(s)"/>
+                                                </div>
+                                            }
                                         </div>
                                     </div>
                                 </td>
@@ -545,7 +560,34 @@ else
             </div>
 
             <CoveragePanel Title="Spirits" Total="ownedSpirits.Count" Missing="missingSpirits" ItemTemplate="SpiritPill"/>
+
+            @* Aspects are counted the way adversary levels are: one entry per variant, grouped
+               under the spirit it varies, because an aspect is a different spirit to play. *@
+            @if (totalAspects > 0)
+            {
+                <CoveragePanel Title="Aspects"
+                               Total="totalAspects"
+                               Missing="missingAspectGroups"
+                               MissingCount="missingAspects.Count"
+                               ItemTemplate="AspectGroupPill"/>
+            }
         </div>;
+
+    private RenderFragment<object> AspectGroupPill => o =>
+        @<text>
+            @{
+                var entry = (MissingAspectGroup)o;
+                var spirit = GameLookups.SpiritFor(entry.SpiritId);
+                var color = spirit is null ? null : SpiritDetails.For(spirit.Id)?.ColorHex;
+            }
+            <button type="button" @onclick="() => OpenSpirit(entry.SpiritId)" title="@($"{entry.SpiritName} — details and full record")"
+                    class="inline-flex items-center gap-1.5 rounded-full border border-dashed border-amber-300 bg-amber-50/60 px-2.5 py-1 text-xs transition-colors
+                           hover:border-amber-400 hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                <span class="inline-block h-2 w-2 rounded-full" style="background-color: @(color ?? GameLookups.NeutralColor);"></span>
+                <span class="font-medium text-amber-800">@entry.SpiritName</span>
+                <span class="text-amber-700">@string.Join(", ", entry.AspectNames)</span>
+            </button>
+        </text>;
 
     private RenderFragment<object> SpiritPill => o =>
         @<text>
@@ -1059,6 +1101,9 @@ else
     public sealed record MissingLevel(string AdversaryId, string AdversaryName, int Level);
     public sealed record MissingAdversaryGroup(string AdversaryId, string AdversaryName, List<int> Levels);
 
+    public sealed record MissingAspect(string SpiritId, string SpiritName, string AspectName);
+    public sealed record MissingAspectGroup(string SpiritId, string SpiritName, List<string> AspectNames);
+
     protected override async Task OnInitializedAsync()
     {
         // Without a user there is nothing to load — drop the spinner rather than spin forever.
@@ -1118,6 +1163,47 @@ else
             ? "bg-accent-50 hover:bg-accent-100 "
             : "hover:bg-ink-50 ")
         + "w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg transition-colors";
+
+    /// <summary>The spirit's per-aspect tally in the shape the shared chips read.</summary>
+    private static IReadOnlyDictionary<string, SetupInsights.PlayRecord> AspectRecordsOf(SpiritStats s) =>
+        s.Aspects.ToDictionary(
+            a => a.AspectId ?? SetupInsights.BaseAspectKey,
+            a => new SetupInsights.PlayRecord(a.GamesPlayed, a.Wins, a.Losses));
+
+    /// <summary>
+    /// Only the aspects actually played. The table is a record, not a catalogue — listing the
+    /// variants never taken would widen every row of a spirit like Shadows to say nothing.
+    /// </summary>
+    private IReadOnlyList<Aspect> PlayedAspects(SpiritStats s)
+    {
+        var played = s.Aspects.Where(a => a.AspectId is not null).Select(a => a.AspectId!).ToHashSet();
+        if (played.Count == 0) return [];
+        return GameData.Aspects.Where(a => played.Contains(a.Id.Value)).ToList();
+    }
+
+    /// <summary>The aspects of one spirit that are on the player's shelf.</summary>
+    private IReadOnlyList<Aspect> OwnedAspectsFor(Spirit s) =>
+        GameData.GetAspectsForSpirit(s.Id)
+            .Where(a => OwnedExpansions is null || OwnedExpansions.Contains(a.ExpansionId))
+            .ToList();
+
+    /// <summary>
+    /// Every owned aspect never played, flattened. Counted per variant rather than per spirit —
+    /// the same way adversary coverage counts levels, and for the same reason.
+    /// </summary>
+    private List<MissingAspect> MissingAspects(IReadOnlyList<Spirit> ownedSpirits)
+    {
+        var played = _stats!.SpiritStatistics
+            .SelectMany(s => s.Aspects)
+            .Select(a => a.AspectId)
+            .OfType<string>()
+            .ToHashSet();
+        return ownedSpirits
+            .SelectMany(s => OwnedAspectsFor(s)
+                .Where(a => !played.Contains(a.Id.Value))
+                .Select(a => new MissingAspect(s.Id.Value, s.Name, a.Name)))
+            .ToList();
+    }
 
     private IReadOnlyList<Spirit> OwnedSpiritsList() =>
         GameData.Spirits.Where(s => OwnedExpansions is null || OwnedExpansions.Contains(s.ExpansionId)).ToList();

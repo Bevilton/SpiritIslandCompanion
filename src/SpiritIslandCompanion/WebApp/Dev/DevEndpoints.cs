@@ -5,6 +5,7 @@ using Application.Features.Players;
 using Application.Features.Statistics;
 using Application.Features.Users;
 using Domain.Models.Game.Enums;
+using Domain.Models.Static;
 using Domain.Models.Static.Data;
 using MediatR;
 using Microsoft.AspNetCore.Authentication;
@@ -109,9 +110,15 @@ public static class DevEndpoints
                     ? b
                     : boards.Where(x => !tableBoards.Contains(x)).ElementAt(rng.Next(boards.Count - tableBoards.Count));
                 tableBoards.Add(board);
+                // Some seats play a variant. A spirit with aspects should show a mix of them and
+                // of the spirit as printed, or the per-aspect records have nothing to report.
+                var options = GameData.GetAspectsForSpirit(new SpiritId(spirit));
+                var aspect = options.Count > 0 && rng.Next(100) < 45
+                    ? options[rng.Next(options.Count)].Id.Value
+                    : null;
                 gamePlayers.Add(seat == 0
-                    ? new GamePlayerDto(spirit, null, board, userId, null)
-                    : new GamePlayerDto(spirit, null, board, null, localPlayerIds[seat - 1]));
+                    ? new GamePlayerDto(spirit, aspect, board, userId, null)
+                    : new GamePlayerDto(spirit, aspect, board, null, localPlayerIds[seat - 1]));
             }
 
             var gameAdversaries = new List<GameAdversaryDto>();

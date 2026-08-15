@@ -1,0 +1,116 @@
+@* Every board you own as one row of letter tiles, each carrying the record behind it — the
+   inline cousin of BoardPickerModal. There are only ever eight boards, so the whole choice
+   fits on screen and the answer to "which one is fresh for this seat?" is the picture itself
+   rather than something to be read row by row.
+
+   The record is whatever the host scoped it to (see MatchupContext.BoardRecords): with a
+   spirit chosen it is that pairing, and with someone in the seat it is their history alone.
+   Tiles follow the same three states as RecordChip — never played, played, most played. *@
+
+@{
+    var mostPlayed = Records.Count == 0 ? 0 : Records.Values.Max(r => r.Played);
+}
+
+<div class="grid grid-cols-4 gap-1.5 sm:grid-cols-8">
+    @foreach (var b in Boards)
+    {
+        var id = b.Id.Value;
+        var detail = BoardDetails.For(b.Id);
+        var color = detail?.ColorHex ?? GameLookups.NeutralColor;
+        var isSelected = SelectedId == id;
+        var isTaken = Taken.Contains(id) && !isSelected;
+        var record = Records.GetValueOrDefault(id);
+        var played = record?.Played ?? 0;
+        @* A lead of one play is no lead — with everything at 1× every board would be
+           marked, which marks nothing. Same rule the board picker's star follows. *@
+        var isFavourite = played > 0 && played == mostPlayed && mostPlayed > 1;
+
+        <button @key="id" type="button" disabled="@isTaken"
+                @onclick="() => OnSelect.InvokeAsync(b)"
+                title="@Tooltip(b, record, isTaken)"
+                class="@TileClass(isSelected, isTaken, isFavourite, HasHistory && played == 0)
+                       relative flex flex-col items-center gap-1 rounded-lg border px-1 py-1.5 transition-all
+                       enabled:hover:-translate-y-px enabled:hover:shadow-sm
+                       focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+            <span class="inline-flex h-8 w-8 items-center justify-center rounded-md text-base font-semibold text-white"
+                  style="background-color: @color; font-family: var(--font-serif);">
+                @GameLookups.BoardLetter(b)
+            </span>
+            @* The accent border alone would read like the most-played tile, which also wears one. *@
+            @if (isSelected)
+            {
+                <span class="absolute -right-1 -top-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-accent-600 text-white">
+                    <Icon Name="check" Class="w-2.5 h-2.5"/>
+                </span>
+            }
+            @* The caption is the record slot. Without a history there is none, so it names the
+               region instead — the letter is already on the tile above it. *@
+            <span class="max-w-full truncate text-[10px] leading-tight tabular-nums @CountClass(isTaken, isFavourite, HasHistory && played == 0)">
+                @if (isTaken)
+                {
+                    <text>in use</text>
+                }
+                else if (!HasHistory)
+                {
+                    @detail?.ThematicName
+                }
+                else if (played == 0)
+                {
+                    <text>new</text>
+                }
+                else
+                {
+                    <text>@(played)×</text>
+                }
+            </span>
+        </button>
+    }
+</div>
+
+@code {
+    /// <summary>The boards on the shelf — what the player owns, in catalogue order.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<Board> Boards { get; set; } = [];
+
+    [Parameter] public string? SelectedId { get; set; }
+
+    /// <summary>Boards another seat already holds. There is one physical copy of each, so
+    /// they are shown but can't be taken.</summary>
+    [Parameter] public IReadOnlyCollection<string> Taken { get; set; } = [];
+
+    /// <summary>Plays per board, already scoped by the host to the seat and its spirit.</summary>
+    [Parameter] public IReadOnlyDictionary<string, SetupInsights.PlayRecord> Records { get; set; } =
+        new Dictionary<string, SetupInsights.PlayRecord>();
+
+    /// <summary>Whether there is any history at all — without one a tile has no record to miss.</summary>
+    [Parameter] public bool HasHistory { get; set; }
+
+    /// <summary>What the counts are counting — "with Lightning's Swift Strike". Used in tooltips.</summary>
+    [Parameter] public string? ScopeLabel { get; set; }
+
+    [Parameter] public EventCallback<Board> OnSelect { get; set; }
+
+    private string Scope => string.IsNullOrEmpty(ScopeLabel) ? "" : $" {ScopeLabel}";
+
+    private static string TileClass(bool selected, bool taken, bool favourite, bool never) =>
+        taken ? "border-ink-200 bg-ink-50 opacity-40 cursor-not-allowed"
+        : selected ? "border-accent-500 bg-accent-50/70 ring-2 ring-accent-500/30"
+        : favourite ? "border-accent-300 bg-accent-50/40 hover:border-accent-400"
+        : never ? "border-dashed border-amber-300 bg-amber-50/50 hover:border-amber-400"
+        : "border-ink-200 bg-white hover:border-ink-300";
+
+    private static string CountClass(bool taken, bool favourite, bool never) =>
+        taken ? "text-ink-400"
+        : favourite ? "font-semibold text-accent-700"
+        : never ? "font-medium text-amber-700"
+        : "text-ink-500";
+
+    private string Tooltip(Board b, SetupInsights.PlayRecord? record, bool taken)
+    {
+        var name = BoardDetails.For(b.Id) is { } d ? $"{b.Name} — {d.ThematicName}" : b.Name;
+        if (taken) return $"{name} · already on another seat";
+        if (!HasHistory) return name;
+        if (record is not { Played: > 0 }) return $"{name} · never played{Scope}";
+        var wins = record.Completed > 0 ? $" · {record.WinRate:F0}% wins" : "";
+        return $"{name} · {record.Played}× played{Scope}{wins}";
+    }
+}

@@ -23,9 +23,13 @@ public sealed record SetupFactAdversary(string AdversaryId, int Level);
 /// <see cref="PlayerName"/> is the display name behind that identity (user
 /// nickname or local player name; null for an unassigned seat) — the record
 /// sheets use it to say who played what.
+/// <see cref="AspectId"/> is the variant of the spirit that was played, null for
+/// the spirit as printed; an aspect changes the spirit enough that its record is
+/// worth counting separately.
 /// </summary>
 public sealed record SetupFactSeat(
     string SpiritId,
+    string? AspectId,
     string BoardId,
     bool IsMine,
     Guid? UserId,
@@ -98,6 +102,7 @@ internal sealed class GetSetupFactsHandler(IAppDbContext db) : IQueryHandler<Get
             g.Players
                 .Select(p => new SetupFactSeat(
                     p.SpiritId.Value,
+                    p.AspectId?.Value,
                     p.StartingBoard.Value,
                     p.UserId != null && p.UserId.Value == request.UserId,
                     p.UserId?.Value,

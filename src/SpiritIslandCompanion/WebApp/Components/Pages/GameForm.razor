@@ -293,7 +293,7 @@ else
        no board to choose on the thematic island, which hands them out itself. *@
     <p class="mt-2 text-xs text-ink-500">
         Tap a board to select it, then <span class="font-medium text-ink-600">Set up</span>
-        for its spirit@(ThematicBoardsLocked ? "" : ", board") and player.
+        for its player, spirit@(ThematicBoardsLocked ? "" : " and board").
         @* On the thematic island the extra board's letter comes with its position, so there is
            nothing left to ask for. *@
         @if (UsesExtraBoard && !ThematicBoardsLocked)
@@ -737,9 +737,11 @@ else
         var boardDetail = board is null ? null : BoardDetails.For(board.Id);
         var hasSpirit = spirit is not null;
 
-        <ModalShell OnClose="ClosePlayerModal" ZIndex="z-40" Scrollable="false"
+        @* Scrollable: three steps plus a spirit's aspects outgrow a short phone screen, and the
+           Done button has to stay reachable. *@
+        <ModalShell OnClose="ClosePlayerModal" ZIndex="z-40"
                     PanelStyle="@($"border-top: 4px solid {(hasSpirit ? color : "var(--color-ink-300)")};")">
-                <div class="flex items-center justify-between gap-3 px-5 pt-4 pb-3 border-b border-ink-100">
+                <div class="flex shrink-0 items-center justify-between gap-3 px-5 pt-4 pb-3 border-b border-ink-100">
                     <span class="inline-flex items-center gap-2 text-xs font-medium text-ink-500">
                         <span class="inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold"
                               style="@(hasSpirit ? $"background-color: {color}; color: white;" : "background-color: var(--color-ink-100); color: var(--color-ink-600);")">
@@ -753,10 +755,30 @@ else
                     </button>
                 </div>
 
-                <div class="p-5">
-                    <div class="grid gap-3">
+                @* Player first, then spirit, then board — each step narrows the records the next
+                   one is measured against: whose history, then which spirit's, then that pair
+                   on each board. Choosing in any other order shows numbers for the wrong seat. *@
+                <div class="flex-1 overflow-y-auto p-5">
+                    <div class="grid gap-4">
                         <div>
-                            <label class="label">Spirit</label>
+                            <label class="label">@StepLabel(1, "Played by")</label>
+                            <PlayerAssigneePicker
+                                Value="@p.AssignedTo"
+                                ValueChanged="v => OnAssigneeChanged(idx, v)"
+                                Friends="_friends"
+                                LocalPlayers="_localPlayers"/>
+                            <FieldError For="@($"Players[{idx}].AssignedTo")" Errors="@_form.Errors"/>
+                            @if (_facts.Count > 0)
+                            {
+                                <div class="mt-1.5 flex items-start gap-1.5 text-[11px] text-ink-500">
+                                    <Icon Name="chart" Class="w-3.5 h-3.5 shrink-0 mt-px text-ink-400"/>
+                                    <span>@ScopeNote(p)</span>
+                                </div>
+                            }
+                        </div>
+
+                        <div>
+                            <label class="label">@StepLabel(2, "Spirit")</label>
                             <button type="button" @onclick="() => OpenSpiritPicker(idx)"
                                     class="w-full flex items-center gap-3 px-3 py-2 rounded-lg border bg-white hover:bg-ink-50 transition-colors text-left
                                            focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/30
@@ -792,110 +814,84 @@ else
                                     <span>@insight</span>
                                 </div>
                             }
+                            @* An aspect is a variant of the spirit above, so it belongs to that step
+                               rather than trailing the dialog as a fourth thing to decide. It can
+                               also be picked with the spirit — this is for changing it after. *@
+                            @if (hasSpirit && aspects.Count > 0)
+                            {
+                                <div class="mt-2 flex flex-wrap items-center gap-1.5">
+                                    <span class="mr-0.5 text-[10px] uppercase tracking-wide text-ink-500">Aspect</span>
+                                    <AspectChips Aspects="aspects" ShowBase="true"
+                                                 Records="@(_facts.Count > 0 ? SeatAspectRecords(p) : null)"
+                                                 SelectedAspectId="@(string.IsNullOrEmpty(p.AspectId) ? null : p.AspectId)"
+                                                 SubjectName="@SeatContext(p).SubjectName"
+                                                 OnPick="a => SelectAspect(idx, a?.Id.Value)"/>
+                                </div>
+                            }
                         </div>
 
-                        <div class="grid gap-3 sm:grid-cols-2">
-                            <div>
-                                <label class="label flex items-center gap-1.5">
-                                    <span>Board</span>
+                        <div>
+                            <div class="flex items-center justify-between gap-2">
+                                <label class="label mb-0 flex items-center gap-1.5">
+                                    <span>@StepLabel(3, "Board")</span>
                                     @if (ThematicBoardsLocked)
                                     {
                                         <Icon Name="lock" Class="w-3 h-3 text-ink-400"/>
                                     }
                                 </label>
-                                @* On the thematic island the board comes with the seat's position on
-                                   the map, so it is shown rather than chosen. *@
-                                @if (ThematicBoardsLocked && board is not null)
-                                {
-                                    var bColor = boardDetail?.ColorHex ?? GameLookups.NeutralColor;
-                                    var letter = GameLookups.BoardLetter(board);
-                                    <div class="flex w-full items-center gap-2 rounded-lg border border-ink-200 bg-ink-50/60 px-3 py-2">
-                                        <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base font-semibold text-white"
-                                              style="background-color: @bColor; font-family: var(--font-serif);">
-                                            @letter
-                                        </span>
-                                        <div class="min-w-0 flex-1">
-                                            <div class="truncate text-sm font-semibold text-ink-900">@board.Name</div>
-                                            <div class="truncate text-[11px] text-ink-500">
-                                                @(boardDetail?.ThematicName ?? "thematic position") · set by the island
-                                            </div>
-                                        </div>
-                                    </div>
-                                }
-                                else
+                                @if (!ThematicBoardsLocked)
                                 {
                                     <button type="button" @onclick="() => OpenBoardPicker(idx)"
-                                            class="w-full flex items-center gap-2 px-3 py-2 rounded-lg border bg-white hover:bg-ink-50 transition-colors text-left
-                                                   focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/30
-                                                   @(board is not null ? "border-ink-200" : "border-dashed border-ink-300")">
-                                        @if (board is not null)
-                                        {
-                                            var bColor = boardDetail?.ColorHex ?? GameLookups.NeutralColor;
-                                            var letter = GameLookups.BoardLetter(board);
-                                            <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-white text-base font-semibold shrink-0"
-                                                  style="background-color: @bColor; font-family: var(--font-serif);">
-                                                @letter
-                                            </span>
-                                            <div class="min-w-0 flex-1">
-                                                <div class="text-sm font-semibold text-ink-900 truncate">@board.Name</div>
-                                                @if (boardDetail is not null)
-                                                {
-                                                    <div class="text-[11px] text-ink-500 truncate">@boardDetail.ThematicName</div>
-                                                }
-                                            </div>
-                                        }
-                                        else
-                                        {
-                                            <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-ink-100 text-ink-500 shrink-0">
-                                                <Icon Name="map" Class="w-4 h-4"/>
-                                            </span>
-                                            <span class="text-sm text-ink-500 truncate min-w-0 flex-1">Pick…</span>
-                                        }
+                                            class="text-[11px] text-accent-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40 rounded">
+                                        Board sheets →
                                     </button>
                                 }
-                                <FieldError For="@($"Players[{idx}].BoardId")" Errors="@_form.Errors"/>
-                                @if (_facts.Count > 0 && board is not null && hasSpirit && SpiritOnBoardLine(p) is { } comboLine)
-                                {
-                                    <div class="mt-1.5 flex items-start gap-1.5 text-[11px] text-ink-500">
-                                        <Icon Name="map" Class="w-3.5 h-3.5 shrink-0 mt-px text-ink-400"/>
-                                        <span>@comboLine</span>
-                                    </div>
-                                }
                             </div>
-
-                            <div>
-                                <label class="label">Assigned to</label>
-                                <PlayerAssigneePicker
-                                    Value="@p.AssignedTo"
-                                    ValueChanged="v => OnAssigneeChanged(idx, v)"
-                                    Friends="_friends"
-                                    LocalPlayers="_localPlayers"/>
-                                <FieldError For="@($"Players[{idx}].AssignedTo")" Errors="@_form.Errors"/>
-                            </div>
-                        </div>
-                    </div>
-
-                    @if (hasSpirit && aspects.Count > 0)
-                    {
-                        <div class="mt-3 pt-3 border-t border-ink-100 flex items-start gap-2 flex-wrap">
-                            <span class="text-[10px] uppercase tracking-wide text-ink-500 mt-1.5 mr-1">Aspect</span>
-                            <FilterPill Active="@(string.IsNullOrEmpty(p.AspectId))"
-                                        OnToggle="() => SelectAspect(idx, null)">
-                                None
-                            </FilterPill>
-                            @foreach (var a in aspects)
+                            @* On the thematic island the board comes with the seat's position on
+                               the map, so it is shown rather than chosen. *@
+                            @if (ThematicBoardsLocked && board is not null)
                             {
-                                var aId = a.Id.Value;
-                                <FilterPill Active="@(p.AspectId == aId)"
-                                            OnToggle="() => SelectAspect(idx, aId)">
-                                    @a.Name
-                                </FilterPill>
+                                var bColor = boardDetail?.ColorHex ?? GameLookups.NeutralColor;
+                                <div class="mt-1.5 flex w-full items-center gap-2 rounded-lg border border-ink-200 bg-ink-50/60 px-3 py-2">
+                                    <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base font-semibold text-white"
+                                          style="background-color: @bColor; font-family: var(--font-serif);">
+                                        @GameLookups.BoardLetter(board)
+                                    </span>
+                                    <div class="min-w-0 flex-1">
+                                        <div class="truncate text-sm font-semibold text-ink-900">@board.Name</div>
+                                        <div class="truncate text-[11px] text-ink-500">
+                                            @(boardDetail?.ThematicName ?? "thematic position") · set by the island
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                @* The whole shelf, not a button that hides it: with eight boards the
+                                   fresh ones and the well-worn ones are visible at a glance. *@
+                                <div class="mt-1.5">
+                                    <BoardChoiceStrip Boards="OwnedBoards"
+                                                      SelectedId="@p.BoardId"
+                                                      Taken="BoardsTakenBy(idx)"
+                                                      Records="SeatBoardRecords(p)"
+                                                      HasHistory="@(_facts.Count > 0)"
+                                                      ScopeLabel="@BoardScopeLabel(p)"
+                                                      OnSelect="b => SelectSeatBoard(idx, b)"/>
+                                </div>
+                            }
+                            <FieldError For="@($"Players[{idx}].BoardId")" Errors="@_form.Errors"/>
+                            @if (BoardNote(p, idx) is { } boardNote)
+                            {
+                                <div class="mt-1.5 flex items-start gap-1.5 text-[11px] text-ink-500">
+                                    <Icon Name="map" Class="w-3.5 h-3.5 shrink-0 mt-px text-ink-400"/>
+                                    <span>@boardNote</span>
+                                </div>
                             }
                         </div>
-                    }
+                    </div>
                 </div>
 
-                <div class="flex items-center justify-between gap-3 px-5 py-3.5 border-t border-ink-100 bg-ink-50/40 md:rounded-b-2xl">
+                <div class="flex shrink-0 items-center justify-between gap-3 px-5 py-3.5 border-t border-ink-100 bg-ink-50/40 md:rounded-b-2xl">
                     @if (_players.Count > 1)
                     {
                         <button type="button" class="btn btn-sm btn-danger-outline" @onclick="() => RemovePlayer(idx)">
@@ -986,14 +982,15 @@ else
             scoreModifier: _resultScoreMod);
 
     /// <summary>
-    /// How many lettered boards the player actually has, since boards come with expansions: four
-    /// in the base game, two more with Jagged Earth, two more with Horizons. The island can't have
-    /// more boards than that, however many seats the rules would otherwise allow.
+    /// The lettered boards the player actually has, since boards come with expansions: four in
+    /// the base game, two more with Jagged Earth, two more with Horizons. The shelf a seat
+    /// chooses from, and the cap on how many boards the island can hold — however many seats
+    /// the rules would otherwise allow.
     /// </summary>
-    private int OwnedBoardCount =>
-        OwnedExpansions is null
-            ? GameData.Boards.Count
-            : GameData.Boards.Count(b => OwnedExpansions.Contains(b.ExpansionId));
+    private IReadOnlyList<Board> OwnedBoards =>
+        GameData.Boards.Where(b => OwnedExpansions is null || OwnedExpansions.Contains(b.ExpansionId)).ToList();
+
+    private int OwnedBoardCount => OwnedBoards.Count;
 
     private bool ExtraBoardAllowed =>
         _players.Count <= GameRestrictions.MaximumPlayersForExtraBoard
@@ -1253,10 +1250,34 @@ else
         return null;
     }
 
+    /// The seat dialog reads as three numbered steps, because the order is the point:
+    /// each one decides whose numbers the next step shows.
+    private static RenderFragment StepLabel(int step, string text) => __builder =>
+    {
+        <span class="inline-flex h-4 w-4 items-center justify-center rounded-full bg-ink-100 text-[9px] font-bold text-ink-600 mr-1.5 align-middle">@step</span>
+        <span>@text</span>
+    };
+
+    /// Said once at the top of the seat dialog, so the lines below it don't each have to
+    /// carry a name: "Records below are Anna's — 8 games recorded."
+    private string ScopeNote(PlayerFormItem p)
+    {
+        // Nobody in the seat means nothing to scope by, and the numbers below are then the
+        // whole table's — which has to be said rather than passed off as somebody's record.
+        if (SeatFilterFor(p.AssignedTo) is not { } filter)
+            return "Records below cover every seat you have recorded.";
+
+        var whose = p.AssignedTo == "me" ? "yours" : $"{AssigneeLabel(p.AssignedTo)}'s";
+        var games = _facts.Count(g => g.Seats.Any(filter));
+        return games == 0
+            ? $"Records below are {whose} — no games recorded yet."
+            : $"Records below are {whose} — {games} game{(games == 1 ? "" : "s")} recorded.";
+    }
+
     /// One-line history for the seat's assignee and spirit in the player modal,
-    /// scoped to the current matchup: "Anna: never vs Russia L3 — vs Russia: 3× ·
-    /// 67% · usually board B (4×)". Falls back to the any-level record when the
-    /// exact selection was never played.
+    /// scoped to the current matchup: "never vs Russia L3 — vs Russia: 3× · 67%".
+    /// Falls back to the any-level record when the exact selection was never played.
+    /// Whose record it is has already been said by <see cref="ScopeNote"/>.
     private string? SeatInsightLine(PlayerFormItem p)
     {
         var context = SeatContext(p);
@@ -1277,33 +1298,53 @@ else
         {
             parts.Add(scope is null ? "First game with this spirit" : $"Never played {scope}");
         }
-
-        // Same seat scope as the record above, so the line can't say "never played"
-        // and "usually board B" in the same breath.
-        var boards = context.BoardRecords(p.SpiritId);
-        if (boards.Count > 0)
-        {
-            var top = boards.MaxBy(kv => kv.Value.Played);
-            if (BoardFor(top.Key) is { } board)
-            {
-                parts.Add($"usually board {GameLookups.BoardLetter(board)} ({top.Value.Played}×)");
-            }
-        }
-        var line = string.Join(" · ", parts);
-        return context.SubjectName is null ? line : $"{context.SubjectName}: {line}";
+        return string.Join(" · ", parts);
     }
 
-    /// "Lightning on board B: 3× · 67% wins" — the exact spirit-on-board pairing
-    /// shown in the player modal once both are chosen, scoped to whoever sits there.
-    private string? SpiritOnBoardLine(PlayerFormItem p)
+    /// Plays per aspect of the seat's spirit, scoped to whoever sits there — the base spirit
+    /// under SetupInsights.BaseAspectKey.
+    private IReadOnlyDictionary<string, SetupInsights.PlayRecord> SeatAspectRecords(PlayerFormItem p) =>
+        SeatContext(p).AspectRecords(p.SpiritId);
+
+    /// Plays per board for the seat's strip: this spirit's pairings once one is chosen,
+    /// and the seat's boards overall until then.
+    private IReadOnlyDictionary<string, SetupInsights.PlayRecord> SeatBoardRecords(PlayerFormItem p) =>
+        _facts.Count == 0 ? new Dictionary<string, SetupInsights.PlayRecord>() : SeatContext(p).BoardRecords(p.SpiritId);
+
+    /// What the strip's counts count, for its tooltips — "with Lightning's Swift Strike".
+    private string? BoardScopeLabel(PlayerFormItem p) =>
+        SpiritFor(p.SpiritId) is { } spirit ? $"with {spirit.Name}" : null;
+
+    /// The line under the board strip: the chosen pairing once there is one, and otherwise a
+    /// nudge towards the boards this seat has never used — which is what the strip is for.
+    /// <paramref name="idx"/> is the seat's own slot, so the boards it rules out as taken are
+    /// the other seats' and never its own.
+    private string? BoardNote(PlayerFormItem p, int idx)
     {
-        if (SpiritFor(p.SpiritId) is not { } spirit || BoardFor(p.BoardId) is not { } board) return null;
-        var letter = GameLookups.BoardLetter(board);
-        var rec = SeatContext(p).BoardRecords(p.SpiritId).GetValueOrDefault(p.BoardId);
-        if (rec is not { Played: > 0 })
-            return $"First time playing {spirit.Name} on board {letter}.";
-        var wins = rec.Completed > 0 ? $" · {rec.WinRate:F0}% wins" : "";
-        return $"{spirit.Name} on board {letter}: {rec.Played}×{wins}";
+        if (_facts.Count == 0) return null;
+        var records = SeatBoardRecords(p);
+        var scope = BoardScopeLabel(p) is { } label ? $" {label}" : "";
+
+        if (BoardFor(p.BoardId) is { } board)
+        {
+            var letter = GameLookups.BoardLetter(board);
+            var detail = BoardDetails.For(board.Id);
+            var where = detail is null ? $"Board {letter}" : $"{detail.ThematicName} ({letter})";
+            var rec = records.GetValueOrDefault(p.BoardId);
+            if (rec is not { Played: > 0 }) return $"{where} — first time{scope}.";
+            var wins = rec.Completed > 0 ? $" · {rec.WinRate:F0}% wins" : "";
+            return $"{where} — {rec.Played}× played{scope}{wins}";
+        }
+
+        var taken = BoardsTakenBy(idx);
+        var fresh = OwnedBoards
+            .Where(b => !taken.Contains(b.Id.Value))
+            .Where(b => records.GetValueOrDefault(b.Id.Value) is not { Played: > 0 })
+            .Select(b => GameLookups.BoardLetter(b))
+            .ToList();
+        return fresh.Count == 0
+            ? $"Every free board has been played{scope}."
+            : $"Never played{scope}: board{(fresh.Count == 1 ? "" : "s")} {string.Join(", ", fresh)}.";
     }
 
     @* ============== Island playground ============== *@
@@ -1631,18 +1672,17 @@ else
     private void OpenSpiritPicker(int idx)
     {
         _editingSpiritIndex = idx;
-        _spiritPicker.Show(_players[idx].SpiritId, SeatContext(_players[idx]));
+        _spiritPicker.Show(_players[idx].SpiritId, SeatContext(_players[idx]), _players[idx].AspectId);
     }
 
-    private void OnSpiritPicked(Spirit spirit)
+    /// The picker returns the spirit and the aspect together, so a variant chosen there arrives
+    /// as one decision. A bare spirit clears whatever aspect the seat was holding.
+    private void OnSpiritPicked(SpiritPick pick)
     {
         if (_editingSpiritIndex < 0 || _editingSpiritIndex >= _players.Count) return;
         var p = _players[_editingSpiritIndex];
-        if (p.SpiritId != spirit.Id.Value)
-        {
-            p.SpiritId = spirit.Id.Value;
-            p.AspectId = "";
-        }
+        p.SpiritId = pick.Spirit.Id.Value;
+        p.AspectId = pick.AspectId ?? "";
         _form.Resolve($"Players[{_editingSpiritIndex}].SpiritId");
         _editingSpiritIndex = -1;
     }
@@ -1668,15 +1708,26 @@ else
 
     /// Boards already on the island, so the picker can rule them out — there is one physical
     /// copy of each. Everything except the board currently being changed.
-    private IReadOnlyCollection<string> BoardsTakenForCurrentEdit()
+    private IReadOnlyCollection<string> BoardsTakenForCurrentEdit() =>
+        _editingBoardIndex == -1 ? [] : BoardsTakenBy(_editingBoardIndex);
+
+    /// <param name="slot">The seat keeping its own board — or <see cref="ExtraBoardSlot"/>.</param>
+    private IReadOnlyCollection<string> BoardsTakenBy(int slot)
     {
-        if (_editingBoardIndex == -1) { return []; }
         var taken = _players
-            .Where((_, i) => i != _editingBoardIndex)
+            .Where((_, i) => i != slot)
             .Select(p => p.BoardId)
             .ToList();
-        if (_editingBoardIndex != ExtraBoardSlot && UsesExtraBoard) taken.Add(_extraBoardId);
+        if (slot != ExtraBoardSlot && UsesExtraBoard) taken.Add(_extraBoardId);
         return taken.Where(id => !string.IsNullOrEmpty(id)).ToList();
+    }
+
+    /// A tile on the seat's board strip was tapped — the same assignment the picker modal makes.
+    private void SelectSeatBoard(int idx, Board board)
+    {
+        if (idx < 0 || idx >= _players.Count) return;
+        _players[idx].BoardId = board.Id.Value;
+        _form.Resolve($"Players[{idx}].BoardId");
     }
 
     private void OnBoardPicked(Board board)

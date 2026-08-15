@@ -95,10 +95,26 @@ else
     private SpiritDetailModal _modal = default!;
     private FilterBar? _bar;
 
+    /// Every aspect's record in one tally, so a card can look its own up. Computed here rather
+    /// than passed in: the page already hands over the history the cards' records come from.
+    private IReadOnlyDictionary<string, SetupInsights.PlayRecord>? _aspectRecords;
+
     protected override void OnParametersSet()
     {
         _filter.UseHistory(Records);
+        _aspectRecords = Facts is { Count: > 0 } ? SetupInsights.AspectRecords(Facts) : null;
     }
+
+    /// <summary>
+    /// The aspects of a spirit that have actually been played. A browse card reports a record;
+    /// listing the variants never taken would only repeat the catalogue count beside it.
+    /// </summary>
+    private IReadOnlyList<Aspect> PlayedAspects(Spirit s) =>
+        _aspectRecords is null
+            ? []
+            : GameData.GetAspectsForSpirit(s.Id)
+                .Where(a => _aspectRecords.GetValueOrDefault(a.Id.Value) is { Played: > 0 })
+                .ToList();
 
     /// Every spirit the visitor could see at all, before the filter narrows it.
     private IReadOnlyList<Spirit> _inScope =>
@@ -161,10 +177,14 @@ else
 
             @if (Records is not null)
             {
-                @* Passive: the whole card opens the same sheet, so the pill only shows the figures
+                @* Passive: the whole card opens the same sheet, so these only show the figures
                    the play-based orderings sort on, in the shape used everywhere else. *@
-                <div class="mt-2">
+                <div class="mt-2 space-y-1.5">
                     <RecordChip Record="Records.GetValueOrDefault(s.Id.Value)" Subject="@s.Name"/>
+                    @if (PlayedAspects(s) is { Count: > 0 } played)
+                    {
+                        <AspectChips Aspects="played" Records="_aspectRecords"/>
+                    }
                 </div>
             }
         </button>

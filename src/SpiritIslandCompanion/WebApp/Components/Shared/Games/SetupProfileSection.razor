@@ -224,7 +224,7 @@
 
     private string EmptyHeadline => Profile.Kind switch
     {
-        SetupSubjectKind.Spirit => $"You've never played {Name}.",
+        SetupSubjectKind.Spirit or SetupSubjectKind.Aspect => $"You've never played {Name}.",
         SetupSubjectKind.Board => $"You've never used {Name}.",
         SetupSubjectKind.Adversary => $"You've never faced {Name}.",
         SetupSubjectKind.IslandLayout or SetupSubjectKind.SavedLayout => $"You've never played on {Name}.",
