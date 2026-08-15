@@ -1,9 +1,10 @@
-@* Horizontal strip of the user's 5 most recent games — clickable cards that
-   navigate to the game detail. *@
+@* Horizontal strip of the user's 5 most recent finished games — clickable cards that
+   navigate to the game detail. Drafts are filtered out upstream (see GetRecentGames);
+   the card still reads a game's status so the component works on any list of games. *@
 
 @if (Games.Count == 0)
 {
-    <div class="text-sm text-ink-500 py-6 text-center surface">No games recorded yet.</div>
+    <div class="text-sm text-ink-500 py-6 text-center surface">No finished games yet.</div>
 }
 else
 {

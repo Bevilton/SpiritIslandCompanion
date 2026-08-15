@@ -191,6 +191,19 @@
   .page-title:focus { outline: none; }
   .page-sub   { @apply text-sm text-ink-500 mt-1; }
 
+  /* ---------- Section header ----------
+     The heading over one block within a page, with an optional note or link sharing its
+     baseline at the right-hand end. The base layer already sets the serif on h1–h4, but
+     .section-title carries it too so the class stands on its own element. */
+  .section-head  { @apply mb-3 flex flex-wrap items-baseline justify-between gap-2; }
+  .section-title {
+    @apply text-base font-semibold text-ink-900;
+    font-family: var(--font-serif);
+  }
+  .section-note  { @apply text-[11px] text-ink-500; }
+  .section-link  { @apply text-xs text-accent-700; }
+  .section-link:hover { @apply underline; }
+
   /* ---------- Stat tile ---------- */
   .stat-tile {
     @apply bg-white border border-ink-200 rounded-xl p-5 transition-all;

@@ -1,0 +1,38 @@
+@* One line of "how much of the collection has actually been played": a label, the tally
+   and a completion bar, linking to the page that names what's still missing. The compact
+   cousin of CoveragePanel — that one lists the gaps, this one only reports the score. *@
+
+@{
+    var pct = Total > 0 ? Math.Clamp((double)Played / Total * 100, 0, 100) : 0;
+}
+
+<a href="@Href" title="@($"{Label} — {Played} of {Total} played")"
+   class="block rounded-lg px-3 py-2.5 transition-colors hover:bg-ink-50
+          focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+    <div class="flex items-baseline justify-between gap-2">
+        <span class="inline-flex items-center gap-2 truncate text-sm font-medium text-ink-800">
+            @if (!string.IsNullOrEmpty(Icon))
+            {
+                <Icon Name="@Icon" Class="w-3.5 h-3.5 shrink-0 text-ink-400"/>
+            }
+            @Label
+        </span>
+        <span class="shrink-0 text-xs tabular-nums text-ink-500">
+            <span class="font-semibold text-ink-900">@Played</span> / @Total
+        </span>
+    </div>
+    <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-ink-100">
+        <div class="h-full rounded-full bg-accent-500 transition-all" style="width:@($"{pct:F0}")%"></div>
+    </div>
+</a>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter, EditorRequired] public int Played { get; set; }
+    [Parameter, EditorRequired] public int Total { get; set; }
+
+    /// <summary>Where the full picture lives — the statistics tab that names what's missing.</summary>
+    [Parameter, EditorRequired] public string Href { get; set; } = "";
+
+    [Parameter] public string? Icon { get; set; }
+}

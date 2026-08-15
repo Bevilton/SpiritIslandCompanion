@@ -31,7 +31,7 @@
                 }
                 else
                 {
-                    <PlayerAssigneeBadge Kind="BadgeKind(_scoped.Kind)" Name="@_scoped.Name"
+                    <PlayerAssigneeBadge Kind="PlayerAssigneeBadge.For(_scoped.Kind)" Name="@_scoped.Name"
                                          DetailLabel="@($"{_scoped.GamesPlayed} games")"/>
                 }
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none"
@@ -60,7 +60,7 @@
                     {
                         var isSelected = SameScope(p, _scoped);
                         <button type="button" @onclick="() => SetScope(p)" class="@ScopeRowClass(isSelected)">
-                            <PlayerAssigneeBadge Kind="BadgeKind(p.Kind)" Name="@p.Name"
+                            <PlayerAssigneeBadge Kind="PlayerAssigneeBadge.For(p.Kind)" Name="@p.Name"
                                                  DetailLabel="@($"{p.GamesPlayed} games · {p.WinRate:F0}% win")"/>
                             @if (isSelected) { <Icon Name="check" Class="w-4 h-4 text-accent-700 ml-auto"/> }
                         </button>
@@ -108,7 +108,7 @@ else
         var favDetail = favSpirit is null ? null : SpiritDetails.For(favSpirit.Id);
         var favColor = favDetail?.ColorHex ?? GameLookups.NeutralColor;
         <div class="surface px-5 py-4 mb-6 flex flex-wrap items-center gap-5">
-            <PlayerAssigneeBadge Kind="BadgeKind(_scoped.Kind)" Name="@_scoped.Name"
+            <PlayerAssigneeBadge Kind="PlayerAssigneeBadge.For(_scoped.Kind)" Name="@_scoped.Name"
                                  DetailLabel="@($"{_scoped.GamesPlayed} games recorded")"
                                  ContainerClass="inline-flex items-center gap-3 min-w-0 flex-1"/>
             <div class="flex items-center gap-4 ml-auto">
@@ -135,7 +135,7 @@ else
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-3">
         <StatHero Value="@_stats.TotalGames.ToString()"
                   Label="Total games"
-                  Caption="@TotalGamesCaption"
+                  Caption="@StatsFormat.DraftsCaption(_stats.InProgress)"
                   Icon="controller"/>
         <StatHero Value="@($"{_stats.WinRate:F0}%")"
                   Label="Win rate"
@@ -153,7 +153,7 @@ else
                   Label="Avg score"
                   Caption="@($"{_stats.AverageDifficulty:F1} avg difficulty")"
                   Icon="chart"/>
-        <StatHero Value="@FormatHours(_stats.TotalPlayTime)"
+        <StatHero Value="@StatsFormat.Hours(_stats.TotalPlayTime)"
                   Label="Time played"
                   Caption="@($"avg {_stats.AverageDuration:h\\:mm} per game")"
                   Icon="clock"/>
@@ -238,7 +238,7 @@ else
             <div class="grid lg:grid-cols-3 gap-6">
                 @* Outcome donut card *@
                 <div class="surface px-5 py-5">
-                    <h2 class="text-base font-semibold mb-3" style="font-family: var(--font-serif);">Outcome</h2>
+                    <h2 class="section-title mb-3">Outcome</h2>
                     <div class="flex items-center justify-between gap-4">
                         <WinRateRing Pct="_stats.WinRate" Size="128" Stroke="12" Caption="win rate"/>
                         <div class="space-y-2 text-sm flex-1 min-w-0">
@@ -315,18 +315,18 @@ else
 
             @* ===== Recent games ===== *@
             <div>
-                <div class="flex items-baseline justify-between mb-3">
-                    <h2 class="text-base font-semibold" style="font-family: var(--font-serif);">Recent games</h2>
-                    <a href="/app/games" class="text-xs text-accent-700 hover:underline">View all →</a>
+                <div class="section-head">
+                    <h2 class="section-title">Recent games</h2>
+                    <a href="/app/games" class="section-link">View all →</a>
                 </div>
                 <RecentGamesStrip Games="_stats.RecentGames"/>
             </div>
 
             @* ===== Activity chart full width ===== *@
             <div class="surface px-5 pt-5 pb-3">
-                <div class="flex items-baseline justify-between mb-3">
-                    <h2 class="text-base font-semibold" style="font-family: var(--font-serif);">Activity over time</h2>
-                    <span class="text-[11px] text-ink-500">Wins vs losses per month</span>
+                <div class="section-head">
+                    <h2 class="section-title">Activity over time</h2>
+                    <span class="section-note">Wins vs losses per month</span>
                 </div>
                 <MonthlyGamesChart Months="_stats.MonthlyStatistics" Height="280"/>
             </div>
@@ -377,9 +377,9 @@ else
                     .ToList();
             }
             <div>
-                <div class="flex items-baseline justify-between mb-3">
-                    <h2 class="text-base font-semibold" style="font-family: var(--font-serif);">Hardest matchups</h2>
-                    <span class="text-[11px] text-ink-500">Sorted by total losses</span>
+                <div class="section-head">
+                    <h2 class="section-title">Hardest matchups</h2>
+                    <span class="section-note">Sorted by total losses</span>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <LossLeaderboard Title="Adversaries" Subtitle="Most defeats by" Rows="hardAdversaries"/>
@@ -391,16 +391,16 @@ else
             @* ===== Distributions ===== *@
             <div class="grid lg:grid-cols-2 gap-6">
                 <div class="surface px-5 pt-5 pb-3">
-                    <div class="flex items-baseline justify-between mb-3">
-                        <h2 class="text-base font-semibold" style="font-family: var(--font-serif);">Score distribution</h2>
-                        <span class="text-[11px] text-ink-500">@_stats.CompletedScores.Count completed games</span>
+                    <div class="section-head">
+                        <h2 class="section-title">Score distribution</h2>
+                        <span class="section-note">@_stats.CompletedScores.Count completed games</span>
                     </div>
                     <ScoreDistributionChart Scores="_stats.CompletedScores"/>
                 </div>
                 <div class="surface px-5 pt-5 pb-3">
-                    <div class="flex items-baseline justify-between mb-3">
-                        <h2 class="text-base font-semibold" style="font-family: var(--font-serif);">Difficulty distribution</h2>
-                        <span class="text-[11px] text-ink-500">avg @($"{_stats.AverageDifficulty:F1}")</span>
+                    <div class="section-head">
+                        <h2 class="section-title">Difficulty distribution</h2>
+                        <span class="section-note">avg @($"{_stats.AverageDifficulty:F1}")</span>
                     </div>
                     <DifficultyDistributionChart Difficulties="_stats.CompletedDifficulties"/>
                 </div>
@@ -414,18 +414,18 @@ else
             @if (terrorTotal > 0)
             {
                 <div class="surface px-5 py-5">
-                    <div class="flex items-baseline justify-between mb-4">
+                    <div class="section-head mb-4">
                         <div>
-                            <h2 class="text-base font-semibold" style="font-family: var(--font-serif);">Terror level at game end</h2>
+                            <h2 class="section-title">Terror level at game end</h2>
                             @if (topTerror is not null)
                             {
-                                <p class="text-[11px] text-ink-500 mt-0.5">
+                                <p class="section-note mt-0.5">
                                     Most games end at <span class="text-ink-800 font-medium">Terror @TerrorBar.TerrorLabel(topTerror.TerrorLevel)</span>
                                     (@($"{(double)topTerror.GamesPlayed / terrorTotal * 100:F0}%"))
                                 </p>
                             }
                         </div>
-                        <span class="text-[11px] text-ink-500">@terrorTotal completed games</span>
+                        <span class="section-note">@terrorTotal completed games</span>
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         @foreach (var t in _stats.TerrorDistribution)
@@ -483,8 +483,8 @@ else
             </div>
 
             <div class="surface px-5 pt-5 pb-3">
-                <div class="flex items-baseline justify-between mb-3">
-                    <h2 class="text-base font-semibold" style="font-family: var(--font-serif);">Games played by spirit</h2>
+                <div class="section-head">
+                    <h2 class="section-title">Games played by spirit</h2>
                 </div>
                 <SpiritGamesChart Spirits="_stats.SpiritStatistics"/>
             </div>
@@ -861,9 +861,9 @@ else
             @if (playedSetups.Count > 0 || playedSaved.Count > 0 || oneOffRecord.Played > 0)
             {
                 <div>
-                    <div class="flex items-baseline justify-between mb-3">
-                        <h2 class="text-base font-semibold" style="font-family: var(--font-serif);">Island layouts</h2>
-                        <span class="text-[11px] text-ink-500">Standard setups and your saved shapes</span>
+                    <div class="section-head">
+                        <h2 class="section-title">Island layouts</h2>
+                        <span class="section-note">Standard setups and your saved shapes</span>
                     </div>
                     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                         @foreach (var (setup, rec) in playedSetups)
@@ -953,6 +953,11 @@ else
     [CascadingParameter(Name = "OwnedExpansions")]
     public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
 
+    /// <summary>Opens the page on a named tab, so elsewhere can link straight at a slice
+    /// (the dashboard's collection rows do). Ignored when it names no tab we have.</summary>
+    [SupplyParameterFromQuery(Name = "tab")]
+    public string? TabParam { get; set; }
+
     private StatisticsResponse? _stats;
     private List<PlayerStats> _unfilteredPlayers = [];
     private PlayerStats? _scoped;
@@ -1028,32 +1033,40 @@ else
 
     private void SetTab(string key) => _tab = key;
 
-    /// "42 matches · 63% victories · 118h on the island" — same one-line summary
-    /// idiom the games list leads with, scoped when the stats are.
+    // Only when the query itself changes, so clicking a pill isn't undone by the URL
+    // it arrived on still saying something else.
+    private string? _appliedTabParam;
+
+    protected override void OnParametersSet()
+    {
+        if (TabParam == _appliedTabParam) return;
+        _appliedTabParam = TabParam;
+        if (TabParam is { } key && _tabs.Any(t => t.Key == key)) _tab = key;
+    }
+
+    /// The shared summary line, prefixed with whose it is when the page is scoped.
     private string HeaderSummary
     {
         get
         {
             if (_stats is null || _stats.TotalGames == 0)
                 return "Your game history, distilled.";
-            var parts = new List<string> { $"{_stats.TotalGames} match{(_stats.TotalGames == 1 ? "" : "es")}" };
-            if (_stats.Wins + _stats.Losses > 0) parts.Add($"{_stats.WinRate:F0}% victories");
-            if (_stats.TotalPlayTime > TimeSpan.Zero) parts.Add($"{FormatHours(_stats.TotalPlayTime)} on the island");
-            var line = string.Join(" · ", parts);
+            var line = StatsFormat.Summary(_stats);
             return _scoped is null ? line : $"{_scoped.Name} · {line}";
         }
     }
-
-    private string TotalGamesCaption => _stats!.InProgress > 0
-        ? $"{_stats.InProgress} draft{(_stats.InProgress == 1 ? "" : "s")} waiting"
-        : "all completed";
 
     public sealed record MissingLevel(string AdversaryId, string AdversaryName, int Level);
     public sealed record MissingAdversaryGroup(string AdversaryId, string AdversaryName, List<int> Levels);
 
     protected override async Task OnInitializedAsync()
     {
-        if (CurrentUser.UserId is not { } userId) return;
+        // Without a user there is nothing to load — drop the spinner rather than spin forever.
+        if (CurrentUser.UserId is not { } userId)
+        {
+            _loading = false;
+            return;
+        }
 
         // Sequential sends — the scoped DbContext behind IMediator is not thread-safe.
         await LoadStats(scopeUserId: null, scopePlayerId: null);
@@ -1100,13 +1113,6 @@ else
         return a.UserId == b.UserId && a.PlayerId == b.PlayerId;
     }
 
-    private static PlayerAssigneeBadge.AssigneeKind BadgeKind(PlayerKind kind) => kind switch
-    {
-        PlayerKind.Me => PlayerAssigneeBadge.AssigneeKind.Me,
-        PlayerKind.Friend => PlayerAssigneeBadge.AssigneeKind.Friend,
-        _ => PlayerAssigneeBadge.AssigneeKind.Player,
-    };
-
     private static string ScopeRowClass(bool active) =>
         (active
             ? "bg-accent-50 hover:bg-accent-100 "
@@ -1145,17 +1151,5 @@ else
             }
         }
         return missing;
-    }
-
-    private static string FormatHours(TimeSpan span)
-    {
-        var totalHours = span.TotalHours;
-        if (totalHours >= 24)
-        {
-            var days = (int)(totalHours / 24);
-            var hrs = (int)(totalHours - days * 24);
-            return hrs > 0 ? $"{days}d {hrs}h" : $"{days}d";
-        }
-        return totalHours >= 1 ? $"{(int)totalHours}h" : $"{(int)span.TotalMinutes}m";
     }
 }

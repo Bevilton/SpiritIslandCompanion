@@ -1,5 +1,6 @@
 @* Read-only avatar + name pair for an assignee on a recorded game.
    The interactive variant (with dropdown) lives in PlayerAssigneePicker. *@
+@using Application.Features.Statistics
 
 <span class="@ContainerClass">
     <span class="@AvatarClass">
@@ -21,6 +22,15 @@
 
 @code {
     public enum AssigneeKind { Me, Friend, Player, Unknown }
+
+    /// <summary>The badge for a seat the statistics report on — every page that lists players
+    /// draws them from the same tally, so they should all get the same avatar.</summary>
+    public static AssigneeKind For(PlayerKind kind) => kind switch
+    {
+        PlayerKind.Me     => AssigneeKind.Me,
+        PlayerKind.Friend => AssigneeKind.Friend,
+        _                 => AssigneeKind.Player,
+    };
 
     [Parameter, EditorRequired] public AssigneeKind Kind { get; set; }
     [Parameter, EditorRequired] public string Name { get; set; } = "";

@@ -423,8 +423,14 @@ internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<Get
             .ToList();
     }
 
+    /// <summary>
+    /// The latest games that actually have an outcome. Drafts are deliberately left out:
+    /// with nothing to report they crowd finished games out of a five-slot strip, and the
+    /// surfaces that care about unfinished games list them as work to do instead.
+    /// </summary>
     private static List<RecentGameSummary> GetRecentGames(List<Game> games) =>
         games
+            .Where(g => g.Result is not null)
             .OrderByDescending(g => g.StartedAt)
             .Take(5)
             .Select(g => new RecentGameSummary(

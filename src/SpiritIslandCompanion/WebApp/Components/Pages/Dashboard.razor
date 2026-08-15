@@ -1,15 +1,22 @@
 @page "/app/dashboard"
 @attribute [Authorize]
+@using Application.Features.Friendships
+@using Application.Features.Games
+@using Application.Features.Statistics
 @inject IMediator Mediator
 @inject ICurrentUserService CurrentUser
-@inject NavigationManager Nav
 
 <PageTitle>Dashboard</PageTitle>
 
+@* The account at a glance: what's waiting on you, how the last few games went, and how
+   much of the island you've covered. The numbers themselves live on Statistics — every
+   panel here is a headline that links onward rather than a table repeated. *@
+
 <div class="page-head">
     <div>
-        <span class="eyebrow">Welcome back</span>
-        <h1 class="page-title mt-2">Dashboard</h1>
+        <span class="eyebrow">Dashboard</span>
+        <h1 class="page-title mt-2">@Greeting</h1>
+        <p class="page-sub">@HeaderSummary</p>
     </div>
     <a href="/app/games/new" class="btn btn-primary">
         <Icon Name="plus" Class="w-4 h-4"/> New game
@@ -22,96 +29,470 @@
 }
 else
 {
-    @if (_pendingCount > 0)
-    {
-        <div class="alert alert-info mb-6">
-            <Icon Name="users" Class="w-5 h-5 shrink-0"/>
-            <div class="flex-1">
-                You have <strong>@_pendingCount</strong> pending friend request@(_pendingCount == 1 ? "" : "s").
-                <a href="/app/friends" class="font-medium underline">View</a>
-            </div>
-        </div>
-    }
-
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <StatCard Value="@(_stats?.TotalGames.ToString() ?? "0")" Label="Total games" Icon="controller"/>
-        <StatCard Value="@($"{_stats?.WinRate ?? 0:F0}%")" Label="Win rate" Icon="trophy"/>
-        <StatCard Value="@($"{_stats?.AverageScore ?? 0:F0}")" Label="Avg score" Icon="chart"/>
-        <StatCard Value="@(_stats?.InProgress.ToString() ?? "0")" Label="In progress" Icon="hourglass"/>
-    </div>
-
-    <div class="surface">
-        <div class="surface-head">
-            <h2 class="text-base font-semibold">Recent games</h2>
-            <a href="/app/games" class="text-sm text-accent-700 hover:text-accent-800 inline-flex items-center gap-1">
-                View all <Icon Name="arrow-right" Class="w-3.5 h-3.5"/>
-            </a>
-        </div>
-
-        @if (_games is null || _games.Count == 0)
+    <div class="space-y-6">
+        @* ============================== NEEDS YOU ==============================
+           Drafts and friend requests are the only things on this page that ask for an
+           action, so they lead — and they disappear entirely once nothing is waiting. *@
+        @if (_drafts.Count > 0 || _incoming.Count > 0)
         {
-            <div class="px-6 py-12 text-center">
-                <p class="text-ink-600">No games recorded yet.</p>
-                <a href="/app/games/new" class="btn btn-primary mt-4">Record your first game</a>
+            <section class="surface border-amber-200 bg-amber-50/40 px-5 py-4">
+                <div class="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span class="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
+                        <Icon Name="alert" Class="w-4 h-4"/>
+                    </span>
+                    <h2 class="section-title">Needs you</h2>
+                    <span class="section-note">@AttentionSummary</span>
+                </div>
+
+                <div class="grid gap-2 md:grid-cols-2">
+                    @foreach (var g in _drafts.Take(MaxAttentionRows))
+                    {
+                        <a @key="g.Id" href="@($"/app/games/{g.Id}?finish=true")"
+                           title="Record the outcome and finish this draft"
+                           class="group flex items-center gap-3 rounded-lg border border-amber-200 bg-white px-3 py-2.5 transition-colors
+                                  hover:border-amber-300 hover:bg-amber-50/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                            @* StartedAt is read back as stored, not converted: it carries the wall
+                               clock the player wrote down at offset zero (see GameDetail). *@
+                            <span class="w-10 shrink-0 text-center" title="@g.StartedAt.DateTime.ToString("MMMM d, yyyy")">
+                                <span class="block text-base font-semibold leading-none tabular-nums text-ink-900" style="font-family: var(--font-serif);">
+                                    @g.StartedAt.DateTime.ToString("dd")
+                                </span>
+                                <span class="mt-0.5 block text-[10px] uppercase tracking-wide text-ink-500">
+                                    @g.StartedAt.DateTime.ToString("MMM")
+                                </span>
+                            </span>
+                            <span class="min-w-0 flex-1">
+                                @* A match with neither foe nor scenario is named the same muted,
+                                   italic way the games list and the recent strip name it. *@
+                                @{ var title = GameLookups.MatchTitle(g.Adversaries, g.ScenarioId); }
+                                <span class="block truncate text-sm @(title == GameLookups.FreeplayTitle
+                                                                      ? "font-normal italic text-ink-500"
+                                                                      : "font-semibold text-ink-900")">
+                                    @title
+                                </span>
+                                <span class="block truncate text-[11px] text-ink-500">
+                                    @g.PlayerCount @(g.PlayerCount == 1 ? "player" : "players") · difficulty @g.Difficulty
+                                </span>
+                            </span>
+                            <span class="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1
+                                         text-[11px] font-semibold text-amber-800 transition-colors group-hover:bg-amber-100">
+                                Finish <Icon Name="arrow-right" Class="w-3 h-3"/>
+                            </span>
+                        </a>
+                    }
+
+                    @foreach (var r in _incoming.Take(MaxAttentionRows))
+                    {
+                        <a @key="r.FriendshipId" href="/app/friends"
+                           title="@($"{r.Nickname} wants to connect")"
+                           class="group flex items-center gap-3 rounded-lg border border-sky-200 bg-white px-3 py-2.5 transition-colors
+                                  hover:border-sky-300 hover:bg-sky-50/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                            <PlayerAssigneeBadge Kind="PlayerAssigneeBadge.AssigneeKind.Friend" Name="@r.Nickname"
+                                                 DetailLabel="wants to connect"
+                                                 ContainerClass="inline-flex items-center gap-3 min-w-0 flex-1"/>
+                            <span class="inline-flex shrink-0 items-center gap-1 rounded-full border border-sky-300 bg-sky-50 px-2.5 py-1
+                                         text-[11px] font-semibold text-sky-800 transition-colors group-hover:bg-sky-100">
+                                Review <Icon Name="arrow-right" Class="w-3 h-3"/>
+                            </span>
+                        </a>
+                    }
+                </div>
+            </section>
+        }
+
+        @if (_stats is null || _stats.TotalGames == 0)
+        {
+            @* ============================== EMPTY ==============================
+               Nothing recorded yet — the launchpad below still stands, so a new account
+               has somewhere to go from here. *@
+            <div class="surface px-6 py-16 text-center">
+                <div class="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-50 text-accent-700">
+                    <Icon Name="dashboard" Class="w-6 h-6"/>
+                </div>
+                <h2 class="text-lg font-semibold text-ink-900" style="font-family: var(--font-serif);">Nothing to report yet</h2>
+                <p class="mx-auto mt-1 max-w-sm text-sm text-ink-500">
+                    Record your first game and this page fills in — your recent form, who you play
+                    with, and how much of the island you've covered.
+                </p>
+                <a href="/app/games/new" class="btn btn-primary mt-5">
+                    <Icon Name="plus" Class="w-4 h-4"/> Record your first game
+                </a>
             </div>
+
+            @QuickLinks()
         }
         else
         {
-            <div class="table-wrap">
-                <table class="table table-hover">
-                    <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Adversary</th>
-                        <th>Players</th>
-                        <th>Difficulty</th>
-                        <th>Result</th>
-                        <th class="text-right">Score</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    @foreach (var g in _games.Take(5))
-                    {
-                        <tr @key="g.Id" @onclick='() => Nav.NavigateTo($"/app/games/{g.Id}")' class="cursor-pointer">
-                            @* A real link inside the clickable row, so the game is reachable
-                               by keyboard and middle-click too. *@
-                            <td class="text-ink-600">
-                                <a href="/app/games/@g.Id" class="block rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
-                                    @g.StartedAt.DateTime.ToString("MMM dd, yyyy")
-                                </a>
-                            </td>
-                            <td class="font-medium text-ink-900">@(GameLookups.AdversaryLabel(g.Adversaries) ?? "—")</td>
-                            <td>@g.PlayerCount</td>
-                            <td>@g.Difficulty</td>
-                            <td><GameStatusBadge IsCompleted="g.IsCompleted" Win="g.Win"/></td>
-                            <td class="text-right font-medium">@(g.Score?.ToString() ?? "—")</td>
-                        </tr>
-                    }
-                    </tbody>
-                </table>
+            @* ============================== HEADLINE STATS ==============================
+               The same tiles the statistics page opens with, so the two pages agree on what
+               a headline number looks like. *@
+            <div class="grid grid-cols-2 gap-4 xl:grid-cols-4">
+                <StatHero Value="@_stats.TotalGames.ToString()"
+                          Label="Games recorded"
+                          Caption="@StatsFormat.DraftsCaption(_stats.InProgress)"
+                          Icon="controller"/>
+                <StatHero Value="@($"{_stats.WinRate:F0}%")"
+                          Label="Win rate"
+                          Caption="@($"{_stats.Wins} W · {_stats.Losses} L")"
+                          Icon="trophy"/>
+                @* The streak lives here alone — the form strip below shows the results it runs
+                   over, not the count again. *@
+                <StatHero Value="@(_streak.Count > 0 ? _streak.Count.ToString() : "—")"
+                          Label="Current streak"
+                          Caption="@StreakCaption"
+                          Icon="@(_streak.Count > 0 && !_streak.Win ? "alert" : "sparkles")"/>
+                <StatHero Value="@StatsFormat.Hours(_stats.TotalPlayTime)"
+                          Label="Time played"
+                          Caption="@($"avg {_stats.AverageDuration:h\\:mm} per game")"
+                          Icon="clock"/>
             </div>
+
+            @* ============================== FORM + TABLE ============================== *@
+            <div class="grid gap-6 lg:grid-cols-3">
+                <div class="surface px-5 py-5 lg:col-span-2">
+                    <div class="section-head">
+                        <h2 class="section-title">Recent form</h2>
+                        @if (_form.Count > 0)
+                        {
+                            <span class="section-note">Oldest to newest · pick a result to open it</span>
+                        }
+                    </div>
+                    <div class="flex items-center gap-5">
+                        <div class="min-w-0 flex-1">
+                            <FormStrip Entries="_form"/>
+                        </div>
+                        @* The window's own rate, next to the results it comes from — the headline
+                           tile above carries the all-time one, and the two rarely agree. *@
+                        @if (_form.Count > 0)
+                        {
+                            <div class="hidden shrink-0 sm:block">
+                                <WinRateRing Pct="FormWinRate" Size="88" Stroke="9" Caption="@($"last {_form.Count}")"/>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="surface px-5 py-5">
+                    <div class="section-head">
+                        <h2 class="section-title">Your table</h2>
+                        <a href="/app/statistics" class="section-link">Per player →</a>
+                    </div>
+                    @if (_tableMates.Count == 0)
+                    {
+                        <p class="text-sm text-ink-500">
+                            Every game so far has been yours alone. Add the people you play with and their
+                            records show up here.
+                        </p>
+                        <a href="/app/players" class="btn btn-secondary btn-sm mt-3">
+                            <Icon Name="plus" Class="w-3.5 h-3.5"/> Add a player
+                        </a>
+                    }
+                    else
+                    {
+                        <ul class="space-y-2.5">
+                            @foreach (var p in _tableMates)
+                            {
+                                <li @key="@($"{p.UserId}-{p.PlayerId}")" class="flex items-center gap-3">
+                                    <PlayerAssigneeBadge Kind="PlayerAssigneeBadge.For(p.Kind)" Name="@p.Name"
+                                                         DetailLabel="@($"{p.GamesPlayed} game{(p.GamesPlayed == 1 ? "" : "s")} together")"
+                                                         ContainerClass="inline-flex items-center gap-3 min-w-0 flex-1"/>
+                                    @if (p.Wins + p.Losses > 0)
+                                    {
+                                        <span class="shrink-0 text-sm font-semibold tabular-nums @WinTone.ForRate(p.WinRate)"
+                                              style="font-family: var(--font-serif);"
+                                              title="@($"{p.Wins} won, {p.Losses} lost")">
+                                            @($"{p.WinRate:F0}%")
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="shrink-0 text-xs text-ink-400">—</span>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+
+            @* ============================== RECENT GAMES ==============================
+               The same strip the statistics overview uses, so "your last five games" looks
+               the same wherever it's shown. *@
+            <div>
+                <div class="section-head">
+                    <h2 class="section-title">Recent games</h2>
+                    <a href="/app/games" class="section-link">View all →</a>
+                </div>
+                <RecentGamesStrip Games="_stats.RecentGames"/>
+            </div>
+
+            @* ============================== COLLECTION ==============================
+               How much of what you own has been played. The tallies match the coverage
+               panels on the statistics tabs each row links to. *@
+            <section class="surface px-5 py-5">
+                <div class="section-head">
+                    <div>
+                        <h2 class="section-title">Collection played</h2>
+                        <p class="section-note mt-0.5">
+                            Counted against the expansions you own — see Settings to change them.
+                        </p>
+                    </div>
+                    <a href="/app/statistics" class="section-link">What's missing →</a>
+                </div>
+                <div class="grid gap-x-4 gap-y-1 sm:grid-cols-2 xl:grid-cols-4">
+                    <CoverageBar Label="Spirits" Icon="sparkles"
+                                 Played="_spiritCoverage.Played" Total="_spiritCoverage.Total"
+                                 Href="/app/statistics?tab=spirits"/>
+                    <CoverageBar Label="Adversary levels" Icon="shield"
+                                 Played="_adversaryCoverage.Played" Total="_adversaryCoverage.Total"
+                                 Href="/app/statistics?tab=adversaries"/>
+                    <CoverageBar Label="Scenarios" Icon="book"
+                                 Played="_scenarioCoverage.Played" Total="_scenarioCoverage.Total"
+                                 Href="/app/statistics?tab=scenarios"/>
+                    <CoverageBar Label="Boards" Icon="map"
+                                 Played="_boardCoverage.Played" Total="_boardCoverage.Total"
+                                 Href="/app/statistics?tab=boards"/>
+                </div>
+            </section>
+
+            @QuickLinks()
         }
     </div>
 }
 
 @code {
-    private Application.Features.Statistics.StatisticsResponse? _stats;
-    private List<Application.Features.Games.ListGamesResponse>? _games;
-    private int _pendingCount;
+    /// <summary>The rest of the app, one tile each — and the only navigation on a phone,
+    /// where the sidebar is hidden.</summary>
+    private RenderFragment QuickLinks() =>
+        @<div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            @Tile("/app/games", "controller", "Games", $"{_games.Count} recorded")
+            @Tile("/app/statistics", "chart", "Statistics", "The full breakdown")
+            @Tile("/app/friends", "users", "Friends", FriendsCaption)
+            @Tile("/app/players", "user", "Players", PlayersCaption)
+        </div>;
+
+    private RenderFragment Tile(string href, string icon, string label, string caption) =>
+        @<a href="@href" class="surface flex items-center gap-3 px-4 py-3 transition-all hover:-translate-y-px hover:border-ink-300 hover:shadow-sm
+                                focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+            <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-50 text-accent-700">
+                <Icon Name="@icon" Class="w-4 h-4"/>
+            </span>
+            <span class="min-w-0">
+                <span class="block truncate text-sm font-semibold text-ink-900">@label</span>
+                <span class="block truncate text-[11px] text-ink-500">@caption</span>
+            </span>
+        </a>;
+}
+
+@code {
+    [CascadingParameter(Name = "OwnedExpansions")]
+    public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    private StatisticsResponse? _stats;
+    private List<ListGamesResponse> _games = [];
+    private List<PendingRequestDto> _incoming = [];
+    private int _friendCount;
+    private string? _nickname;
     private bool _loading = true;
+
+    // Derived once after loading — none of it changes while the page is open.
+    // _drafts and _incoming stay whole so the summary can count them; the panel shows the head.
+    private List<ListGamesResponse> _drafts = [];
+    private List<FormStrip.Entry> _form = [];
+    private List<PlayerStats> _tableMates = [];
+    private (bool Win, int Count) _streak;
+    private (int Played, int Total) _spiritCoverage;
+    private (int Played, int Total) _adversaryCoverage;
+    private (int Played, int Total) _scenarioCoverage;
+    private (int Played, int Total) _boardCoverage;
+
+    /// <summary>How many finished games the form strip looks back over. The streak is counted
+    /// over the whole history, not this window — a long run shouldn't stop at ten.</summary>
+    private const int FormWindow = 10;
+
+    /// <summary>How many rows of each kind the attention panel lists before deferring to the
+    /// page that owns them — it's a nudge, not a work queue.</summary>
+    private const int MaxAttentionRows = 4;
+
+    /// <summary>How many of the people you play with the table panel names; the rest are a
+    /// click away on the statistics page.</summary>
+    private const int MaxTableMates = 4;
 
     protected override async Task OnInitializedAsync()
     {
-        if (CurrentUser.UserId is not { } userId) return;
+        if (AuthState is not null)
+        {
+            var state = await AuthState;
+            _nickname = state.User.FindFirst("nickname")?.Value ?? state.User.Identity?.Name;
+        }
 
-        var statsResult = await Mediator.Send(new Application.Features.Statistics.GetStatisticsQuery(userId));
-        var gamesResult = await Mediator.Send(new Application.Features.Games.ListGamesQuery(userId));
-        var pendingResult = await Mediator.Send(new Application.Features.Friendships.ListPendingRequestsQuery(userId));
+        if (CurrentUser.UserId is not { } userId)
+        {
+            _loading = false;
+            return;
+        }
 
+        // Sequential sends — the scoped DbContext behind IMediator is not thread-safe.
+        var statsResult = await Mediator.Send(new GetStatisticsQuery(userId));
         if (statsResult.IsSuccess) _stats = statsResult.Value;
-        if (gamesResult.IsSuccess) _games = gamesResult.Value;
-        if (pendingResult.IsSuccess) _pendingCount = pendingResult.Value.Incoming.Count;
 
+        var gamesResult = await Mediator.Send(new ListGamesQuery(userId));
+        if (gamesResult.IsSuccess) _games = gamesResult.Value;
+
+        var pendingResult = await Mediator.Send(new ListPendingRequestsQuery(userId));
+        if (pendingResult.IsSuccess) _incoming = pendingResult.Value.Incoming;
+
+        var friendsResult = await Mediator.Send(new ListFriendsQuery(userId));
+        if (friendsResult.IsSuccess) _friendCount = friendsResult.Value.Count;
+
+        Derive();
         _loading = false;
+    }
+
+    private void Derive()
+    {
+        _drafts = _games
+            .Where(g => !g.IsCompleted)
+            .OrderByDescending(g => g.StartedAt)
+            .ToList();
+
+        // Newest first: the form strip takes the head of it, the streak runs down all of it.
+        var finished = _games
+            .Where(g => g is { IsCompleted: true, Win: not null })
+            .OrderByDescending(g => g.StartedAt)
+            .ToList();
+
+        _form = finished
+            .Take(FormWindow)
+            .Select(g => new FormStrip.Entry(
+                g.Id,
+                g.StartedAt,
+                g.Win!.Value,
+                GameLookups.MatchTitle(g.Adversaries, g.ScenarioId),
+                g.Score))
+            .ToList();
+
+        _streak = CurrentStreak(finished);
+
+        // PlayerStatistics covers every seat ever recorded, including yours and the
+        // unassigned ones — the table is the people you actually sat down with.
+        _tableMates = _stats?.PlayerStatistics
+            .Where(p => p.Kind != PlayerKind.Me && (p.UserId is not null || p.PlayerId is not null))
+            .OrderByDescending(p => p.GamesPlayed)
+            .Take(MaxTableMates)
+            .ToList() ?? [];
+
+        _spiritCoverage = Coverage(
+            GameData.Spirits, s => s.ExpansionId, s => s.Id.Value,
+            _stats?.SpiritStatistics.Select(s => s.SpiritId));
+        _scenarioCoverage = Coverage(
+            GameData.Scenarios, s => s.ExpansionId, s => s.Id.Value,
+            _stats?.ScenarioStatistics.Select(s => s.ScenarioId));
+        _boardCoverage = Coverage(
+            GameData.Boards, b => b.ExpansionId, b => b.Id.Value,
+            _stats?.BoardStatistics.Select(b => b.BoardId));
+        _adversaryCoverage = AdversaryLevelCoverage();
+    }
+
+    /// <summary>The run the record ends on — wins or defeats, however many back it holds.
+    /// Counted over every finished game, so a run longer than the form window still reads
+    /// at its true length.</summary>
+    private static (bool Win, int Count) CurrentStreak(IReadOnlyList<ListGamesResponse> newestFirst)
+    {
+        if (newestFirst.Count == 0) return (false, 0);
+        var latest = newestFirst[0].Win!.Value;
+        var count = 0;
+        foreach (var g in newestFirst)
+        {
+            if (g.Win!.Value != latest) break;
+            count++;
+        }
+        return (latest, count);
+    }
+
+    private bool Owns(ExpansionId id) => OwnedExpansions is null || OwnedExpansions.Contains(id);
+
+    /// <summary>How much of an owned catalogue has been played, the same way the statistics
+    /// coverage panels count it: owned entries are the denominator, played ones the numerator.</summary>
+    private (int Played, int Total) Coverage<T>(
+        IEnumerable<T> catalogue,
+        Func<T, ExpansionId> expansion,
+        Func<T, string> id,
+        IEnumerable<string>? playedIds)
+    {
+        var played = (playedIds ?? []).ToHashSet();
+        var owned = catalogue.Where(x => Owns(expansion(x))).ToList();
+        return (owned.Count(x => played.Contains(id(x))), owned.Count);
+    }
+
+    /// <summary>Adversaries are counted by level, not by foe — the statistics tab measures the
+    /// same thing, because level 6 England is a different night than level 1.</summary>
+    private (int Played, int Total) AdversaryLevelCoverage()
+    {
+        var owned = GameData.Adversaries.Where(a => Owns(a.ExpansionId)).ToList();
+        var played = (_stats?.AdversaryStatistics ?? [])
+            .SelectMany(a => a.Levels.Select(l => (a.AdversaryId, l.Level)))
+            .ToHashSet();
+        return (
+            owned.Sum(a => a.Modes.Count(m => played.Contains((a.Id.Value, m.Level)))),
+            owned.Sum(a => a.Modes.Count()));
+    }
+
+    /// <summary>Win rate over the form window alone — not the all-time one the tile shows.</summary>
+    private double FormWinRate => _form.Count == 0 ? 0 : 100.0 * _form.Count(e => e.Win) / _form.Count;
+
+    private string Greeting => string.IsNullOrWhiteSpace(_nickname) ? "Welcome back" : $"Welcome back, {_nickname}";
+
+    private string HeaderSummary => _stats is null || _stats.TotalGames == 0
+        ? "Your island, at a glance."
+        : StatsFormat.Summary(_stats);
+
+    private string AttentionSummary
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (_drafts.Count > 0) parts.Add($"{_drafts.Count} draft{(_drafts.Count == 1 ? "" : "s")} waiting");
+            if (_incoming.Count > 0) parts.Add($"{_incoming.Count} friend request{(_incoming.Count == 1 ? "" : "s")}");
+            var line = string.Join(" · ", parts);
+            // The panel only lists the newest few of each; say so when some are left out.
+            var truncated = _drafts.Count > MaxAttentionRows || _incoming.Count > MaxAttentionRows;
+            return truncated ? $"{line} · showing the newest {MaxAttentionRows}" : line;
+        }
+    }
+
+    /// LongestStreak is the best run of *wins*, so it's only a like-for-like comparison
+    /// while the current run is winning too — on a losing run it has to say which it is.
+    private string StreakCaption => _streak.Count == 0
+        ? "no finished games yet"
+        : _streak.Win
+            ? $"wins in a row · best {_stats!.LongestStreak}"
+            : $"defeats in a row · best win run {_stats!.LongestStreak}";
+
+    private string FriendsCaption => _incoming.Count > 0
+        ? $"{_friendCount} connected · {_incoming.Count} pending"
+        : _friendCount switch
+        {
+            0 => "Play together",
+            1 => "1 connected",
+            _ => $"{_friendCount} connected",
+        };
+
+    private string PlayersCaption
+    {
+        get
+        {
+            // Local players who actually appear in a game — not everyone on the players page.
+            var locals = _stats?.PlayerStatistics.Count(p => p.PlayerId is not null) ?? 0;
+            return locals switch
+            {
+                0 => "People at your table",
+                1 => "1 in your games",
+                _ => $"{locals} in your games",
+            };
+        }
     }
 }
