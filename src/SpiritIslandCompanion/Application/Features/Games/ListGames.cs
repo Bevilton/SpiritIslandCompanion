@@ -22,8 +22,13 @@ public sealed record GamePlayerSummary(
 /// The saved layout the island came from, when the player set one up out of their library.
 /// Null for published layouts, one-off hand-built islands, and layouts deleted since.
 /// </param>
+/// <param name="OwnerId">
+/// Who recorded it. Everyone at the table can read the game, but only the owner can finish
+/// or delete it — so a list has to know whose it is before it offers either.
+/// </param>
 public sealed record ListGamesResponse(
     Guid Id,
+    Guid OwnerId,
     DateTimeOffset StartedAt,
     int Difficulty,
     bool IsCompleted,
@@ -56,7 +61,7 @@ internal sealed class ListGamesHandler(IAppDbContext db) : IQueryHandler<ListGam
             .AsNoTracking()
             .Where(u => userIds.Contains(u.Id))
             .ToListAsync(cancellationToken))
-            .ToDictionary(u => u.Id.Value, u => u.Nickname.Value);
+            .ToDictionary(u => u.Id.Value, u => u.DisplayName);
 
         // Saved-layout names, for the games set up from the player's layout library. The game
         // keeps its own geometry, so a layout deleted since simply resolves to no name here.
@@ -84,6 +89,7 @@ internal sealed class ListGamesHandler(IAppDbContext db) : IQueryHandler<ListGam
 
         var response = games.Select(g => new ListGamesResponse(
             g.Id.Value,
+            g.OwnerId.Value,
             g.StartedAt,
             g.Difficulty.Value,
             g.Result is not null,

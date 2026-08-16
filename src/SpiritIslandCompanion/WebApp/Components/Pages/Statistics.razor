@@ -107,25 +107,58 @@ else
         var favSpirit = _scoped.FavouriteSpirit is null ? null : GameLookups.SpiritFor(_scoped.FavouriteSpirit);
         var favDetail = favSpirit is null ? null : SpiritDetails.For(favSpirit.Id);
         var favColor = favDetail?.ColorHex ?? GameLookups.NeutralColor;
-        <div class="surface px-5 py-4 mb-6 flex flex-wrap items-center gap-5">
-            <PlayerAssigneeBadge Kind="PlayerAssigneeBadge.For(_scoped.Kind)" Name="@_scoped.Name"
-                                 DetailLabel="@($"{_scoped.GamesPlayed} games recorded")"
-                                 ContainerClass="inline-flex items-center gap-3 min-w-0 flex-1"/>
-            <div class="flex items-center gap-4 ml-auto">
-                <WinRateRing Pct="_scoped.WinRate" Size="64" Caption="win"/>
-                @if (favSpirit is not null)
-                {
-                    <div class="flex items-center gap-2 min-w-0">
-                        <span class="inline-block h-9 w-1.5 rounded-full shrink-0" style="background-color: @favColor;"></span>
-                        <div class="min-w-0">
-                            <div class="text-[10px] uppercase tracking-wide text-ink-500">Favourite spirit</div>
-                            <div class="text-sm font-semibold text-ink-900 truncate">@favSpirit.Name</div>
+        var isMe = _scoped.Kind == PlayerKind.Me;
+        <div class="surface mb-6 overflow-hidden">
+            <div class="flex flex-wrap items-center gap-5 px-5 py-4">
+                <PlayerAssigneeBadge Kind="PlayerAssigneeBadge.For(_scoped.Kind)" Name="@_scoped.Name"
+                                     DetailLabel="@($"{_scoped.GamesPlayed} game{(_scoped.GamesPlayed == 1 ? "" : "s")} recorded")"
+                                     ContainerClass="inline-flex items-center gap-3 min-w-0 flex-1"/>
+                <div class="ml-auto flex items-center gap-4">
+                    <WinRateRing Pct="_scoped.WinRate" Size="64" Caption="win"/>
+                    @if (favSpirit is not null)
+                    {
+                        <div class="flex min-w-0 items-center gap-2">
+                            <span class="inline-block h-9 w-1.5 shrink-0 rounded-full" style="background-color: @favColor;"></span>
+                            <div class="min-w-0">
+                                <div class="text-[10px] uppercase tracking-wide text-ink-500">Favourite spirit</div>
+                                <button type="button" class="truncate text-sm font-semibold text-ink-900 hover:text-accent-800"
+                                        @onclick="() => OpenSpirit(favSpirit.Id.Value)">@favSpirit.Name</button>
+                            </div>
                         </div>
-                    </div>
-                }
-                <button class="btn btn-ghost btn-sm" @onclick="() => SetScope(null)">
-                    <Icon Name="x" Class="w-3.5 h-3.5"/> Clear filter
-                </button>
+                    }
+                    <button class="btn btn-ghost btn-sm" @onclick="() => SetScope(null)">
+                        <Icon Name="x" Class="w-3.5 h-3.5"/> Clear filter
+                    </button>
+                </div>
+            </div>
+
+            @* The line that says what this page is now showing — the same sentence in every
+               scope, so nobody has to work out whose numbers they are looking at. *@
+            <div class="flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 bg-ink-50/50 px-5 py-2.5 text-[11px] text-ink-500">
+                <span class="inline-flex items-center gap-1.5">
+                    <Icon Name="info" Class="w-3.5 h-3.5 text-ink-400"/>
+                    @if (isMe)
+                    {
+                        <span>Every game you sat in, whoever recorded it.</span>
+                    }
+                    else
+                    {
+                        <span>
+                            Only the games <span class="font-medium text-ink-700">you and @_scoped.Name</span> played together —
+                            @(_scoped.Kind == PlayerKind.Friend
+                                ? "their other tables stay theirs."
+                                : "a guest at your table.")
+                        </span>
+                    }
+                </span>
+                <span class="tabular-nums">
+                    <span class="font-medium text-accent-700">@_scoped.Wins W</span> ·
+                    <span class="font-medium text-red-600">@_scoped.Losses L</span>
+                    @if (_scoped.BestScore is { } best)
+                    {
+                        <span> · best <span class="font-medium text-ink-700">@best</span></span>
+                    }
+                </span>
             </div>
         </div>
     }
@@ -196,6 +229,9 @@ else
     {
         case "overview":
             @OverviewTab();
+            break;
+        case "players":
+            @PlayersTab();
             break;
         case "spirits":
             @SpiritsTab();
@@ -463,6 +499,88 @@ else
         </div>;
 }
 
+@* ============================== PLAYERS TAB ==============================
+   Who has been at the table and how each of you did. Every row is over the games the
+   signed-in user is part of — a friend's card is your shared record with them, never the
+   history they built elsewhere. Picking one scopes the whole page to them. *@
+@code {
+    private RenderFragment PlayersTab() =>
+        @<div class="space-y-6">
+            @{
+                var ranked = _unfilteredPlayers.OrderByDescending(p => p.GamesPlayed).ToList();
+                var mostPlayed = ranked.FirstOrDefault(p => p.Kind != PlayerKind.Me);
+                var bestPartner = ranked
+                    .Where(p => p.Kind != PlayerKind.Me && p.Wins + p.Losses >= 3)
+                    .OrderByDescending(p => p.WinRate)
+                    .FirstOrDefault();
+            }
+
+            @if (mostPlayed is not null || bestPartner is not null)
+            {
+                <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    @if (mostPlayed is not null)
+                    {
+                        <InsightCard Title="Most games with"
+                                     Subject="@mostPlayed.Name"
+                                     Secondary="@($"{mostPlayed.WinRate:F0}% win together")"
+                                     Metric="@mostPlayed.GamesPlayed.ToString()"
+                                     MetricLabel="games"
+                                     OnClick="() => SetScope(mostPlayed)"/>
+                    }
+                    @if (bestPartner is not null && !SameScope(bestPartner, mostPlayed))
+                    {
+                        <InsightCard Title="Best record together"
+                                     Subject="@bestPartner.Name"
+                                     Secondary="@($"{bestPartner.GamesPlayed} games")"
+                                     Metric="@($"{bestPartner.WinRate:F0}%")"
+                                     MetricLabel="wins"
+                                     MetricColorClass="@WinTone.ForRate(bestPartner.WinRate)"
+                                     OnClick="() => SetScope(bestPartner)"/>
+                    }
+                </div>
+            }
+
+            <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                @* The same card the People page shows, so a person looks like themselves
+                   wherever they turn up — here it doubles as the page's scope picker. *@
+                @foreach (var p in ranked)
+                {
+                    var active = SameScope(p, _scoped);
+                    <PersonCard @key="@($"{p.UserId}-{p.PlayerId}")"
+                                Kind="PlayerAssigneeBadge.For(p.Kind)" Name="@p.Name"
+                                DetailLabel="@KindCaption(p.Kind)"
+                                Games="p.GamesPlayed" Wins="p.Wins" Losses="p.Losses" WinRate="p.WinRate"
+                                FavouriteSpiritId="@p.FavouriteSpirit"
+                                EmptyNote="No completed games yet."
+                                Selected="active"
+                                Title="@(active ? "Showing this player — click to clear" : $"Show only games with {p.Name}")"
+                                OnClick="() => SetScope(active ? null : p)">
+                        <Details>
+                            @if (p.BestScore is { } best)
+                            {
+                                <div class="flex items-center gap-2">
+                                    <Icon Name="star" Class="w-3.5 h-3.5 text-ink-400"/>
+                                    <span>Best <span class="font-medium text-ink-800 tabular-nums">@best</span> · avg <span class="tabular-nums">@($"{p.AverageScore:F0}")</span></span>
+                                </div>
+                            }
+                        </Details>
+                    </PersonCard>
+                }
+            </div>
+
+            <p class="text-[11px] text-ink-500">
+                Counted over your own games only. A friend's own history at other tables is theirs to show.
+            </p>
+        </div>;
+
+    private static string KindCaption(PlayerKind kind) => kind switch
+    {
+        PlayerKind.Me     => "You",
+        PlayerKind.Friend => "Friend · has an account",
+        _                 => "Local player",
+    };
+}
+
 @* ============================== SPIRITS TAB ============================== *@
 @code {
     private RenderFragment SpiritsTab() =>
@@ -559,7 +677,8 @@ else
                 </div>
             </div>
 
-            <CoveragePanel Title="Spirits" Total="ownedSpirits.Count" Missing="missingSpirits" ItemTemplate="SpiritPill"/>
+            <CoveragePanel Title="Spirits" Total="ownedSpirits.Count" Missing="missingSpirits" ItemTemplate="SpiritPill"
+                           Note="@OutsideCollectionNote(playedSpiritIds, ownedSpirits.Select(s => s.Id.Value), "spirit")"/>
 
             @* Aspects are counted the way adversary levels are: one entry per variant, grouped
                under the spirit it varies, because an aspect is a different spirit to play. *@
@@ -696,7 +815,11 @@ else
                            Total="totalLevels"
                            Missing="missingGroups"
                            MissingCount="missingLevels.Count"
-                           ItemTemplate="AdversaryLevelGroupPill"/>
+                           ItemTemplate="AdversaryLevelGroupPill"
+                           Note="@OutsideCollectionNote(
+                                     _stats.AdversaryStatistics.Select(a => a.AdversaryId),
+                                     ownedAdversaries.Select(a => a.Id.Value),
+                                     "adversary")"/>
         </div>;
 
     private RenderFragment<object> AdversaryLevelGroupPill => o =>
@@ -799,7 +922,8 @@ else
                 </div>
             }
 
-            <CoveragePanel Title="Scenarios" Total="ownedScenarios.Count" Missing="missing" ItemTemplate="ScenarioPill"/>
+            <CoveragePanel Title="Scenarios" Total="ownedScenarios.Count" Missing="missing" ItemTemplate="ScenarioPill"
+                           Note="@OutsideCollectionNote(playedIds, ownedScenarios.Select(s => s.Id.Value), "scenario")"/>
         </div>;
 
     private RenderFragment<object> ScenarioPill => o =>
@@ -956,7 +1080,8 @@ else
                 </div>
             }
 
-            <CoveragePanel Title="Boards" Total="ownedBoards.Count" Missing="missing" ItemTemplate="BoardPill"/>
+            <CoveragePanel Title="Boards" Total="ownedBoards.Count" Missing="missing" ItemTemplate="BoardPill"
+                           Note="@OutsideCollectionNote(playedIds, ownedBoards.Select(b => b.Id.Value), "board")"/>
         </div>;
 
     private RenderFragment<object> BoardPill => o =>
@@ -999,6 +1124,15 @@ else
     /// (the dashboard's collection rows do). Ignored when it names no tab we have.</summary>
     [SupplyParameterFromQuery(Name = "tab")]
     public string? TabParam { get; set; }
+
+    /// <summary>Opens the page already scoped to a friend — the People page links this way.
+    /// Ignored when that account has never sat in one of your games.</summary>
+    [SupplyParameterFromQuery(Name = "user")]
+    public Guid? ScopeUserParam { get; set; }
+
+    /// <summary>The same, for a local player.</summary>
+    [SupplyParameterFromQuery(Name = "player")]
+    public Guid? ScopePlayerParam { get; set; }
 
     private StatisticsResponse? _stats;
     private List<PlayerStats> _unfilteredPlayers = [];
@@ -1057,6 +1191,7 @@ else
     private readonly TabDef[] _tabs =
     [
         new("overview", "Overview"),
+        new("players", "Players"),
         new("spirits", "Spirits"),
         new("adversaries", "Adversaries"),
         new("scenarios", "Scenarios"),
@@ -1066,6 +1201,7 @@ else
     /// <summary>Played-entity count shown on the tab pill; null for tabs that aren't a list.</summary>
     private int? TabCount(string key) => key switch
     {
+        "players"     => _unfilteredPlayers.Count > 1 ? _unfilteredPlayers.Count : null,
         "spirits"     => _stats?.SpiritStatistics.Count,
         "adversaries" => _stats?.AdversaryStatistics.Count,
         "scenarios"   => _stats?.ScenarioStatistics.Count,
@@ -1116,6 +1252,16 @@ else
         // Sequential sends — the scoped DbContext behind IMediator is not thread-safe.
         await LoadStats(scopeUserId: null, scopePlayerId: null);
         _unfilteredPlayers = _stats?.PlayerStatistics ?? [];
+
+        // Arrived scoped at somebody (from a People card, say) — pick them out of the tally the
+        // dropdown reads from, so the whole page behaves as if that pick had been made here.
+        if (ScopeUserParam is { } scopeUser)
+            _scoped = _unfilteredPlayers.FirstOrDefault(p => p.UserId == scopeUser);
+        else if (ScopePlayerParam is { } scopePlayer)
+            _scoped = _unfilteredPlayers.FirstOrDefault(p => p.PlayerId == scopePlayer);
+
+        if (_scoped is not null)
+            await LoadStats(_scoped.UserId, _scoped.PlayerId);
 
         var facts = await Mediator.Send(new GetSetupFactsQuery(userId));
         if (facts.IsSuccess) _facts = facts.Value;
@@ -1203,6 +1349,21 @@ else
                 .Where(a => !played.Contains(a.Id.Value))
                 .Select(a => new MissingAspect(s.Id.Value, s.Name, a.Name)))
             .ToList();
+    }
+
+    /// <summary>
+    /// What was played that the coverage bar above it can't count: content from expansions
+    /// this account doesn't own, which happens whenever somebody else brings the box. The
+    /// record keeps those games; the collection tally is about the shelf, so it can't.
+    /// </summary>
+    private static string? OutsideCollectionNote(
+        IEnumerable<string> playedIds, IEnumerable<string> ownedIds, string noun)
+    {
+        var owned = ownedIds.ToHashSet();
+        var extra = playedIds.Distinct().Count(id => !owned.Contains(id));
+        return extra == 0
+            ? null
+            : $"Plus {extra} {noun}{(extra == 1 ? "" : "s")} played from expansions you don't own.";
     }
 
     private IReadOnlyList<Spirit> OwnedSpiritsList() =>

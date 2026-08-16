@@ -5,11 +5,27 @@ namespace Domain.Models.User;
 public class User : AggregateRoot<UserId>
 {
     public Email Email { get; private set; }
-    public Nickname Nickname { get; private set; }
+
+    /// <summary>
+    /// The name the user chose for themselves, or null until they have. Deliberately not
+    /// seeded from the identity provider: a name taken from OIDC claims is the provider's
+    /// guess, and treating it as chosen would mean the account never gets asked. Read
+    /// <see cref="DisplayName"/> rather than this — nothing in the app should print a raw
+    /// nickname and leave the unnamed case to the caller.
+    /// </summary>
+    public Nickname? Nickname { get; private set; }
+
+    /// <summary>
+    /// What this account is called wherever a person is named. The nickname once set,
+    /// the email address until then — an address is a poor name but it is at least one
+    /// the people who know this account will recognise.
+    /// </summary>
+    public string DisplayName => Nickname?.Value ?? Email.Value;
+
     public DateTimeOffset Registered { get; private init; }
     public UserSettings UserSettings { get; private set; }
 
-    private User(UserId id, Email email, Nickname nickname, UserSettings userSettings, DateTimeOffset registered) : base(id)
+    private User(UserId id, Email email, Nickname? nickname, UserSettings userSettings, DateTimeOffset registered) : base(id)
     {
         Email = email;
         Nickname = nickname;
@@ -17,7 +33,7 @@ public class User : AggregateRoot<UserId>
         Registered = registered;
     }
 
-    public static User Create(UserId id, Email email, Nickname nickname, UserSettings userSettings, DateTimeOffset registered)
+    public static User Create(UserId id, Email email, Nickname? nickname, UserSettings userSettings, DateTimeOffset registered)
     {
         return new User(id, email, nickname, userSettings, registered);
     }

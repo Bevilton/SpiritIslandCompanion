@@ -10,15 +10,20 @@ using Microsoft.EntityFrameworkCore;
 namespace Application.Features.Users;
 
 /// <summary>
-/// Syncs the OIDC user to the local database by email. If the user doesn't exist, creates them.
-/// If they do exist, updates the nickname from the latest OIDC claims.
-/// Returns the local UserId.
+/// Syncs the OIDC user to the local database by email, creating the account on first
+/// sign-in. Returns the local UserId and whether the account has chosen a name yet.
+/// <para>
+/// The nickname is deliberately not touched here. It belongs to the user, not to the
+/// identity provider — writing the provider's claim back on every sign-in would quietly
+/// undo whatever they set on the account.
+/// </para>
 /// </summary>
-public sealed record SyncUserCommand(
-    string Email,
-    string Nickname) : IQuery<SyncUserResponse>;
+public sealed record SyncUserCommand(string Email) : IQuery<SyncUserResponse>;
 
-public sealed record SyncUserResponse(Guid UserId);
+/// <param name="NeedsNickname">
+/// True while the account has no name of its own — the sign-in flow prompts for one.
+/// </param>
+public sealed record SyncUserResponse(Guid UserId, bool NeedsNickname);
 
 internal sealed class SyncUserValidator : AbstractValidator<SyncUserCommand>
 {
@@ -27,9 +32,6 @@ internal sealed class SyncUserValidator : AbstractValidator<SyncUserCommand>
         RuleFor(x => x.Email)
             .NotEmpty().WithDomainError(DomainErrors.User.EmailRequired)
             .EmailAddress().WithDomainError(DomainErrors.User.EmailInvalid);
-        RuleFor(x => x.Nickname)
-            .NotEmpty().WithDomainError(DomainErrors.User.NicknameRequired)
-            .MaximumLength(Nickname.MaxLength).WithDomainError(DomainErrors.User.NicknameTooLong);
     }
 }
 
@@ -40,30 +42,24 @@ internal sealed class SyncUserHandler(IAppDbContext db) : IQueryHandler<SyncUser
         var emailResult = Email.Create(request.Email);
         if (emailResult.IsFailure) return Result.Failure<SyncUserResponse>(emailResult.Error);
 
-        var nicknameResult = Nickname.Create(request.Nickname);
-        if (nicknameResult.IsFailure) return Result.Failure<SyncUserResponse>(nicknameResult.Error);
-
         var user = await db.Users
-            .Include(u => u.UserSettings)
+            .AsNoTracking()
             .FirstOrDefaultAsync(u => u.Email.Value == request.Email, cancellationToken);
 
         if (user is not null)
-        {
-            user.UpdateProfile(nicknameResult.Value);
-            return new SyncUserResponse(user.Id.Value);
-        }
+            return new SyncUserResponse(user.Id.Value, user.Nickname is null);
 
-        // First login — create user
+        // First login — create the account unnamed, and let the app ask.
         var settings = UserSettings.Create(new UserSettingsId(Guid.NewGuid()), []);
 
         var newUser = User.Create(
             new UserId(Guid.NewGuid()),
             emailResult.Value,
-            nicknameResult.Value,
+            nickname: null,
             settings,
             DateTimeOffset.UtcNow);
 
         db.Users.Add(newUser);
-        return new SyncUserResponse(newUser.Id.Value);
+        return new SyncUserResponse(newUser.Id.Value, NeedsNickname: true);
     }
 }

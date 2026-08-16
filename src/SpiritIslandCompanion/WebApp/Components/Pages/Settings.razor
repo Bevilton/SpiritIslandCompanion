@@ -22,6 +22,32 @@
 }
 else
 {
+    <section class="surface max-w-2xl mb-5">
+        <div class="surface-head">
+            <h2 class="text-base font-semibold">Your name</h2>
+        </div>
+        <div class="surface-body">
+            <p class="text-sm text-ink-500 mb-4">
+                What friends see on shared games and in their statistics. Until you pick one,
+                your email address is used instead.
+            </p>
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-start">
+                <div class="flex-1">
+                    <input type="text" class="input w-full" maxlength="@Domain.Models.User.Nickname.MaxLength"
+                           placeholder="@_email" @bind="_nickname" @bind:event="oninput"/>
+                    <FieldError For="Nickname" Errors="@_form.Errors"/>
+                </div>
+                <button class="btn btn-primary sm:self-start" @onclick="SaveNickname"
+                        disabled="@(_savingName || string.IsNullOrWhiteSpace(_nickname) || _nickname.Trim() == _savedNickname)">
+                    <Icon Name="check" Class="w-4 h-4"/> Save name
+                </button>
+            </div>
+            <p class="mt-2 text-xs text-ink-500">
+                Signed in as <span class="font-medium text-ink-700">@_email</span>. Friend requests are sent to this address.
+            </p>
+        </div>
+    </section>
+
     <section class="surface max-w-2xl">
         <div class="surface-head">
             <h2 class="text-base font-semibold">Owned expansions</h2>
@@ -77,8 +103,12 @@ else
 
 @code {
     private HashSet<string> _ownedExpansions = [];
+    private string _nickname = "";
+    private string _savedNickname = "";
+    private string _email = "";
     private bool _loading = true;
     private bool _saving;
+    private bool _savingName;
     /// Field errors, the general alert and the failed-attempt count in one place — see FormFeedback.
     private readonly FormFeedback _form = new();
 
@@ -97,8 +127,27 @@ else
         if (CurrentUser.UserId is not { } userId) return;
         var result = await Mediator.Send(new Application.Features.Users.GetUserQuery(userId));
         if (result.IsSuccess)
+        {
             _ownedExpansions = result.Value.OwnedExpansionIds.ToHashSet();
+            _savedNickname = result.Value.Nickname ?? "";
+            _nickname = _savedNickname;
+            _email = result.Value.Email;
+        }
         _loading = false;
+    }
+
+    private async Task SaveNickname()
+    {
+        _savingName = true;
+        var result = await Mediator.Send(new Application.Features.Users.SetNicknameCommand(
+            CurrentUser.UserId!.Value, _nickname));
+        _savingName = false;
+
+        if (!_form.Apply(result, "Name saved.")) return;
+
+        _savedNickname = _nickname.Trim();
+        _nickname = _savedNickname;
+        await UserState.ReloadAsync();
     }
 
     private void ToggleExpansion(string id, bool isChecked)

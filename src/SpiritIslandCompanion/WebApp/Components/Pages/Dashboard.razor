@@ -2,9 +2,11 @@
 @attribute [Authorize]
 @using Application.Features.Friendships
 @using Application.Features.Games
+@using Application.Features.PlayerMerges
 @using Application.Features.Statistics
 @inject IMediator Mediator
 @inject ICurrentUserService CurrentUser
+@inject WebApp.State.CurrentUserState UserState
 
 <PageTitle>Dashboard</PageTitle>
 
@@ -31,9 +33,10 @@ else
 {
     <div class="space-y-6">
         @* ============================== NEEDS YOU ==============================
-           Drafts and friend requests are the only things on this page that ask for an
-           action, so they lead — and they disappear entirely once nothing is waiting. *@
-        @if (_drafts.Count > 0 || _incoming.Count > 0)
+           Your own unfinished games and the requests waiting on your answer — the only
+           things on this page that ask for an action, so they lead, and the panel
+           disappears entirely once nothing is waiting. *@
+        @if (_drafts.Count > 0 || _incoming.Count > 0 || _incomingMerges.Count > 0)
         {
             <section class="surface border-amber-200 bg-amber-50/40 px-5 py-4">
                 <div class="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -83,12 +86,30 @@ else
 
                     @foreach (var r in _incoming.Take(MaxAttentionRows))
                     {
-                        <a @key="r.FriendshipId" href="/app/friends"
-                           title="@($"{r.Nickname} wants to connect")"
+                        <a @key="r.FriendshipId" href="/app/people?tab=requests"
+                           title="@($"{r.Name} wants to connect")"
                            class="group flex items-center gap-3 rounded-lg border border-sky-200 bg-white px-3 py-2.5 transition-colors
                                   hover:border-sky-300 hover:bg-sky-50/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
-                            <PlayerAssigneeBadge Kind="PlayerAssigneeBadge.AssigneeKind.Friend" Name="@r.Nickname"
+                            <PlayerAssigneeBadge Kind="PlayerAssigneeBadge.AssigneeKind.Friend" Name="@r.Name"
                                                  DetailLabel="wants to connect"
+                                                 ContainerClass="inline-flex items-center gap-3 min-w-0 flex-1"/>
+                            <span class="inline-flex shrink-0 items-center gap-1 rounded-full border border-sky-300 bg-sky-50 px-2.5 py-1
+                                         text-[11px] font-semibold text-sky-800 transition-colors group-hover:bg-sky-100">
+                                Review <Icon Name="arrow-right" Class="w-3 h-3"/>
+                            </span>
+                        </a>
+                    }
+
+                    @* Someone says a guest in their games was you. Answering hands you those
+                       seats, so it belongs here beside the other things only you can settle. *@
+                    @foreach (var m in _incomingMerges.Take(MaxAttentionRows))
+                    {
+                        <a @key="m.Id" href="/app/people?tab=requests"
+                           title="@($"{m.OtherUserName} says “{m.PlayerName}” in their games is you")"
+                           class="group flex items-center gap-3 rounded-lg border border-sky-200 bg-white px-3 py-2.5 transition-colors
+                                  hover:border-sky-300 hover:bg-sky-50/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                            <PlayerAssigneeBadge Kind="PlayerAssigneeBadge.AssigneeKind.Player" Name="@m.PlayerName"
+                                                 DetailLabel="@($"{m.OtherUserName} says this is you · {m.GameCount} game{(m.GameCount == 1 ? "" : "s")}")"
                                                  ContainerClass="inline-flex items-center gap-3 min-w-0 flex-1"/>
                             <span class="inline-flex shrink-0 items-center gap-1 rounded-full border border-sky-300 bg-sky-50 px-2.5 py-1
                                          text-[11px] font-semibold text-sky-800 transition-colors group-hover:bg-sky-100">
@@ -183,7 +204,7 @@ else
                             Every game so far has been yours alone. Add the people you play with and their
                             records show up here.
                         </p>
-                        <a href="/app/players" class="btn btn-secondary btn-sm mt-3">
+                        <a href="/app/people?tab=players" class="btn btn-secondary btn-sm mt-3">
                             <Icon Name="plus" Class="w-3.5 h-3.5"/> Add a player
                         </a>
                     }
@@ -267,8 +288,8 @@ else
         @<div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
             @Tile("/app/games", "controller", "Games", $"{_games.Count} recorded")
             @Tile("/app/statistics", "chart", "Statistics", "The full breakdown")
-            @Tile("/app/friends", "users", "Friends", FriendsCaption)
-            @Tile("/app/players", "user", "Players", PlayersCaption)
+            @Tile("/app/people", "users", "People", FriendsCaption)
+            @Tile("/app/settings", "settings", "Settings", "Your collection and name")
         </div>;
 
     private RenderFragment Tile(string href, string icon, string label, string caption) =>
@@ -288,14 +309,11 @@ else
     [CascadingParameter(Name = "OwnedExpansions")]
     public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
 
-    [CascadingParameter]
-    private Task<AuthenticationState>? AuthState { get; set; }
-
     private StatisticsResponse? _stats;
     private List<ListGamesResponse> _games = [];
     private List<PendingRequestDto> _incoming = [];
+    private List<MergeRequestSummary> _incomingMerges = [];
     private int _friendCount;
-    private string? _nickname;
     private bool _loading = true;
 
     // Derived once after loading — none of it changes while the page is open.
@@ -323,11 +341,9 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        if (AuthState is not null)
-        {
-            var state = await AuthState;
-            _nickname = state.User.FindFirst("nickname")?.Value ?? state.User.Identity?.Name;
-        }
+        // The account's own name, not the identity provider's guess — see User.Nickname.
+        // AppShell reads the same state, so the greeting and the sidebar always agree.
+        await UserState.EnsureLoadedAsync();
 
         if (CurrentUser.UserId is not { } userId)
         {
@@ -345,6 +361,9 @@ else
         var pendingResult = await Mediator.Send(new ListPendingRequestsQuery(userId));
         if (pendingResult.IsSuccess) _incoming = pendingResult.Value.Incoming;
 
+        var mergeResult = await Mediator.Send(new ListIncomingMergeRequestsQuery(userId));
+        if (mergeResult.IsSuccess) _incomingMerges = mergeResult.Value;
+
         var friendsResult = await Mediator.Send(new ListFriendsQuery(userId));
         if (friendsResult.IsSuccess) _friendCount = friendsResult.Value.Count;
 
@@ -354,8 +373,10 @@ else
 
     private void Derive()
     {
+        // Your own unfinished games only: the panel is a to-do list, and a draft somebody
+        // else recorded is theirs to finish — see ListGamesResponse.OwnerId.
         _drafts = _games
-            .Where(g => !g.IsCompleted)
+            .Where(g => !g.IsCompleted && g.OwnerId == CurrentUser.UserId)
             .OrderByDescending(g => g.StartedAt)
             .ToList();
 
@@ -444,7 +465,10 @@ else
     /// <summary>Win rate over the form window alone — not the all-time one the tile shows.</summary>
     private double FormWinRate => _form.Count == 0 ? 0 : 100.0 * _form.Count(e => e.Win) / _form.Count;
 
-    private string Greeting => string.IsNullOrWhiteSpace(_nickname) ? "Welcome back" : $"Welcome back, {_nickname}";
+    /// <summary>Greets by the chosen name only: the email fallback DisplayName offers reads
+    /// as a form letter, and "Welcome back" on its own does not.</summary>
+    private string Greeting =>
+        UserState.User?.Nickname is { Length: > 0 } name ? $"Welcome back, {name}" : "Welcome back";
 
     private string HeaderSummary => _stats is null || _stats.TotalGames == 0
         ? "Your island, at a glance."
@@ -457,9 +481,12 @@ else
             var parts = new List<string>();
             if (_drafts.Count > 0) parts.Add($"{_drafts.Count} draft{(_drafts.Count == 1 ? "" : "s")} waiting");
             if (_incoming.Count > 0) parts.Add($"{_incoming.Count} friend request{(_incoming.Count == 1 ? "" : "s")}");
+            if (_incomingMerges.Count > 0) parts.Add($"{_incomingMerges.Count} merge request{(_incomingMerges.Count == 1 ? "" : "s")}");
             var line = string.Join(" · ", parts);
             // The panel only lists the newest few of each; say so when some are left out.
-            var truncated = _drafts.Count > MaxAttentionRows || _incoming.Count > MaxAttentionRows;
+            var truncated = _drafts.Count > MaxAttentionRows
+                            || _incoming.Count > MaxAttentionRows
+                            || _incomingMerges.Count > MaxAttentionRows;
             return truncated ? $"{line} · showing the newest {MaxAttentionRows}" : line;
         }
     }
@@ -472,26 +499,19 @@ else
             ? $"wins in a row · best {_stats!.LongestStreak}"
             : $"defeats in a row · best win run {_stats!.LongestStreak}";
 
-    private string FriendsCaption => _incoming.Count > 0
-        ? $"{_friendCount} connected · {_incoming.Count} pending"
-        : _friendCount switch
-        {
-            0 => "Play together",
-            1 => "1 connected",
-            _ => $"{_friendCount} connected",
-        };
-
-    private string PlayersCaption
+    /// <summary>Everything on the People page waiting on an answer of yours — friend
+    /// requests and merge requests alike, since the tile leads to both.</summary>
+    private string FriendsCaption
     {
         get
         {
-            // Local players who actually appear in a game — not everyone on the players page.
-            var locals = _stats?.PlayerStatistics.Count(p => p.PlayerId is not null) ?? 0;
-            return locals switch
+            var pending = _incoming.Count + _incomingMerges.Count;
+            if (pending > 0) return $"{_friendCount} connected · {pending} pending";
+            return _friendCount switch
             {
-                0 => "People at your table",
-                1 => "1 in your games",
-                _ => $"{locals} in your games",
+                0 => "Play together",
+                1 => "1 connected",
+                _ => $"{_friendCount} connected",
             };
         }
     }

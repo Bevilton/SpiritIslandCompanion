@@ -27,13 +27,15 @@
         <div class="p-3 border-t border-ink-200">
             <AuthorizeView>
                 <Authorized>
+                    @* The account's own name, not the identity provider's — see User.Nickname. *@
+                    @{ var displayName = UserState.DisplayName ?? context.User.Identity?.Name; }
                     <div class="flex items-center gap-3 px-2 py-1.5">
                         <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-accent-100 text-accent-800 text-sm font-medium">
-                            @GetInitial(context.User.FindFirst("nickname")?.Value ?? context.User.Identity?.Name)
+                            @GetInitial(displayName)
                         </span>
                         <div class="flex-1 min-w-0">
-                            <div class="text-sm font-medium text-ink-900 truncate">
-                                @(context.User.FindFirst("nickname")?.Value ?? context.User.Identity?.Name)
+                            <div class="text-sm font-medium text-ink-900 truncate" title="@displayName">
+                                @displayName
                             </div>
                             <a href="/logout" class="text-xs text-ink-500 hover:text-ink-700 inline-flex items-center gap-1">
                                 <Icon Name="logout" Class="w-3.5 h-3.5"/> Sign out
@@ -65,6 +67,13 @@
         </main>
     </div>
 </div>
+
+@* Asked once, on the first authenticated page an unnamed account lands on. *@
+<AuthorizeView>
+    <Authorized>
+        <NicknamePrompt SuggestedName="@context.User.FindFirst(WebApp.Auth.UserSyncOidcEvents.SuggestedNameClaim)?.Value"/>
+    </Authorized>
+</AuthorizeView>
 </CascadingValue>
 
 <div id="blazor-error-ui">

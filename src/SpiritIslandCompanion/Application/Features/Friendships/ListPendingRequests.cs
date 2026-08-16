@@ -17,7 +17,7 @@ public sealed record PendingRequestDto(
     Guid FriendshipId,
     Guid UserId,
     string Email,
-    string Nickname,
+    string Name,
     DateTimeOffset SentAt);
 
 internal sealed class ListPendingRequestsHandler(IAppDbContext db) : IQueryHandler<ListPendingRequestsQuery, PendingRequestsResponse>
@@ -52,7 +52,7 @@ internal sealed class ListPendingRequestsHandler(IAppDbContext db) : IQueryHandl
                 f.Id.Value,
                 otherUserId.Value,
                 user?.Email.Value ?? "",
-                user?.Nickname.Value ?? "",
+                user?.DisplayName ?? "",
                 f.CreatedAt);
         }
 

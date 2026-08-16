@@ -9,7 +9,10 @@ namespace Application.Features.Friendships;
 
 public sealed record ListFriendsQuery(Guid UserId) : IQuery<List<FriendResponse>>;
 
-public sealed record FriendResponse(Guid FriendshipId, Guid FriendUserId, string Email, string Nickname);
+/// <param name="Name">
+/// What the friend is called — their nickname, or their email until they pick one.
+/// </param>
+public sealed record FriendResponse(Guid FriendshipId, Guid FriendUserId, string Email, string Name);
 
 internal sealed class ListFriendsHandler(IAppDbContext db) : IQueryHandler<ListFriendsQuery, List<FriendResponse>>
 {
@@ -43,9 +46,9 @@ internal sealed class ListFriendsHandler(IAppDbContext db) : IQueryHandler<ListF
                     f.Id.Value,
                     friendUser.Id.Value,
                     friendUser.Email.Value,
-                    friendUser.Nickname.Value);
+                    friendUser.DisplayName);
             })
-            .OrderBy(f => f.Nickname)
+            .OrderBy(f => f.Name)
             .ToList();
 
         return response;

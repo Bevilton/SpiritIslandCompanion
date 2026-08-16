@@ -44,15 +44,26 @@ else
             </p>
         </div>
         <div class="flex flex-wrap gap-2">
-            @if (!_game.IsCompleted && !_showCompleteForm)
+            @if (IsOwner && !_game.IsCompleted && !_showCompleteForm)
             {
                 <button class="btn btn-primary" @onclick="StartComplete">
                     <Icon Name="check-circle" Class="w-4 h-4"/> Complete game
                 </button>
             }
-            <button class="btn btn-danger-outline" @onclick="DeleteGame">
-                <Icon Name="trash" Class="w-4 h-4"/> Delete
-            </button>
+            @* Deleting is the recorder's call alone — everyone else here is a guest in
+               somebody else's record of the evening. *@
+            @if (IsOwner)
+            {
+                <button class="btn btn-danger-outline" @onclick="DeleteGame">
+                    <Icon Name="trash" Class="w-4 h-4"/> Delete
+                </button>
+            }
+            else
+            {
+                <span class="badge badge-neutral self-center" title="@($"{OwnerName} recorded this game and is the only one who can delete it")">
+                    <Icon Name="lock" Class="w-3 h-3"/> Recorded by @OwnerName
+                </span>
+            }
         </div>
     </div>
 
@@ -100,7 +111,7 @@ else
                 {
                     <GameResultSummary Result="_game.Result"/>
                 }
-                else
+                else if (IsOwner)
                 {
                     @* The same amber invitation the setup screen's "Did you finish this game?"
                        panel uses, so finishing a draft looks like the step it is. *@
@@ -117,6 +128,23 @@ else
                         <button class="btn btn-primary" @onclick="StartComplete">
                             <Icon Name="check-circle" Class="w-4 h-4"/> Complete game
                         </button>
+                    </div>
+                }
+                else
+                {
+                    @* Someone else's draft. The outcome is theirs to record — offering it here
+                       would be an invitation the server refuses. *@
+                    <div class="flex flex-wrap items-center gap-3 rounded-2xl border border-ink-200 bg-ink-50/60 px-5 py-4 md:px-6">
+                        <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-ink-100 text-ink-500">
+                            <Icon Name="hourglass" Class="w-5 h-5"/>
+                        </span>
+                        <div>
+                            <div class="text-sm font-semibold text-ink-900">No outcome recorded yet</div>
+                            <div class="text-xs text-ink-500">
+                                @OwnerName recorded this match and is the only one who can finish it.
+                                It'll show up in your statistics once they do.
+                            </div>
+                        </div>
                     </div>
                 }
             </section>
@@ -309,6 +337,13 @@ else
 
     private ConfirmDialog _confirmDialog = default!;
 
+    /// <summary>Whether the signed-in user is the one who recorded this game.</summary>
+    private bool IsOwner => _game is not null && _game.OwnerId == CurrentUser.UserId;
+
+    /// <summary>Who recorded it, for the badge shown to everyone else at the table.</summary>
+    private string OwnerName =>
+        _friends.FirstOrDefault(f => f.FriendUserId == _game?.OwnerId)?.Name ?? "another player";
+
     private int ProvisionalScore =>
         Domain.Services.ScoreCalculator.Compute(
             win: _resultWin,
@@ -333,13 +368,16 @@ else
             if (playersResult.IsSuccess) _localPlayers = playersResult.Value;
         }
 
-        if (Finish && _game is { IsCompleted: false }) _showCompleteForm = true;
+        // The "Finish" shortcut is only offered on your own drafts, but the URL it lands on
+        // can be typed — so the form opens on the same terms the button appears.
+        if (Finish && _game is { IsCompleted: false } && IsOwner) _showCompleteForm = true;
 
         _loading = false;
     }
 
     private void StartComplete()
     {
+        if (!IsOwner) return;
         _showCompleteForm = true;
         _form.Clear();
     }

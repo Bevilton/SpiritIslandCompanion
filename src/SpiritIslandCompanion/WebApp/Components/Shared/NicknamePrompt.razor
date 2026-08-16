@@ -1,0 +1,119 @@
+@* First-login name prompt. An account starts unnamed — the identity provider's claim is a
+   guess, not a choice — so the first authenticated page asks once. Pre-filled with that guess
+   so the common answer is a single click. Dismissable: until a name is set the app falls back
+   to the email address, which works, so this must never stand between the user and the app. *@
+@inject IMediator Mediator
+@inject ICurrentUserService CurrentUser
+@inject WebApp.State.CurrentUserState UserState
+@implements IDisposable
+
+@if (_open)
+{
+    <ModalShell OnClose="Dismiss" MaxWidth="md:max-w-lg" Scrollable="false">
+        <div class="px-6 pt-6">
+            <div class="flex items-start gap-3">
+                <span class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-50 text-accent-700">
+                    <Icon Name="user" Class="w-5 h-5"/>
+                </span>
+                <div class="min-w-0">
+                    <h3 class="text-lg font-semibold text-ink-900" style="font-family: var(--font-serif);">What should we call you?</h3>
+                    <p class="mt-1 text-sm text-ink-500">
+                        This is the name your friends see on shared games and in their statistics.
+                        Until you pick one we fall back to your email address.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="px-6 pt-5">
+            <label class="label" for="nickname-prompt">Display name</label>
+            <input id="nickname-prompt" type="text" class="input" maxlength="@Domain.Models.User.Nickname.MaxLength"
+                   placeholder="e.g. River" autofocus
+                   @bind="_name" @bind:event="oninput" @onkeydown="OnKeyDown"/>
+            <FieldError For="Nickname" Errors="@_form.Errors"/>
+            @if (_form.Message is not null)
+            {
+                <div class="mt-2"><Alert Message="@_form.Message" Type="@_form.MessageType"/></div>
+            }
+        </div>
+
+        <div class="flex justify-end gap-2 px-6 py-5">
+            <button type="button" class="btn btn-ghost" @onclick="Dismiss">Not now</button>
+            <button type="button" class="btn btn-primary" @onclick="Save"
+                    disabled="@(_saving || string.IsNullOrWhiteSpace(_name))">
+                <Icon Name="check" Class="w-4 h-4"/> Save name
+            </button>
+        </div>
+    </ModalShell>
+}
+
+@code {
+    /// <summary>The identity provider's guess at the user's name, used as the pre-filled answer.</summary>
+    [Parameter] public string? SuggestedName { get; set; }
+
+    private bool _open;
+    private bool _dismissed;
+    private bool _saving;
+    private string _name = "";
+    private readonly FormFeedback _form = new();
+
+    /// <summary>
+    /// Driven by the state, not by parameters: whether the account has a name is only known
+    /// once <see cref="WebApp.State.CurrentUserState"/> has loaded, which happens after the
+    /// first render. Subscribing here is what makes the prompt appear on that load — waiting
+    /// for a parameter to change would mean waiting for something that never changes.
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+    {
+        UserState.Changed += OnUserStateChanged;
+        await UserState.EnsureLoadedAsync();
+        OpenIfUnnamed();
+    }
+
+    private void OnUserStateChanged()
+    {
+        OpenIfUnnamed();
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose() => UserState.Changed -= OnUserStateChanged;
+
+    private void OpenIfUnnamed()
+    {
+        if (_dismissed || _open || !UserState.NeedsNickname) return;
+
+        _open = true;
+        if (string.IsNullOrWhiteSpace(_name))
+        {
+            var suggestion = SuggestedName?.Trim() ?? "";
+            // An email-shaped suggestion is no better than the fallback we already use.
+            _name = suggestion.Contains('@') ? "" : suggestion;
+        }
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_name)) await Save();
+    }
+
+    private async Task Save()
+    {
+        if (CurrentUser.UserId is not { } userId) return;
+
+        _saving = true;
+        var result = await Mediator.Send(new Application.Features.Users.SetNicknameCommand(userId, _name));
+        _saving = false;
+
+        if (!_form.Apply(result)) return;
+
+        _open = false;
+        _dismissed = true;
+        await UserState.ReloadAsync();
+    }
+
+    private void Dismiss()
+    {
+        _open = false;
+        _dismissed = true;
+    }
+}

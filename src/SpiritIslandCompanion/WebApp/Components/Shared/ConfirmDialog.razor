@@ -24,9 +24,15 @@
     [Parameter] public string Message { get; set; } = "Are you sure?";
     [Parameter] public string ConfirmText { get; set; } = "Delete";
 
-    public Task<bool> ShowAsync(string? message = null)
+    /// <param name="confirmText">
+    /// The verb on the confirming button. Worth passing whenever the prompt is reused for
+    /// more than one action — a button that says "Delete" on a prompt about removing a friend
+    /// describes something harsher than what will happen.
+    /// </param>
+    public Task<bool> ShowAsync(string? message = null, string? confirmText = null)
     {
         if (message is not null) Message = message;
+        if (confirmText is not null) ConfirmText = confirmText;
         _visible = true;
         _tcs = new TaskCompletionSource<bool>();
         StateHasChanged();

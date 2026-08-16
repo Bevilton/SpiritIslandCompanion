@@ -30,13 +30,21 @@ public sealed class UserSyncOidcEvents(IServiceProvider serviceProvider, IConfig
         using var scope = serviceProvider.CreateScope();
         var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
 
-        var result = await mediator.Send(new SyncUserCommand(email, name ?? email));
+        var result = await mediator.Send(new SyncUserCommand(email));
 
         if (result.IsSuccess)
         {
             identity.AddClaim(new Claim("db_user_id", result.Value.UserId.ToString()));
+            // Only ever a suggestion for the name prompt — the account's own nickname is set by
+            // the user and lives in our database, never overwritten from the provider's claims.
+            if (!string.IsNullOrWhiteSpace(name))
+                identity.AddClaim(new Claim(SuggestedNameClaim, name));
         }
     }
+
+    /// <summary>Claim carrying the identity provider's guess at the user's name, used to
+    /// pre-fill the first-login name prompt.</summary>
+    public const string SuggestedNameClaim = "suggested_name";
 
     public override Task RedirectToIdentityProviderForSignOut(RedirectContext context)
     {

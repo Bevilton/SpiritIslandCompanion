@@ -1574,7 +1574,7 @@ else
     {
         "me" => "You",
         _ when value.StartsWith("friend:") =>
-            _friends.FirstOrDefault(f => $"friend:{f.FriendUserId}" == value)?.Nickname ?? "Friend",
+            _friends.FirstOrDefault(f => $"friend:{f.FriendUserId}" == value)?.Name ?? "Friend",
         _ when value.StartsWith("player:") =>
             _localPlayers.FirstOrDefault(p => $"player:{p.Id}" == value)?.Name ?? "Player",
         _ => "Unassigned"

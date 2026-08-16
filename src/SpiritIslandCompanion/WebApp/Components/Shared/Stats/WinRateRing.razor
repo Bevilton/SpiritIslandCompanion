@@ -1,32 +1,41 @@
 @* Compact SVG donut showing a win-rate percentage. Sized by <c>Size</c> px.
-   Uses the same green / red accents the rest of the app uses for win/loss. *@
+   Uses the same green / red accents the rest of the app uses for win/loss.
+
+   The label is sized off the hole rather than off the badge, and steps down again at 100%:
+   in a serif tabular face "100%" is half again as wide as "80%", so a ladder keyed only to
+   the ring's outer size has the number touching the stroke on exactly the values worth
+   showing off. *@
 
 @{
     var pct = Math.Clamp(Pct, 0, 100);
-    var radius = Size / 2.0 - Stroke / 2.0;
+    var radius = Size / 2.0 - StrokeWidth / 2.0;
     var circumference = 2 * Math.PI * radius;
     var dash = circumference * pct / 100.0;
     var color = pct >= 60 ? "var(--color-accent-600)" : pct >= 40 ? "#D97706" /* amber-600 */ : "var(--color-red-600, #DC2626)";
     var bg = "var(--color-ink-100)";
     var center = Size / 2.0;
+
+    // Rounded at any real value, blunt at zero: a round cap on a zero-length dash still
+    // paints a dot, which reads as a sliver of a win rate that isn't there.
+    var cap = dash > 0 ? "round" : "butt";
 }
 
 <div class="relative inline-flex items-center justify-center" style="width:@(Size)px; height:@(Size)px;">
     <svg width="@Size" height="@Size" viewBox="0 0 @Size @Size" aria-hidden="true">
         <circle cx="@center" cy="@center" r="@radius"
-                stroke="@bg" stroke-width="@Stroke" fill="none"/>
+                stroke="@bg" stroke-width="@StrokeWidth" fill="none"/>
         <circle cx="@center" cy="@center" r="@radius"
-                stroke="@color" stroke-width="@Stroke" fill="none"
-                stroke-linecap="round"
+                stroke="@color" stroke-width="@StrokeWidth" fill="none"
+                stroke-linecap="@cap"
                 stroke-dasharray="@($"{dash.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)} {circumference.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}")"
                 transform="rotate(-90 @center @center)"/>
     </svg>
     <div class="absolute inset-0 flex items-center justify-center">
         <div class="text-center leading-none">
-            <div class="font-semibold tabular-nums @TextSizeClass" style="font-family: var(--font-serif);">@($"{pct:F0}")<span class="text-[0.55em] align-top">%</span></div>
+            <div class="font-semibold tabular-nums @TextSizeClass" style="font-family: var(--font-serif);">@($"{pct:F0}")<span class="text-[0.5em] align-top">%</span></div>
             @if (!string.IsNullOrEmpty(Caption))
             {
-                <div class="text-[9px] uppercase tracking-wide text-ink-500 mt-0.5">@Caption</div>
+                <div class="@CaptionClass uppercase tracking-wide text-ink-500">@Caption</div>
             }
         </div>
     </div>
@@ -35,13 +44,21 @@
 @code {
     [Parameter, EditorRequired] public double Pct { get; set; }
     [Parameter] public int Size { get; set; } = 80;
-    [Parameter] public int Stroke { get; set; } = 8;
+
+    /// <summary>Ring thickness. Omit to scale it with <see cref="Size"/>.</summary>
+    [Parameter] public int? Stroke { get; set; }
+
     [Parameter] public string? Caption { get; set; }
 
-    private string TextSizeClass => Size switch
-    {
-        >= 96 => "text-2xl",
-        >= 72 => "text-lg",
-        _     => "text-sm",
-    };
+    private int StrokeWidth => Stroke ?? Math.Max(4, (int)Math.Round(Size * 0.115));
+
+    /// <summary>The hole the label has to sit in — the ring's own thickness twice over.</summary>
+    private double Inner => Size - StrokeWidth * 2;
+
+    private string TextSizeClass =>
+        Math.Round(Math.Clamp(Pct, 0, 100)) >= 100
+            ? Inner switch { >= 100 => "text-xl", >= 56 => "text-base", >= 46 => "text-sm", _ => "text-xs" }
+            : Inner switch { >= 100 => "text-2xl", >= 56 => "text-lg", >= 46 => "text-base", _ => "text-sm" };
+
+    private string CaptionClass => Inner >= 56 ? "text-[9px] mt-0.5" : "text-[8px] mt-0";
 }

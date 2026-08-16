@@ -23,7 +23,15 @@ internal class UserConfiguration : IEntityTypeConfiguration<User>
                 .IsUnique();
         });
 
-        builder.OwnsOne(x => x.Nickname);
+        // Optional: an account has no name of its own until it chooses one — see User.Nickname.
+        builder.OwnsOne(x => x.Nickname, b =>
+        {
+            b.Property(n => n.Value)
+                .HasMaxLength(Nickname.MaxLength)
+                .IsRequired(false);
+        });
+        builder.Navigation(x => x.Nickname).IsRequired(false);
+
         builder.OwnsOne(x => x.UserSettings, b =>
         {
             b.OwnsOne(y => y.Id);

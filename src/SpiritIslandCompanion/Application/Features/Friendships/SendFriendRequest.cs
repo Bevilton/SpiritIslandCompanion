@@ -43,14 +43,20 @@ internal sealed class SendFriendRequestHandler(IAppDbContext db) : ICommandHandl
 
         // Check if a friendship already exists in either direction
         var existing = await db.Friendships
-            .AsNoTracking()
             .FirstOrDefaultAsync(f =>
                 (f.RequesterId.Value == requesterId.Value && f.AddresseeId.Value == addresseeId.Value) ||
                 (f.RequesterId.Value == addresseeId.Value && f.AddresseeId.Value == requesterId.Value),
                 cancellationToken);
 
         if (existing is not null)
-            return Result.Failure(DomainErrors.Friendship.AlreadyExists);
+        {
+            // A request that was turned down is an answer, not a wall: people fall out and
+            // patch things up, and the old row would otherwise block them for good.
+            if (existing.Status != FriendshipStatus.Rejected)
+                return Result.Failure(DomainErrors.Friendship.AlreadyExists);
+
+            db.Friendships.Remove(existing);
+        }
 
         var friendshipResult = Friendship.Create(
             new FriendshipId(Guid.NewGuid()),

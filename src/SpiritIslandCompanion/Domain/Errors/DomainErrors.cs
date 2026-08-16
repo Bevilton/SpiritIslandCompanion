@@ -12,10 +12,13 @@ public static class DomainErrors
     {
         public static Error NameRequired => Error.Validation("Player.NameRequired", "Player name is required.");
         public static Error NameTooLong => Error.Validation("Player.NameTooLong", $"Player name must be at most {PlayerName.MaxLength} characters.");
+        public static Error NotFound => Error.NotFound("Player.NotFound", "Local player not found.");
+        public static Error NotYours => Error.Forbidden("Player.NotYours", "That local player belongs to someone else.");
     }
 
     public static class User
     {
+        public static Error NotFound => Error.NotFound("User.NotFound", "User not found.");
         public static Error EmailRequired => Error.Validation("User.EmailRequired", "Email is required.");
         public static Error EmailInvalid => Error.Validation("User.EmailInvalid", "Enter a valid email address.");
         public static Error NicknameRequired => Error.Validation("User.NicknameRequired", "Nickname is required.");
@@ -85,5 +88,21 @@ public static class DomainErrors
         public static Error NotFound => Error.NotFound("Friendship.NotFound", "Friendship not found.");
         public static Error CannotFriendSelf => Error.Validation("Friendship.CannotFriendSelf", "You cannot send a friend request to yourself.");
         public static Error AlreadyResponded => Error.Validation("Friendship.AlreadyResponded", "This friend request has already been responded to.");
+        public static Error NotAccepted => Error.Validation("Friendship.NotAccepted", "You are not friends with that user yet.");
+    }
+
+    public static class PlayerMerge
+    {
+        public static Error NotFound => Error.NotFound("PlayerMerge.NotFound", "That merge request no longer exists.");
+        public static Error CannotMergeSelf => Error.Validation("PlayerMerge.CannotMergeSelf", "You cannot merge a local player into your own account.");
+        public static Error AlreadyPending => Error.Conflict("PlayerMerge.AlreadyPending", "You already have a merge request out for this local player.");
+        public static Error AlreadyResponded => Error.Validation("PlayerMerge.AlreadyResponded", "This merge request has already been responded to.");
+        public static Error NotTarget => Error.Forbidden("PlayerMerge.NotTarget", "Only the person being merged into can answer this request.");
+        public static Error NotRequester => Error.Forbidden("PlayerMerge.NotRequester", "Only the person who asked can withdraw this request.");
+        public static Error NotInvolved => Error.Forbidden("PlayerMerge.NotInvolved", "This merge request is not yours to see.");
+
+        public static Error SeatConflict => Error.Conflict(
+            "PlayerMerge.SeatConflict",
+            "A game seats both this local player and your account — merging would put you at the same table twice. Fix those games first.");
     }
 }

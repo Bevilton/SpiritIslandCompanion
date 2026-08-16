@@ -35,6 +35,19 @@ public sealed class CurrentUserState(
     /// </summary>
     public IReadOnlyList<ExpansionId>? OwnedExpansions { get; private set; }
 
+    /// <summary>The signed-in account, or null while loading / for anonymous visitors.</summary>
+    public GetUserResponse? User { get; private set; }
+
+    /// <summary>What to print for the signed-in user: their nickname, or their email until set.</summary>
+    public string? DisplayName => User?.DisplayName;
+
+    /// <summary>
+    /// True once we know the account exists and has never been named. AppShell reads this
+    /// to raise the first-login prompt; it stays false while loading, so the prompt never
+    /// flashes up on a user who does have a name.
+    /// </summary>
+    public bool NeedsNickname => _loaded && User is { Nickname: null };
+
     public event Action? Changed;
 
     public Task EnsureLoadedAsync()
@@ -51,6 +64,7 @@ public sealed class CurrentUserState(
             if (userId is null)
             {
                 OwnedExpansions = null;
+                User = null;
             }
             else
             {
@@ -59,6 +73,7 @@ public sealed class CurrentUserState(
                 var result = await mediator.Send(new GetUserQuery(userId.Value));
                 if (result.IsSuccess)
                 {
+                    User = result.Value;
                     OwnedExpansions = result.Value.OwnedExpansionIds.Select(id => new ExpansionId(id)).ToList();
                 }
             }

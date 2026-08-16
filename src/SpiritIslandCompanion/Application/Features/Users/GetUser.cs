@@ -1,5 +1,6 @@
 using Application.Abstractions;
 using Application.Data;
+using Domain.Errors;
 using Domain.Models.User;
 using Domain.Results;
 using Microsoft.EntityFrameworkCore;
@@ -8,10 +9,13 @@ namespace Application.Features.Users;
 
 public sealed record GetUserQuery(Guid UserId) : IQuery<GetUserResponse>;
 
+/// <param name="Nickname">The name the user chose, or null while they haven't — see User.Nickname.</param>
+/// <param name="DisplayName">What to print: the nickname, falling back to the email address.</param>
 public sealed record GetUserResponse(
     Guid Id,
     string Email,
-    string Nickname,
+    string? Nickname,
+    string DisplayName,
     DateTimeOffset Registered,
     List<string> OwnedExpansionIds);
 
@@ -25,12 +29,13 @@ internal sealed class GetUserHandler(IAppDbContext db) : IQueryHandler<GetUserQu
             .FirstOrDefaultAsync(u => u.Id == new UserId(request.UserId), cancellationToken);
 
         if (user is null)
-            return Result.Failure<GetUserResponse>(Error.NotFound("User.NotFound", "User not found."));
+            return Result.Failure<GetUserResponse>(DomainErrors.User.NotFound);
 
         var response = new GetUserResponse(
             user.Id.Value,
             user.Email.Value,
-            user.Nickname.Value,
+            user.Nickname?.Value,
+            user.DisplayName,
             user.Registered,
             user.UserSettings.Expansions.Select(e => e.Value).ToList());
 

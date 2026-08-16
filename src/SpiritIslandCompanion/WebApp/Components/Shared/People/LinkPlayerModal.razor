@@ -1,0 +1,107 @@
+@* Points a local player at a friend's account and sends the merge request. Only friends are
+   offered: the seats carry a place in each other's history, so the other side has to be
+   someone you are already connected to — and they still have to agree. *@
+@using Application.Features.People
+@using Application.Features.PlayerMerges
+@inject IMediator Mediator
+@inject ICurrentUserService CurrentUser
+
+@if (_open)
+{
+    <ModalShell OnClose="Close" MaxWidth="md:max-w-lg">
+        <div class="border-b border-ink-200 px-6 py-5">
+            <span class="eyebrow">Link to an account</span>
+            <h3 class="mt-2 text-xl font-semibold text-ink-900" style="font-family: var(--font-serif);">
+                Who is “@(_player?.Name)”?
+            </h3>
+            <p class="mt-1 text-sm text-ink-500">
+                Pick the friend this guest really is. They get a request showing every game the
+                seat covers, and nothing moves until they confirm it.
+            </p>
+        </div>
+
+        <div class="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+            <Alert Message="@_form.Message" Type="@_form.MessageType"/>
+
+            @if (Friends.Count == 0)
+            {
+                <div class="surface px-5 py-8 text-center text-sm text-ink-500">
+                    You have no friends to link to yet — send a friend request first.
+                </div>
+            }
+            else
+            {
+                <ul class="space-y-1">
+                    @foreach (var f in Friends)
+                    {
+                        var selected = _selected == f.UserId;
+                        <li>
+                            <button type="button" @onclick="() => _selected = f.UserId"
+                                    class="@RowClass(selected)">
+                                <PlayerAssigneeBadge Kind="PlayerAssigneeBadge.AssigneeKind.Friend"
+                                                     Name="@f.Name" DetailLabel="@f.Email"
+                                                     ContainerClass="inline-flex items-center gap-2.5 min-w-0 flex-1"/>
+                                @if (selected)
+                                {
+                                    <Icon Name="check" Class="w-4 h-4 text-accent-700 ml-auto shrink-0"/>
+                                }
+                            </button>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+
+        <div class="flex justify-end gap-2 border-t border-ink-200 px-6 py-4">
+            <button type="button" class="btn btn-secondary" @onclick="Close">Cancel</button>
+            <button type="button" class="btn btn-primary" @onclick="Send"
+                    disabled="@(_saving || _selected is null)">
+                <Icon Name="send" Class="w-4 h-4"/> Send request
+            </button>
+        </div>
+    </ModalShell>
+}
+
+@code {
+    /// <summary>The friends this local player may be — accounts you are already connected to.</summary>
+    [Parameter] public IReadOnlyList<PersonSummary> Friends { get; set; } = [];
+
+    /// <summary>Raised once the request is out, so the page can reload.</summary>
+    [Parameter] public EventCallback OnSent { get; set; }
+
+    private bool _open;
+    private bool _saving;
+    private PersonSummary? _player;
+    private Guid? _selected;
+    private readonly FormFeedback _form = new();
+
+    public void Show(PersonSummary player)
+    {
+        _player = player;
+        _selected = null;
+        _form.Clear();
+        _open = true;
+        StateHasChanged();
+    }
+
+    private void Close() => _open = false;
+
+    private async Task Send()
+    {
+        if (_player?.PlayerId is not { } playerId || _selected is not { } targetId) return;
+
+        _saving = true;
+        var result = await Mediator.Send(new SendMergeRequestCommand(
+            CurrentUser.UserId!.Value, playerId, targetId));
+        _saving = false;
+
+        if (!_form.Apply(result)) return;
+
+        _open = false;
+        await OnSent.InvokeAsync();
+    }
+
+    private static string RowClass(bool active) =>
+        (active ? "bg-accent-50 hover:bg-accent-100 " : "hover:bg-ink-50 ")
+        + "w-full flex items-center gap-2.5 rounded-lg px-2 py-2 transition-colors text-left";
+}

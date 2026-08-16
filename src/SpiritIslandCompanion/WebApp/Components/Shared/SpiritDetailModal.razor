@@ -87,6 +87,12 @@
                                     <div class="flex items-center gap-2">
                                         <span class="h-2 w-2 rounded-full shrink-0" style="background-color: @color;"></span>
                                         <span class="font-medium text-ink-900">@aspect.Name</span>
+                                        @if (!Owns(aspect))
+                                        {
+                                            <span class="badge badge-neutral" title="Played at a table where someone else brought this expansion">
+                                                not in your collection
+                                            </span>
+                                        }
                                         <span class="ml-auto text-[11px] uppercase tracking-wide text-ink-400">@GameLookups.ExpansionName(aspect.ExpansionId)</span>
                                     </div>
                                     @if (aspectDetail is not null)
@@ -104,7 +110,9 @@
                                                             NeverLabel="@(SubjectName is null ? "Never played" : $"{SubjectName}: never played")"
                                                             OnClick="() => ShowAspectProfile(aspect)"/>
                                             }
-                                            @if (OnSelected.HasDelegate)
+                                            @* No action for a variant you don't own: the collection decides what you
+                                               can set up, even though it never decides what you can read. *@
+                                            @if (OnSelected.HasDelegate && Owns(aspect))
                                             {
                                                 <button type="button" class="btn btn-secondary btn-sm"
                                                         @onclick="() => Select(aspect)">
@@ -180,6 +188,10 @@
     /// Each aspect gets an action of its own, so a variant can be chosen straight from here.</summary>
     [Parameter] public EventCallback<SpiritPick> OnSelected { get; set; }
 
+    /// <summary>Whether the aspect is in the reader's collection — see the note in Show.</summary>
+    private bool Owns(Aspect aspect) =>
+        OwnedExpansions is null || OwnedExpansions.Contains(aspect.ExpansionId);
+
     private Spirit? _spirit;
     private SpiritDetail? _detail;
     private IReadOnlyList<Aspect> _aspects = [];
@@ -197,15 +209,25 @@
     {
         _spirit = spirit;
         _detail = SpiritDetails.For(spirit.Id);
-        _aspects = GameData.GetAspectsForSpirit(spirit.Id)
-            .Where(a => OwnedExpansions is null || OwnedExpansions.Contains(a.ExpansionId))
-            .ToList();
         _profile = Facts is { Count: > 0 }
             ? SetupProfiles.Build(SetupSubjectKind.Spirit, spirit.Id.Value, Facts, SeatFilter)
             : null;
         _aspectRecords = Facts is { Count: > 0 }
             ? SetupInsights.AspectRecords(Facts, spirit.Id.Value, SeatFilter)
             : null;
+
+        // Owned aspects, plus any that were actually played. A friend can bring an expansion
+        // to the table that you don't have a copy of — the game happened, so the record sheet
+        // has to be able to show it. What the collection governs is what you can pick, not
+        // what you can read back (see the "Play as" action below).
+        var played = _aspectRecords?
+            .Where(r => r.Value.Played > 0)
+            .Select(r => r.Key)
+            .ToHashSet() ?? [];
+
+        _aspects = GameData.GetAspectsForSpirit(spirit.Id)
+            .Where(a => Owns(a) || played.Contains(a.Id.Value))
+            .ToList();
         _openAspectId = null;
         _aspectProfile = null;
         if (!string.IsNullOrEmpty(aspectId) && _aspects.Any(a => a.Id.Value == aspectId)) OpenAspectProfile(aspectId);

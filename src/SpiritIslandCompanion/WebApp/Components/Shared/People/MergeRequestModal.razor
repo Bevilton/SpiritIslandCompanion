@@ -1,0 +1,188 @@
+@* The games a merge would move, laid out so nobody has to agree to something unseen.
+   Same sheet for both sides: the person being asked answers from here, the person who asked
+   can look at what they sent and take it back. *@
+@using Application.Features.PlayerMerges
+@using Domain.Models.PlayerMerge
+@inject IMediator Mediator
+@inject ICurrentUserService CurrentUser
+
+@if (_open)
+{
+    <ModalShell OnClose="Close" MaxWidth="md:max-w-3xl">
+        <div class="border-b border-ink-200 px-6 py-5">
+            <div class="flex items-start justify-between gap-4">
+                <div class="min-w-0">
+                    <span class="eyebrow">Merge request</span>
+                    <h3 class="mt-2 text-xl font-semibold text-ink-900" style="font-family: var(--font-serif);">
+                        @Headline
+                    </h3>
+                    <p class="mt-1 text-sm text-ink-500">@Explanation</p>
+                </div>
+                <button type="button" class="btn btn-ghost btn-sm shrink-0" @onclick="Close" aria-label="Close">
+                    <Icon Name="x" Class="w-4 h-4"/>
+                </button>
+            </div>
+        </div>
+
+        <div class="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+            @if (_loading)
+            {
+                <LoadingSpinner/>
+            }
+            else if (_detail is null)
+            {
+                <div class="alert alert-warn">
+                    <Icon Name="alert" Class="w-5 h-5"/>
+                    <div>This merge request is no longer available.</div>
+                </div>
+            }
+            else
+            {
+                <Alert Message="@_form.Message" Type="@_form.MessageType"/>
+
+                <div class="section-head">
+                    <h4 class="section-title">Games in this merge</h4>
+                    <span class="section-note">@_detail.Games.Count game@(_detail.Games.Count == 1 ? "" : "s")</span>
+                </div>
+
+                @if (_detail.Games.Count == 0)
+                {
+                    <div class="surface px-5 py-8 text-center text-sm text-ink-500">
+                        The local player doesn't sit in any recorded game right now.
+                    </div>
+                }
+                else
+                {
+                    <ul class="space-y-2">
+                        @foreach (var g in _detail.Games)
+                        {
+                            var spirit = GameLookups.SpiritFor(g.SpiritId);
+                            var aspect = GameLookups.AspectFor(g.AspectId);
+                            var color = (spirit is null ? null : SpiritDetails.For(spirit.Id)?.ColorHex) ?? GameLookups.NeutralColor;
+                            var board = GameLookups.BoardFor(g.BoardId);
+                            <li class="surface flex flex-wrap items-center gap-3 px-4 py-3">
+                                <span class="inline-block h-9 w-1.5 shrink-0 rounded-full" style="background-color: @color;"></span>
+                                <div class="min-w-0 flex-1">
+                                    <div class="truncate text-sm font-semibold text-ink-900">
+                                        @GameLookups.MatchTitle(g.Adversaries, g.ScenarioId)
+                                    </div>
+                                    <div class="truncate text-[11px] text-ink-500">
+                                        @g.StartedAt.DateTime.ToString("MMM d, yyyy")
+                                        · @(spirit?.Name ?? g.SpiritId)@(aspect is null ? "" : $" · {aspect.Name}")
+                                        @if (board is not null)
+                                        {
+                                            <span> · board @GameLookups.BoardLetter(board)</span>
+                                        }
+                                        · @g.PlayerCount player@(g.PlayerCount == 1 ? "" : "s")
+                                        · difficulty @g.Difficulty
+                                    </div>
+                                </div>
+                                <div class="flex shrink-0 items-center gap-2">
+                                    <GameStatusBadge IsCompleted="g.IsCompleted" Win="g.Win"/>
+                                    @if (g.Score is { } score)
+                                    {
+                                        <span class="text-sm font-bold tabular-nums text-ink-900" style="font-family: var(--font-serif);">@score</span>
+                                    }
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                }
+            }
+        </div>
+
+        <div class="flex flex-wrap justify-end gap-2 border-t border-ink-200 px-6 py-4">
+            <button type="button" class="btn btn-secondary" @onclick="Close">Close</button>
+            @if (_detail is not null && !_loading)
+            {
+                @if (IsTarget)
+                {
+                    <button type="button" class="btn btn-danger-outline" @onclick="Reject" disabled="@_saving">
+                        <Icon Name="x" Class="w-4 h-4"/> Not me
+                    </button>
+                    <button type="button" class="btn btn-primary" @onclick="Approve" disabled="@_saving">
+                        <Icon Name="check" Class="w-4 h-4"/> Yes, that's me
+                    </button>
+                }
+                else
+                {
+                    <button type="button" class="btn btn-danger-outline" @onclick="Withdraw" disabled="@_saving">
+                        <Icon Name="trash" Class="w-4 h-4"/> @(Declined ? "Clear request" : "Withdraw request")
+                    </button>
+                }
+            }
+        </div>
+    </ModalShell>
+}
+
+@code {
+    /// <summary>Raised after the request has been answered, so the page can reload.</summary>
+    [Parameter] public EventCallback OnResolved { get; set; }
+
+    private bool _open;
+    private bool _loading;
+    private bool _saving;
+    private MergeRequestDetail? _detail;
+    private readonly FormFeedback _form = new();
+
+    private bool IsTarget => _detail is not null && _detail.TargetUserId == CurrentUser.UserId;
+
+    /// <summary>The request came back "not me". Only the requester ever sees one — the
+    /// inbox is pending-only — and for them the sheet stops being a question.</summary>
+    private bool Declined => _detail?.Status == PlayerMergeStatus.Rejected;
+
+    private string Headline => _detail is null
+        ? "Merge request"
+        : IsTarget
+            ? $"Is “{_detail.PlayerName}” you?"
+            : $"“{_detail.PlayerName}” → {_detail.TargetName}";
+
+    private string Explanation => _detail is null
+        ? ""
+        : IsTarget
+            ? $"{_detail.RequesterName} recorded these games with a guest called “{_detail.PlayerName}”. " +
+              "Confirm and those seats become yours — the games show up in your statistics and stay in their game list."
+            : Declined
+                ? $"{_detail.TargetName} says they aren't “{_detail.PlayerName}”. Nothing moved. " +
+                  "Clear the request and you can point this guest at somebody else."
+                : $"Waiting for {_detail.TargetName} to confirm they are “{_detail.PlayerName}”. " +
+                  "Nothing changes until they do.";
+
+    public async Task ShowAsync(Guid requestId)
+    {
+        _open = true;
+        _loading = true;
+        _detail = null;
+        _form.Clear();
+        StateHasChanged();
+
+        if (CurrentUser.UserId is { } userId)
+        {
+            var result = await Mediator.Send(new GetMergeRequestQuery(requestId, userId));
+            if (result.IsSuccess) _detail = result.Value;
+        }
+
+        _loading = false;
+        // Opened from the page, so the render that follows the click belongs to the page —
+        // this component has to ask for its own, or the spinner never comes down.
+        StateHasChanged();
+    }
+
+    private void Close() => _open = false;
+
+    private Task Approve() => Send(new ApproveMergeRequestCommand(_detail!.Id, CurrentUser.UserId!.Value));
+    private Task Reject() => Send(new RejectMergeRequestCommand(_detail!.Id, CurrentUser.UserId!.Value));
+    private Task Withdraw() => Send(new WithdrawMergeRequestCommand(_detail!.Id, CurrentUser.UserId!.Value));
+
+    private async Task Send(ICommand command)
+    {
+        _saving = true;
+        var result = await Mediator.Send(command);
+        _saving = false;
+
+        if (!_form.Apply(result)) return;
+
+        _open = false;
+        await OnResolved.InvokeAsync();
+    }
+}

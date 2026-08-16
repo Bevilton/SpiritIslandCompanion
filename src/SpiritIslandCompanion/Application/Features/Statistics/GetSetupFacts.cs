@@ -73,7 +73,7 @@ internal sealed class GetSetupFactsHandler(IAppDbContext db) : IQueryHandler<Get
             .AsNoTracking()
             .Where(u => userIds.Contains(u.Id))
             .ToListAsync(cancellationToken))
-            .ToDictionary(u => u.Id.Value, u => u.Nickname.Value);
+            .ToDictionary(u => u.Id.Value, u => u.DisplayName);
 
         var playerIds = games.SelectMany(g => g.Players)
             .Where(p => p.PlayerId is not null)

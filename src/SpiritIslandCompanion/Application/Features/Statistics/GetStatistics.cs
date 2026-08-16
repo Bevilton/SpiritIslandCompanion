@@ -157,7 +157,7 @@ internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<Get
             .AsNoTracking()
             .Where(u => userIds.Contains(u.Id))
             .ToListAsync(cancellationToken))
-            .ToDictionary(u => u.Id.Value, u => u.Nickname.Value);
+            .ToDictionary(u => u.Id.Value, u => u.DisplayName);
 
         var playerIds = games.SelectMany(g => g.Players)
             .Where(p => p.PlayerId is not null)
@@ -344,13 +344,20 @@ internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<Get
                 p.UserId,
                 p.PlayerId,
                 p.SpiritId,
-                g.Result
+                Game = g
             }))
             .GroupBy(x => new { UserId = x.UserId?.Value, PlayerId = x.PlayerId?.Value })
             .Select(g =>
             {
-                var completed = g.Where(x => x.Result is not null).ToList();
+                // Per game, not per seat: one person taking three spirits played one evening,
+                // and one evening has one outcome and one score. Counting the seats instead
+                // would give a solo three-spirit win three wins, and the "games" on a person's
+                // card would run ahead of the total on the same page.
+                var played = g.Select(x => x.Game).Distinct().ToList();
+                var completed = played.Where(x => x.Result is not null).ToList();
                 var w = completed.Count(x => x.Result!.Win);
+
+                // Spirits stay per seat — all three of them really were played.
                 var spiritTallies = g
                     .GroupBy(x => x.SpiritId.Value)
                     .Select(sg => new { SpiritId = sg.Key, Count = sg.Count() })
@@ -382,7 +389,7 @@ internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<Get
                     g.Key.UserId,
                     name,
                     kind,
-                    g.Count(),
+                    played.Count,
                     w,
                     completed.Count - w,
                     completed.Count > 0 ? (double)w / completed.Count * 100 : 0,

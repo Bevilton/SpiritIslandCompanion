@@ -111,6 +111,68 @@ public class Game : AggregateRoot<GameId>
         return game;
     }
 
+    /// <summary>
+    /// The same evening written down again in somebody else's name — what a friendship ending
+    /// leaves both sides with, so neither loses the games they played together.
+    /// <para>
+    /// The seats are the caller's to supply: who was at the table reads differently from the
+    /// other side of it, and only the caller knows which accounts the new owner may still name.
+    /// Everything else is copied verbatim, down to the arrangement of the boards.
+    /// </para>
+    /// <para>
+    /// The one deliberate omission is <see cref="CustomLayoutId"/>: it points into the original
+    /// owner's layout library, which the new owner has no entry in. The geometry itself travels
+    /// with the copy, so the island is not lost — only the link back to a shape that was never
+    /// theirs.
+    /// </para>
+    /// </summary>
+    public Game CopyForOwner(GameId id, UserId ownerId, List<GamePlayer> players)
+    {
+        // Fresh instances of every owned value: two aggregates must not share one.
+        var island = new IslandChoice(
+            IslandSetupId with { },
+            IslandLayout is null ? null : IslandLayout with { },
+            SavedLayoutId: null,
+            ExtraBoard is null ? null : ExtraBoard with { });
+
+        var adversaries = _playedAdversaries
+            .Select(a => new PlayedAdversary(
+                new PlayedAdversaryId(Guid.NewGuid()), a.AdversaryId with { }, a.Level with { }))
+            .ToList();
+
+        var scenario = Scenario is null
+            ? null
+            : new PlayedScenario(new PlayedScenarioId(Guid.NewGuid()), Scenario.ScenarioId with { });
+
+        var result = Result is null
+            ? null
+            : GameResult.Create(
+                new GameResultId(Guid.NewGuid()),
+                Result.Win,
+                Result.Duration,
+                Result.Cards with { },
+                Result.TerrorLevel,
+                Result.Blight with { },
+                Result.Dahan with { },
+                Result.Score with { },
+                Result.ScoreModifier with { });
+
+        return new Game(
+            id,
+            StartedAt,
+            island,
+            players,
+            adversaries,
+            scenario,
+            Difficulty with { },
+            DifficultyModifier with { },
+            result,
+            Note is null ? null : Note with { },
+            // A copy for the same reason the values above are copied: several games can be
+            // handed to one owner in a single operation, and they must not share the instance.
+            ownerId with { });
+    }
+
     /// <summary>Records the outcome of a drafted game, leaving the setup untouched.</summary>
     public void Complete(GameResult result, GameNote? note)
     {

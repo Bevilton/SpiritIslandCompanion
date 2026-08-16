@@ -16,7 +16,10 @@ public class Player : AggregateRoot<PlayerId>
 
     public static Player Create(PlayerId id, PlayerName name, UserId createdBy)
     {
-        return new Player(id, name, createdBy);
+        // A private copy: CreatedBy is an owned value, tracked by object identity, and one
+        // operation can create several players for the same owner (see SharedGameSplitter).
+        // Sharing the instance would read as it moving from one player to the next.
+        return new Player(id, name, createdBy with { });
     }
 
     public void Rename(PlayerName name)

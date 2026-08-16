@@ -1,0 +1,120 @@
+@* One person you play with — friend, local player, or you — with the record you share.
+   Every number on it is over the reader's own games (see GetPeopleQuery / GetStatisticsQuery),
+   so a friend's card says what the two of you did together and nothing about their other tables.
+
+   Shared by the People page and the statistics Players tab: the same person should look the
+   same wherever they are shown. The pages differ only in what they put in Details and Actions,
+   and in whether the whole card is a picker (OnClick). *@
+
+@if (OnClick.HasDelegate)
+{
+    <button type="button" @onclick="OnClick" title="@Title"
+            class="@ShellClass text-left hover:-translate-y-px hover:shadow-sm
+                   focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40
+                   @(Selected ? "border-accent-400 ring-2 ring-accent-500/20" : "")">
+        @Body
+    </button>
+}
+else
+{
+    <div class="@ShellClass hover:border-ink-300">@Body</div>
+}
+
+@code {
+    private const string ShellClass = "surface flex flex-col overflow-hidden transition-all";
+
+    private RenderFragment Body => __builder =>
+    {
+        <div class="flex items-start gap-3 px-5 pt-4">
+            <PlayerAssigneeBadge Kind="Kind" Name="@Name" DetailLabel="@DetailLabel"
+                                 ContainerClass="inline-flex items-start gap-3 min-w-0 flex-1"/>
+            @if (Games > 0)
+            {
+                <WinRateRing Pct="WinRate" Size="56" Caption="win"/>
+            }
+        </div>
+
+        @if (Games > 0)
+        {
+            <div class="mt-3 grid grid-cols-3 divide-x divide-ink-100 border-y border-ink-100 bg-ink-50/40">
+                @Tally(Games, "games", "text-ink-900")
+                @Tally(Wins, "won", "text-accent-700")
+                @Tally(Losses, "lost", "text-red-600")
+            </div>
+
+            <div class="space-y-1.5 px-5 py-3 text-[11px] text-ink-500">
+                @if (_favourite is not null)
+                {
+                    <div class="flex min-w-0 items-center gap-2">
+                        <span class="inline-block h-3.5 w-1.5 shrink-0 rounded-full" style="background-color: @_favouriteColor;"></span>
+                        <span class="truncate">Usually plays <span class="font-medium text-ink-800">@_favourite.Name</span></span>
+                    </div>
+                }
+                @Details
+            </div>
+        }
+        else
+        {
+            <div class="border-y border-ink-100 bg-ink-50/40 px-5 py-4 text-[11px] text-ink-500">
+                @EmptyNote
+            </div>
+        }
+
+        @* Not while the card is a picker: a button inside a button is not a thing the browser
+           will render, so the picker wins and the actions are simply not offered. *@
+        @if (Actions is not null && !OnClick.HasDelegate)
+        {
+            <div class="mt-auto flex flex-wrap items-center gap-2 px-5 py-3">
+                @Actions
+            </div>
+        }
+    };
+
+    private static RenderFragment Tally(int value, string label, string tone) =>
+        @<div class="px-3 py-2 text-center">
+            <div class="text-base font-bold tabular-nums @tone" style="font-family: var(--font-serif);">@value</div>
+            <div class="text-[10px] uppercase tracking-wide text-ink-500">@label</div>
+        </div>;
+
+    [Parameter, EditorRequired] public PlayerAssigneeBadge.AssigneeKind Kind { get; set; }
+    [Parameter, EditorRequired] public string Name { get; set; } = "";
+
+    /// <summary>Line under the name — an email address, or what kind of person this is.</summary>
+    [Parameter] public string? DetailLabel { get; set; }
+
+    [Parameter] public int Games { get; set; }
+    [Parameter] public int Wins { get; set; }
+    [Parameter] public int Losses { get; set; }
+    [Parameter] public double WinRate { get; set; }
+
+    /// <summary>Resolved from the whole catalogue on purpose: a spirit from an expansion you
+    /// don't own is still what they played, and the card has to be able to say so.</summary>
+    [Parameter] public string? FavouriteSpiritId { get; set; }
+
+    /// <summary>What to say instead of the record when you haven't played together yet.</summary>
+    [Parameter] public string EmptyNote { get; set; } = "No games together yet.";
+
+    /// <summary>Extra lines under the favourite spirit — best score, last played, whatever the page has.</summary>
+    [Parameter] public RenderFragment? Details { get; set; }
+
+    [Parameter] public RenderFragment? Actions { get; set; }
+
+    /// <summary>Set to make the whole card a picker. Actions are then not offered, since a
+    /// button inside a button is not a thing the browser will render.</summary>
+    [Parameter] public EventCallback OnClick { get; set; }
+
+    /// <summary>Highlights the card as the current pick — only meaningful with <see cref="OnClick"/>.</summary>
+    [Parameter] public bool Selected { get; set; }
+
+    [Parameter] public string? Title { get; set; }
+
+    private Spirit? _favourite;
+    private string _favouriteColor = GameLookups.NeutralColor;
+
+    protected override void OnParametersSet()
+    {
+        _favourite = GameLookups.SpiritFor(FavouriteSpiritId);
+        _favouriteColor = (_favourite is null ? null : SpiritDetails.For(_favourite.Id)?.ColorHex)
+                          ?? GameLookups.NeutralColor;
+    }
+}

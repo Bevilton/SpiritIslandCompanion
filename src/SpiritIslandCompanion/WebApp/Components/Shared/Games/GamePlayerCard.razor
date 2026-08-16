@@ -116,7 +116,7 @@
             var friend = Friends.FirstOrDefault(f => f.FriendUserId == uid);
             return friend is null
                 ? new(PlayerAssigneeBadge.AssigneeKind.Friend, "Friend", null)
-                : new(PlayerAssigneeBadge.AssigneeKind.Friend, friend.Nickname, friend.Email);
+                : new(PlayerAssigneeBadge.AssigneeKind.Friend, friend.Name, friend.Email);
         }
 
         if (Player.PlayerId is { } pid)

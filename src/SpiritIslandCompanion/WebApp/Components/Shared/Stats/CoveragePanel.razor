@@ -19,6 +19,11 @@
         <div class="text-xs tabular-nums @(pct >= 75 ? "text-accent-700" : "text-ink-500")">@($"{pct:F0}%")</div>
     </div>
 
+    @if (!string.IsNullOrEmpty(Note))
+    {
+        <div class="-mt-1 mb-3 text-[11px] text-ink-500">@Note</div>
+    }
+
     <div class="h-2 bg-ink-100 rounded-full overflow-hidden mb-4">
         <div class="h-full bg-accent-500 rounded-full transition-all" style="width:@($"{pct:F0}")%"></div>
     </div>
@@ -47,6 +52,13 @@
     [Parameter, EditorRequired] public int Total { get; set; }
     [Parameter, EditorRequired] public IReadOnlyList<object> Missing { get; set; } = [];
     [Parameter, EditorRequired] public RenderFragment<object> ItemTemplate { get; set; } = default!;
+
+    /// <summary>
+    /// A line under the tally, for what the tally deliberately leaves out — chiefly the
+    /// things played at somebody else's table, from an expansion the reader doesn't own.
+    /// Coverage is about your own shelf, so those can't be counted in it, but they did happen.
+    /// </summary>
+    [Parameter] public string? Note { get; set; }
 
     /// <summary>Override the number used for the "X / Y played" math when the
     /// items in <see cref="Missing"/> are grouped (e.g. one row per adversary

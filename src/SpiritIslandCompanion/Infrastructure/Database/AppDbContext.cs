@@ -3,6 +3,7 @@ using Domain.Models.Friendship;
 using Domain.Models.Game;
 using Domain.Models.IslandLayout;
 using Domain.Models.Player;
+using Domain.Models.PlayerMerge;
 using Domain.Models.User;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,6 +15,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Player> Players { get; set; } = null!;
     public DbSet<User> Users { get; set; } = null!;
     public DbSet<Friendship> Friendships { get; set; } = null!;
+    public DbSet<PlayerMergeRequest> PlayerMergeRequests { get; set; } = null!;
     public DbSet<CustomIslandLayout> CustomIslandLayouts { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

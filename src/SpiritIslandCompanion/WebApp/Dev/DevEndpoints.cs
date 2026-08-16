@@ -34,7 +34,7 @@ public static class DevEndpoints
 
         app.MapGet("/dev-login", async (HttpContext context, IMediator mediator, string email, string? name, string? returnUrl) =>
         {
-            var result = await mediator.Send(new SyncUserCommand(email, name ?? email));
+            var result = await mediator.Send(new SyncUserCommand(email));
             if (result.IsFailure)
                 return Results.BadRequest(result.Error.Message);
 
@@ -42,6 +42,7 @@ public static class DevEndpoints
                 [
                     new Claim(ClaimTypes.Name, name ?? email),
                     new Claim(ClaimTypes.Email, email),
+                    new Claim(WebApp.Auth.UserSyncOidcEvents.SuggestedNameClaim, name ?? email),
                     new Claim("db_user_id", result.Value.UserId.ToString())
                 ],
                 CookieAuthenticationDefaults.AuthenticationScheme);
