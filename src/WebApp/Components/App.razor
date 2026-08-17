@@ -27,9 +27,9 @@
    The one exception is the Error page, which opts out via [ExcludeFromInteractiveRouting]:
    it reads HttpContext for the request id, which only exists during static rendering — and an
    error page is the last place to depend on a working circuit. *@
+@* Blazor-ApexCharts ships its JS as an ES module and imports it itself on first chart render.
+   Loading it here with a plain <script> only ever produced a 404 and a module syntax error. *@
 <Routes @rendermode="PageRenderMode"/>
-<script src="_content/Blazor-ApexCharts/js/apex-charts.min.js"></script>
-<script src="_content/Blazor-ApexCharts/js/blazor-apexcharts.js"></script>
 <script src="_framework/blazor.web.js"></script>
 </body>
 

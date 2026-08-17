@@ -4,7 +4,7 @@
     {
       "name": "apphost",
       "runtimeExecutable": "dotnet",
-      "runtimeArgs": ["run", "--project", "src/SpiritIslandCompanion/SpiritIslandCompanion.AppHost"],
+      "runtimeArgs": ["run", "--project", "src/AppHost"],
       "port": 55543,
       "url": "https://localhost:55543"
     }

@@ -1,0 +1,47 @@
+<Project>
+
+    <PropertyGroup>
+        <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    </PropertyGroup>
+
+    <ItemGroup Label="Aspire">
+        <PackageVersion Include="Aspire.Hosting.SqlServer" Version="13.4.6" />
+        <PackageVersion Include="Aspire.Microsoft.EntityFrameworkCore.SqlServer" Version="13.4.6" />
+    </ItemGroup>
+
+    <ItemGroup Label="Application">
+        <PackageVersion Include="FluentValidation" Version="12.1.1" />
+        <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
+        <PackageVersion Include="MediatR" Version="14.2.0" />
+        <PackageVersion Include="Scrutor" Version="7.0.0" />
+    </ItemGroup>
+
+    <ItemGroup Label="Entity Framework Core">
+        <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.11" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.11" />
+    </ItemGroup>
+
+    <ItemGroup Label="Microsoft.Extensions / ASP.NET Core">
+        <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.11" />
+        <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.11" />
+        <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="10.0.11" />
+        <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.11" />
+        <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.9.0" />
+        <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.11" />
+        <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.9.0" />
+    </ItemGroup>
+
+    <ItemGroup Label="OpenTelemetry">
+        <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.17.0" />
+        <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.17.0" />
+        <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.17.0" />
+        <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.17.0" />
+        <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.17.0" />
+    </ItemGroup>
+
+    <ItemGroup Label="UI">
+        <PackageVersion Include="Blazor-ApexCharts" Version="7.0.0" />
+    </ItemGroup>
+
+</Project>

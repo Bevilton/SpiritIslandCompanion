@@ -55,8 +55,8 @@ import { fileURLToPath } from 'node:url';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '../..');
 const SRC_SVG = path.join(HERE, 'board.svg');
-const OUT_JS = path.join(REPO, 'src/SpiritIslandCompanion/WebApp/wwwroot/js/island-geometry.js');
-const THUMB_DIR = path.join(REPO, 'src/SpiritIslandCompanion/WebApp/wwwroot/img/layouts/generated');
+const OUT_JS = path.join(REPO, 'src/WebApp/wwwroot/js/island-geometry.js');
+const THUMB_DIR = path.join(REPO, 'src/WebApp/wwwroot/img/layouts/generated');
 
 const LAYOUTS_FILE = path.join(HERE, 'layouts.json');
 const MAX_BOARDS = 6;          // one per player at a full table; the extra board stops at five players
@@ -492,7 +492,7 @@ const decimate = (from, to) => {
   for (let i = from; i <= to; i += STRIDE) pts.push(OUTLINE[i % OUTLINE.length]);
   return 'M' + pts.map(p => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join('L');
 };
-const OUT_CS = path.join(REPO, 'src/SpiritIslandCompanion/WebApp/Components/Shared/IslandBoardArt.g.cs');
+const OUT_CS = path.join(REPO, 'src/WebApp/Components/Shared/IslandBoardArt.g.cs');
 const hullPts = HULL.map(p => `(${p[0].toFixed(2)}, ${p[1].toFixed(2)})`);
 const hullRows = Array.from({ length: Math.ceil(hullPts.length / 8) },
   (_, r) => '        ' + hullPts.slice(r * 8, r * 8 + 8).join(', ') + ',').join('\n');
