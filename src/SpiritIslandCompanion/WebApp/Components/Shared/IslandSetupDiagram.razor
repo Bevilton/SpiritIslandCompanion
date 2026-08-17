@@ -1,45 +1,70 @@
-@* Renders a small picture of an island setup.
+@* A picture of an island, from whichever source there is one.
 
-   The diagrams in /img/layouts/generated are emitted by tools/build-island-geometry.mjs
-   from the very placements the island playground uses, so a preview always matches what
-   dropping that layout in produces. Custom layouts have no fixed shape — they fall back
-   to a board-count placeholder.
+   The published layouts ship as files: /img/layouts/generated is emitted by
+   tools/build-island-geometry.mjs from the very placements the island playground uses, so a
+   preview always matches what dropping that layout in produces. A hand-built island has no
+   such file — it exists only as the geometry the player saved — and is drawn by
+   IslandLayoutDiagram from the same traced board, which also owns the placeholder for an
+   island with neither.
+
+   The precedence lives here rather than at each call site: a published layout's own picture
+   first, then the geometry, then the placeholder. Three callers used to each spell that out,
+   and one of them spelled it differently.
 
    Thematic islands are drawn reflected, for the same reason the playground reflects them:
-   they are played on the boards' reverse side. The diagrams are generated from the one
-   traced side, so the reflection happens here rather than in the file. *@
+   they are played on the boards' reverse side. The files are generated from the one traced
+   side, so the reflection happens here rather than in them. *@
 
-@if (Setup is null)
+@if (_hasImage)
 {
-    <div class="@PlaceholderClass">—</div>
-}
-else if (_hasImage)
-{
-    <img src="@_src"
-         alt="@Setup.Name layout, @Setup.NumberOfPlayers @(Setup.NumberOfPlayers == 1 ? "board" : "boards")"
-         class="@Class object-contain @(Setup.IsThematic ? "-scale-x-100" : "")"
+    <img src="@_src" alt="@_label" class="@Class object-contain @(Setup!.IsThematic ? "-scale-x-100" : "")"
          loading="lazy"/>
 }
 else
 {
-    <div class="@PlaceholderClass" title="@Setup.Name (@Setup.NumberOfPlayers @(Setup.NumberOfPlayers == 1 ? "board" : "boards"))">
-        @Setup.NumberOfPlayers<span class="text-[0.65em] align-top">p</span>
-    </div>
+    <IslandLayoutDiagram Geometry="@Geometry" BoardCount="@(Setup?.NumberOfPlayers ?? BoardCount)"
+                         Label="@_label" Class="@Class"/>
 }
 
 @code {
+    /// <summary>The published layout, when the island is one. Null for a shape the player built.</summary>
     [Parameter] public IslandSetup? Setup { get; set; }
-    [Parameter] public string Class { get; set; } = "h-16 w-auto";
 
-    private string PlaceholderClass =>
-        $"{Class} flex items-center justify-center text-ink-500 font-semibold rounded-lg border border-dashed border-ink-200 bg-ink-50 px-3 aspect-square";
+    /// <summary>
+    /// The arrangement to draw when no picture ships for this island — a saved shape, or the
+    /// copy a game kept of the island it was played on. Ignored when <see cref="Setup"/> has a
+    /// picture of its own.
+    /// </summary>
+    [Parameter] public string? Geometry { get; set; }
+
+    /// <summary>Board count for the placeholder, where there is neither a picture nor geometry.
+    /// Taken from <see cref="Setup"/> when there is one.</summary>
+    [Parameter] public int BoardCount { get; set; }
+
+    /// <summary>
+    /// Names the picture, for a screen reader and the placeholder's tooltip. Overrides the name
+    /// <see cref="Setup"/> carries, which is what a hand-built island needs: every one of those
+    /// shares the setup called "Custom", so only the caller knows whether this one is a shape
+    /// from the library and what it is called. Null falls back to the setup's own name.
+    /// </summary>
+    [Parameter] public string? Label { get; set; }
+
+    [Parameter] public string Class { get; set; } = "h-16 w-auto";
 
     private string _src = "";
     private bool _hasImage;
+    private string _label = "";
 
     protected override void OnParametersSet()
     {
-        _hasImage = Setup is not null && !Setup.IsCustom;
-        _src = Setup is null ? "" : $"/img/layouts/generated/{Setup.Id.Value}.svg";
+        // Custom setups name a board count and nothing else — there is no file for one.
+        _hasImage = Setup is { IsCustom: false };
+        _src = _hasImage ? $"/img/layouts/generated/{Setup!.Id.Value}.svg" : "";
+
+        var boards = Setup?.NumberOfPlayers ?? BoardCount;
+        var name = Label ?? Setup?.Name;
+        _label = name is null
+            ? "Island layout"
+            : boards > 0 ? $"{name} layout, {boards} board{(boards == 1 ? "" : "s")}" : name;
     }
 }

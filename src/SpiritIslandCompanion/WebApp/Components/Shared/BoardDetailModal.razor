@@ -37,20 +37,26 @@
                 </div>
             </div>
 
-            <div class="overflow-y-auto px-6 py-5 space-y-6">
-                @if (_profile is not null)
-                {
+            @* Nothing but the record goes in the body, so a sheet with no record to show has no
+               body at all rather than a band of padding. The public pages are a reference anyone
+               can read and say nothing about the reader — as the spirit and adversary sheets
+               don't either — so only a page that went looking for a record reports finding none. *@
+            @if (_profile is not null)
+            {
+                <div class="overflow-y-auto px-6 py-5">
                     @* Facts only when unscoped — a sheet already scoped to one person
                        has nothing for the owner toggle to switch between. *@
                     <SetupProfileSection Profile="_profile" Name="@_board.Name" SubjectName="@SubjectName"
                                          Facts="@(SeatFilter is null ? Facts : null)" SubjectId="@_board.Id.Value"
                                          Title="Your record on this board"/>
-                }
-                else
-                {
-                    <p class="text-ink-500 italic">No game history to show for this board yet.</p>
-                }
-            </div>
+                </div>
+            }
+            else if (!ReferenceOnly)
+            {
+                <div class="px-6 py-5">
+                    <p class="text-sm text-ink-500 italic">No game history to show for this board yet.</p>
+                </div>
+            }
 
             @if (OnSelected.HasDelegate)
             {
@@ -72,6 +78,14 @@
     /// this board; empty or null shows a placeholder (boards carry no reference text).
     /// </summary>
     [Parameter] public IReadOnlyList<SetupGameFact>? Facts { get; set; }
+
+    /// <summary>
+    /// Set by a host that loads no history at all — the public reference pages. Without it an
+    /// empty <see cref="Facts"/> means "you have played nothing here", which is a claim about
+    /// the reader; a signed-in player browsing the public page has a record, just not one this
+    /// page went and fetched.
+    /// </summary>
+    [Parameter] public bool ReferenceOnly { get; set; }
 
     /// <summary>Scopes the record to one person's seats — a friend sitting in the seat being set up.</summary>
     [Parameter] public Func<SetupFactSeat, bool>? SeatFilter { get; set; }

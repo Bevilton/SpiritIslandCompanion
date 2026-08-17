@@ -1,0 +1,77 @@
+@* One island to choose from in the setup form: its picture, its name, and whatever the host
+   hangs underneath it.
+
+   A published layout and a shape from the player's own library are picked from the same tile
+   on purpose — choosing an island should be choosing between pictures, whoever arranged them.
+   IslandSetupDiagram draws either: a published layout from its shipped file, a saved shape
+   from the geometry it was kept with.
+
+   The footer and the corner action are siblings of the select button rather than inside it: a
+   button may not contain a button, and what goes there — the record pill, and for the player's
+   own shapes a bin — are real controls. *@
+
+@using Application.Features.IslandLayouts
+
+<div class="@(Selected
+               ? "border-accent-500 bg-accent-50/70 ring-2 ring-accent-500/30"
+               : "border-ink-200 bg-white hover:border-ink-300 hover:bg-ink-50")
+            relative flex flex-col rounded-xl border transition-all">
+    <button type="button" @onclick="OnSelect" title="@Title"
+            class="w-full flex-1 rounded-t-xl p-2 pb-1 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+        <div class="flex h-12 items-center justify-center">
+            <IslandSetupDiagram Setup="Setup" Geometry="@Saved?.LayoutJson" BoardCount="BoardCount"
+                                Label="@Name" Class="max-h-full max-w-full"/>
+        </div>
+        <div class="mt-1 truncate text-[11px] font-medium text-ink-900">@Name</div>
+    </button>
+
+    @* On the corner rather than inside it, as the adversary chips on the setup scene do — the
+       tile is only a picture wide and anything laid over the middle of it hides the island. *@
+    @if (Action is not null)
+    {
+        <div class="absolute -right-1 -top-1">@Action</div>
+    }
+
+    @if (Footer is not null)
+    {
+        <div class="flex flex-wrap items-center justify-center gap-1 pb-2">@Footer</div>
+    }
+</div>
+
+@code {
+    /// <summary>A published layout, whose picture ships with the app.</summary>
+    [Parameter] public IslandSetup? Setup { get; set; }
+
+    /// <summary>A shape from the player's library, drawn from its saved geometry. Ignored when
+    /// <see cref="Setup"/> is given — a tile offers one island or the other.</summary>
+    [Parameter] public IslandLayoutResponse? Saved { get; set; }
+
+    /// <summary>Whether this is the island currently set up.</summary>
+    [Parameter] public bool Selected { get; set; }
+
+    [Parameter] public EventCallback OnSelect { get; set; }
+
+    /// <summary>What is worth reporting about this island — its record pill.</summary>
+    [Parameter] public RenderFragment? Footer { get; set; }
+
+    /// <summary>
+    /// A control that acts on the island itself rather than describing it — the bin on a saved
+    /// shape. Pinned to the tile's corner instead of standing beside the footer, where a wide
+    /// pill ("Never played") pushes it onto a line of its own and the tile grows a row taller
+    /// than the ones next to it.
+    /// </summary>
+    [Parameter] public RenderFragment? Action { get; set; }
+
+    private string Name => Setup?.Name ?? Saved?.Name ?? "Island layout";
+    private int BoardCount => Setup?.NumberOfPlayers ?? Saved?.BoardCount ?? 0;
+
+    /// <summary>What the tile can't fit: the board count, and when a saved shape was kept.</summary>
+    private string Title
+    {
+        get
+        {
+            var boards = $"{BoardCount} board{(BoardCount == 1 ? "" : "s")}";
+            return Saved is null ? $"{Name} — {boards}" : $"{Name} — {boards}, saved {SetupInsights.Ago(Saved.UpdatedAt)}";
+        }
+    }
+}

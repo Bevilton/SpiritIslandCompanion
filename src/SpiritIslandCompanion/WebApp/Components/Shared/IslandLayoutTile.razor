@@ -1,0 +1,90 @@
+@* One island layout as a tile: its picture, its name, and — where there is a history — the
+   player's record on it.
+
+   A published setup and a shape from the player's own library render the same way on purpose:
+   an index of islands should be a wall of islands, whoever arranged them. What differs is the
+   tint, so the three kinds can be told apart at a glance without a line of text each — sky for
+   the thematic islands, accent for the player's own, plain white for the published standards.
+
+   The whole tile is the button that opens the layout's record sheet, so the record pill inside
+   it is passive: a button may not contain a button. *@
+
+@using Application.Features.IslandLayouts
+
+<button type="button" @onclick="OnClick" title="@Title" class="@Classes">
+    <div class="flex h-20 w-full items-center justify-center">
+        @* Setup or geometry — the diagram picks whichever the layout has. *@
+        <IslandSetupDiagram Setup="Setup" Geometry="@Saved?.LayoutJson" BoardCount="BoardCount"
+                            Label="@Name" Class="max-h-full max-w-full"/>
+    </div>
+
+    <div class="mt-1.5 flex w-full items-center justify-center gap-1">
+        @if (IsSaved)
+        {
+            <Icon Name="user" Class="w-3 h-3 shrink-0 text-accent-600"/>
+        }
+        <span class="truncate text-xs font-medium text-ink-900">@Name</span>
+    </div>
+
+    @if (ShowBoardCount)
+    {
+        <div class="w-full truncate text-[10px] text-ink-500">@Boards</div>
+    }
+
+    @if (ShowRecord)
+    {
+        <div class="mt-1"><RecordChip Record="Record" Subject="@Name"/></div>
+    }
+</button>
+
+@code {
+    /// <summary>A published layout, whose picture ships with the app.</summary>
+    [Parameter] public IslandSetup? Setup { get; set; }
+
+    /// <summary>A shape from the player's library, drawn from its saved geometry. Ignored when
+    /// <see cref="Setup"/> is given — a tile is one layout or the other.</summary>
+    [Parameter] public IslandLayoutResponse? Saved { get; set; }
+
+    /// <summary>The player's record on this layout, shown when <see cref="ShowRecord"/> is set.</summary>
+    [Parameter] public SetupInsights.PlayRecord? Record { get; set; }
+
+    /// <summary>Whether to show the record pill at all — off where there is no history to report.</summary>
+    [Parameter] public bool ShowRecord { get; set; }
+
+    /// <summary>
+    /// Whether the tile says how many boards it takes. Off where the host has already said so —
+    /// the boards index puts it in the lane heading — and on everywhere else, or five islands
+    /// called "Standard" say nothing about each other.
+    /// </summary>
+    [Parameter] public bool ShowBoardCount { get; set; }
+
+    [Parameter] public EventCallback OnClick { get; set; }
+
+    private bool IsSaved => Setup is null && Saved is not null;
+    private bool IsThematic => Setup?.IsThematic == true;
+
+    private string Name => Setup?.Name ?? Saved?.Name ?? "Island layout";
+    private int BoardCount => Setup?.NumberOfPlayers ?? Saved?.BoardCount ?? 0;
+    private string Boards => $"{BoardCount} board{(BoardCount == 1 ? "" : "s")}";
+
+    /// The tile fills its cell — the grid it sits in decides how wide that is.
+    private string Classes =>
+        "flex w-full flex-col items-center rounded-xl border p-2 text-center transition-all " +
+        "hover:-translate-y-px hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40 " +
+        (IsSaved
+            ? "border-accent-200 bg-accent-50/40 hover:border-accent-300"
+            : IsThematic
+                ? "border-sky-200 bg-sky-50/50 hover:border-sky-300"
+                : "border-ink-200 bg-white hover:border-ink-300");
+
+    /// <summary>What the tile can't fit: the board count, the kind, and when a saved shape was kept.</summary>
+    private string Title
+    {
+        get
+        {
+            if (IsSaved) return $"{Name} — your saved shape, {Boards}, kept {SetupInsights.Ago(Saved!.UpdatedAt)}";
+            if (IsThematic) return $"{Name} — the thematic island cut into {Boards}";
+            return $"{Name} — {Boards}";
+        }
+    }
+}

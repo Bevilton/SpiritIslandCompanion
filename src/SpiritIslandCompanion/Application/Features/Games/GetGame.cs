@@ -22,11 +22,17 @@ public sealed record GetGameQuery(Guid GameId, Guid UserId) : IQuery<GetGameResp
 /// The saved layout the island came from, when the player set one up out of their library.
 /// Null for published layouts, one-off hand-built islands, and layouts deleted since.
 /// </param>
+/// <param name="IslandLayoutJson">
+/// The game's own copy of the arrangement played, for hand-built islands — the only picture
+/// there is of one, since no thumbnail ships for a shape the player invented. Null when the
+/// island was a published layout, which has one.
+/// </param>
 public sealed record GetGameResponse(
     Guid Id,
     DateTimeOffset StartedAt,
     string IslandSetupId,
     string? CustomLayoutName,
+    string? IslandLayoutJson,
     int Difficulty,
     int DifficultyModifier,
     bool ExtraBoard,
@@ -72,6 +78,7 @@ internal sealed class GetGameHandler(IAppDbContext db) : IQueryHandler<GetGameQu
             game.StartedAt,
             game.IslandSetupId.Value,
             customLayoutName,
+            game.IslandLayout?.Value,
             game.Difficulty.Value,
             game.DifficultyModifier.Value,
             extraBoard,

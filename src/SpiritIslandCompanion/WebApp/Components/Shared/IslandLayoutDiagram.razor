@@ -1,0 +1,148 @@
+@* Draws an island the app has no picture of — a shape from the player's own layout library,
+   or the arrangement a game was played on — from the geometry the playground saved.
+
+   The published layouts ship as files (see IslandSetupDiagram, which is what callers ask for);
+   a hand-built one exists only as JSON in the database, so it is stamped out here from the
+   same traced board, in the same colours, framed the same way. A saved shape therefore sits in
+   a grid of layouts looking like one of them, which is the whole point.
+
+   Geometry that won't parse falls back to the board-count placeholder rather than an empty
+   frame: it is player data written by the browser, so "unreadable" is a state that has to
+   have an answer. The placeholder serves islands with no geometry at all too, so every
+   picture in the app that comes up empty comes up empty the same way. *@
+
+@using System.Globalization
+@using System.Text.Json
+
+@if (_boards is null)
+{
+    <div class="@Class flex aspect-square items-center justify-center rounded-lg border border-dashed border-ink-200 bg-ink-50 px-3 font-semibold text-ink-500"
+         title="@Label">
+        @if (BoardCount > 0)
+        {
+            @BoardCount<span class="text-[0.65em] align-top">p</span>
+        }
+        else
+        {
+            <Icon Name="map" Class="w-5 h-5"/>
+        }
+    </div>
+}
+else
+{
+    @* One board's outline, defined once and stamped per board: at six boards that is the
+       difference between a picture and a wall of coordinates. The ids carry an instance
+       suffix because several of these share a page.
+
+       No <title>: aria-label already names the picture, and a title would show as the
+       tooltip in place of whatever the host puts on the tile around it. *@
+    <svg class="@Class" width="100%" height="100%" viewBox="@_viewBox"
+         xmlns="http://www.w3.org/2000/svg" role="img" aria-label="@Label">
+        <defs>
+            <path id="@_outlineId" d="@IslandBoardArt.Outline"/>
+            <path id="@_coastId" d="@IslandBoardArt.Coast"/>
+            <clipPath id="@_clipId" clipPathUnits="userSpaceOnUse">
+                <use href="@($"#{_outlineId}")"/>
+            </clipPath>
+        </defs>
+        @foreach (var t in _boards)
+        {
+            <g transform="@t">
+                <use href="@($"#{_outlineId}")" fill="@IslandBoardArt.Land" stroke="@IslandBoardArt.Edge"
+                     stroke-width="@Num(IslandBoardArt.EdgeWidth)" stroke-linejoin="round"/>
+                @* The shallows are the coast stroked wide and trimmed back to the land. *@
+                <g clip-path="@($"url(#{_clipId})")">
+                    <use href="@($"#{_coastId}")" fill="none" stroke="@IslandBoardArt.Shallow"
+                         stroke-width="@Num(IslandBoardArt.CoastWidth)" stroke-linejoin="round"/>
+                </g>
+            </g>
+        }
+    </svg>
+}
+
+@code {
+    /// <summary>
+    /// The arrangement, in the island playground's save format — <c>{ boards: [{x, y, rot}], … }</c>.
+    /// Null or unreadable draws the placeholder.
+    /// </summary>
+    [Parameter] public string? Geometry { get; set; }
+
+    /// <summary>Drawn on the placeholder when there is no geometry to show. 0 hides the figure.</summary>
+    [Parameter] public int BoardCount { get; set; }
+
+    /// <summary>Names the picture for a screen reader, and titles the placeholder.</summary>
+    [Parameter] public string Label { get; set; } = "Island layout";
+
+    [Parameter] public string Class { get; set; } = "h-16 w-auto";
+
+    private static string Unique(string prefix) => $"{prefix}-{Guid.NewGuid().ToString("N")[..8]}";
+
+    private readonly string _outlineId = Unique("isl-o");
+    private readonly string _coastId = Unique("isl-c");
+    private readonly string _clipId = Unique("isl-k");
+
+    private string? _lastGeometry;
+    private IReadOnlyList<string>? _boards;
+    private string _viewBox = "";
+
+    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+
+    private sealed record Placement(double X, double Y, double Rot);
+    private sealed record Arrangement(List<Placement>? Boards);
+
+    protected override void OnParametersSet()
+    {
+        // Parsing walks every board, and these sit on pages that re-render on every keystroke
+        // in a filter box, so only a changed arrangement is worth the work.
+        if (_lastGeometry == Geometry) return;
+        _lastGeometry = Geometry;
+        Build();
+    }
+
+    private void Build()
+    {
+        _boards = null;
+        if (string.IsNullOrWhiteSpace(Geometry)) return;
+
+        List<Placement> placements;
+        try
+        {
+            placements = JsonSerializer.Deserialize<Arrangement>(Geometry, JsonOptions)?.Boards ?? [];
+        }
+        catch (JsonException)
+        {
+            return;
+        }
+        if (placements.Count == 0) return;
+
+        var transforms = new List<string>(placements.Count);
+        double x0 = double.MaxValue, y0 = double.MaxValue, x1 = double.MinValue, y1 = double.MinValue;
+
+        foreach (var p in placements)
+        {
+            // A placement says where the board's turning point lands, so the offset is that
+            // point less where turning the board put it — the same two steps the generator
+            // takes when it draws the published layouts.
+            var th = p.Rot * Math.PI / 180;
+            double cos = Math.Cos(th), sin = Math.Sin(th);
+            var tx = p.X - (IslandBoardArt.CenterX * cos - IslandBoardArt.CenterY * sin);
+            var ty = p.Y - (IslandBoardArt.CenterX * sin + IslandBoardArt.CenterY * cos);
+            transforms.Add($"translate({Num(tx)} {Num(ty)}) rotate({Num(p.Rot)})");
+
+            foreach (var (hx, hy) in IslandBoardArt.Hull)
+            {
+                var wx = hx * cos - hy * sin + tx;
+                var wy = hx * sin + hy * cos + ty;
+                x0 = Math.Min(x0, wx); y0 = Math.Min(y0, wy);
+                x1 = Math.Max(x1, wx); y1 = Math.Max(y1, wy);
+            }
+        }
+
+        const double m = IslandBoardArt.Margin;
+        _viewBox = $"{Num(x0 - m)} {Num(y0 - m)} {Num(x1 - x0 + m * 2)} {Num(y1 - y0 + m * 2)}";
+        _boards = transforms;
+    }
+
+    /// SVG reads numbers one way; a machine set to a comma decimal separator must not get a vote.
+    private static string Num(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
+}

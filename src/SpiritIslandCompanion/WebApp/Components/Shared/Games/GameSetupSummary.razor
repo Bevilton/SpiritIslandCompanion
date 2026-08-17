@@ -54,7 +54,12 @@
     @* Island layout *@
     <div class="px-5 md:px-6 py-5 flex items-center gap-4">
         <div class="h-20 w-20 shrink-0 flex items-center justify-center">
-            <IslandSetupDiagram Setup="setup" Class="max-h-full max-w-full"/>
+            @* A hand-built island has no published picture, but the game kept its own copy of
+               the arrangement — so the record shows the island as it was actually played. The
+               label is the saved shape's name when it had one; a published layout passes none
+               and keeps its own. *@
+            <IslandSetupDiagram Setup="setup" Geometry="@IslandLayoutJson"
+                                Label="@CustomLayoutName" Class="max-h-full max-w-full"/>
         </div>
         <div class="min-w-0 flex-1">
             <div class="text-[10px] uppercase tracking-wide text-ink-500 font-medium">Island setup</div>
@@ -140,6 +145,14 @@
 
     /// <summary>The saved layout the island came from, when it was one — see GetGameResponse.</summary>
     [Parameter] public string? CustomLayoutName { get; set; }
+
+    /// <summary>
+    /// The arrangement this game was played on, for a hand-built island — the game's own copy,
+    /// so it shows the island as played even if the shape it came from has since been reshaped
+    /// or deleted. Null on games recorded before the island was kept, which fall back to the
+    /// board-count placeholder.
+    /// </summary>
+    [Parameter] public string? IslandLayoutJson { get; set; }
 
     private bool IsCustom => IslandSetups.IsCustomId(IslandSetupId);
 

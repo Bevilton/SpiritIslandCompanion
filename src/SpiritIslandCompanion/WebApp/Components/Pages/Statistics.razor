@@ -1031,49 +1031,36 @@ else
                         <h2 class="section-title">Island layouts</h2>
                         <span class="section-note">Standard setups and your saved shapes</span>
                     </div>
-                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                    @* The same tile the boards reference uses, so an island looks the same
+                       wherever it is met — and a shape the player built reads as a layout among
+                       the published ones rather than as an icon. The tint says which kind it is:
+                       sky for thematic, accent for their own. The columns are that page's too,
+                       so an island comes out the same size in both places. *@
+                    <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                         @foreach (var (setup, rec) in playedSetups)
                         {
-                            <button @key="setup.Id.Value" type="button" @onclick="() => _layoutModal.Show(setup)"
-                                    title="@($"{setup.Name} — details and full record")"
-                                    class="surface p-4 flex flex-col items-center text-center transition-all hover:-translate-y-px hover:shadow-sm
-                                           focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
-                                <div class="h-20 w-full flex items-center justify-center">
-                                    <IslandSetupDiagram Setup="setup" Class="max-h-full max-w-full"/>
-                                </div>
-                                <div class="mt-2 max-w-full truncate text-sm font-semibold text-ink-900">@setup.Name</div>
-                                <div class="text-[11px] text-ink-500">
-                                    @setup.NumberOfPlayers board@(setup.NumberOfPlayers == 1 ? "" : "s")@(setup.IsThematic ? " · thematic" : "")
-                                </div>
-                                <div class="mt-1.5"><RecordChip Record="rec" Subject="@setup.Name"/></div>
-                            </button>
+                            <IslandLayoutTile @key="setup.Id.Value" Setup="setup" Record="rec"
+                                              ShowRecord="true" ShowBoardCount="true"
+                                              OnClick="() => _layoutModal.Show(setup)"/>
                         }
                         @foreach (var (saved, rec) in playedSaved)
                         {
-                            <button @key="saved.Id" type="button" @onclick="() => _layoutModal.Show(saved)"
-                                    title="@($"{saved.Name} — details and full record")"
-                                    class="surface p-4 flex flex-col items-center text-center transition-all hover:-translate-y-px hover:shadow-sm
-                                           focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
-                                <div class="h-20 w-full flex items-center justify-center">
-                                    <span class="inline-flex h-12 w-12 items-center justify-center rounded-xl border border-dashed border-sky-300 bg-sky-50/60 text-sky-700">
-                                        <Icon Name="map" Class="w-5 h-5"/>
-                                    </span>
-                                </div>
-                                <div class="mt-2 max-w-full truncate text-sm font-semibold text-ink-900">@saved.Name</div>
-                                <div class="text-[11px] text-ink-500">@saved.BoardCount board@(saved.BoardCount == 1 ? "" : "s") · your saved shape</div>
-                                <div class="mt-1.5"><RecordChip Record="rec" Subject="@saved.Name"/></div>
-                            </button>
+                            <IslandLayoutTile @key="saved.Id" Saved="saved" Record="rec"
+                                              ShowRecord="true" ShowBoardCount="true"
+                                              OnClick="() => _layoutModal.Show(saved)"/>
                         }
+                        @* Not one island but a tally of every one-off, so it has no picture to
+                           show and no sheet to open — the tile shape without the tile. *@
                         @if (oneOffRecord.Played > 0)
                         {
-                            <div class="surface border-dashed p-4 flex flex-col items-center justify-center text-center"
+                            <div class="flex flex-col items-center rounded-xl border border-dashed border-ink-300 bg-white p-2 text-center"
                                  title="Hand-built islands that weren't saved to your library">
-                                <span class="inline-flex h-12 w-12 items-center justify-center rounded-xl border border-dashed border-ink-300 bg-white text-ink-500">
-                                    <Icon Name="map" Class="w-5 h-5"/>
-                                </span>
-                                <div class="mt-2 text-sm font-semibold text-ink-900">One-off islands</div>
-                                <div class="text-[11px] text-ink-500">hand-built, not saved</div>
-                                <div class="mt-1.5"><RecordChip Record="oneOffRecord" Subject="One-off islands"/></div>
+                                <div class="flex h-20 w-full items-center justify-center text-ink-400">
+                                    <Icon Name="map" Class="w-6 h-6"/>
+                                </div>
+                                <div class="mt-1.5 truncate w-full text-xs font-medium text-ink-900">One-off islands</div>
+                                <div class="w-full truncate text-[10px] text-ink-500">hand-built, not saved</div>
+                                <div class="mt-1"><RecordChip Record="oneOffRecord" Subject="One-off islands"/></div>
                             </div>
                         }
                     </div>

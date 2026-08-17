@@ -4,10 +4,24 @@
 
 <PageTitle>Boards</PageTitle>
 
-<BoardsView OwnedExpansions="@OwnedExpansions" Records="Records" Facts="Facts"/>
+<BoardsView OwnedExpansions="@OwnedExpansions" Records="Records" Facts="Facts" SavedLayouts="_savedLayouts" SignedIn="true"/>
 
 @code {
     /// Every recorded seat counts, so a board is "used" whoever played on it.
     protected override IReadOnlyDictionary<string, SetupInsights.PlayRecord> Project(
         IReadOnlyList<Application.Features.Statistics.SetupGameFact> facts) => SetupInsights.BoardRecords(facts);
+
+    /// The player's own island shapes, which belong on the layouts reference next to the
+    /// published ones. Loaded after the history rather than alongside it: one DbContext,
+    /// one query at a time.
+    private List<Application.Features.IslandLayouts.IslandLayoutResponse>? _savedLayouts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        if (CurrentUser.UserId is not { } userId) return;
+
+        var layouts = await Mediator.Send(new Application.Features.IslandLayouts.ListIslandLayoutsQuery(userId));
+        if (layouts.IsSuccess) _savedLayouts = layouts.Value;
+    }
 }
