@@ -11,7 +11,9 @@
     var radius = Size / 2.0 - StrokeWidth / 2.0;
     var circumference = 2 * Math.PI * radius;
     var dash = circumference * pct / 100.0;
-    var color = pct >= 60 ? "var(--color-accent-600)" : pct >= 40 ? "#D97706" /* amber-600 */ : "var(--color-red-600, #DC2626)";
+    var color = pct >= 60 ? "var(--color-accent-600)"
+              : pct >= 40 ? "var(--color-sun-600)"
+              :             "var(--color-ember-600)";
     var bg = "var(--color-ink-100)";
     var center = Size / 2.0;
 

@@ -157,15 +157,17 @@ else
                           Caption="@($"{_stats.Wins} W · {_stats.Losses} L")"
                           Icon="trophy"/>
                 @* The streak lives here alone — the form strip below shows the results it runs
-                   over, not the count again. *@
+                   over, not the count again. A losing streak turns the tile's bar ember, so the
+                   one figure on the row whose meaning flips is the one that changes colour. *@
                 <StatHero Value="@(_streak.Count > 0 ? _streak.Count.ToString() : "—")"
                           Label="Current streak"
                           Caption="@StreakCaption"
+                          Class="@(_streak.Count > 0 && !_streak.Win ? "tile-ember" : null)"
                           Icon="@(_streak.Count > 0 && !_streak.Win ? "alert" : "sparkles")"/>
                 <StatHero Value="@StatsFormat.Hours(_stats.TotalPlayTime)"
                           Label="Time played"
                           Caption="@($"avg {_stats.AverageDuration:h\\:mm} per game")"
-                          Icon="clock"/>
+                          Icon="clock" Class="tile-deep"/>
             </div>
 
             @* ============================== FORM + TABLE ============================== *@

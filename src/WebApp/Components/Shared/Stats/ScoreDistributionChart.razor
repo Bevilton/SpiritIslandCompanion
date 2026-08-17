@@ -58,7 +58,10 @@ else
                 Toolbar = new Toolbar { Show = false },
                 FontFamily = StatsTheme.FontFamily,
             },
-            Colors = ["#D97706"],
+            // Score is a sun figure, the same as difficulty and terror — see StatsTheme. Sun500
+            // rather than 600 so these bars carry the same weight as the jade ones on the
+            // difficulty chart beside them; 600 goes olive against parchment.
+            Colors = [StatsTheme.Sun500],
             PlotOptions = new PlotOptions
             {
                 Bar = new PlotOptionsBar { BorderRadius = 3, ColumnWidth = "60%" },

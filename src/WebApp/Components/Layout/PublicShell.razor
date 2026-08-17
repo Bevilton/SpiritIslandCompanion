@@ -1,59 +1,67 @@
-@* Top-nav + footer chrome. Used by PublicLayout and ReferenceLayout (anonymous branch).
-   Wraps page content in ChildContent. Page content is responsible for its own padding. *@
+@* Top-nav + footer chrome, wrapped round the anonymous side of the app: the landing page and the
+   four public reference pages, all of which set @@layout PublicLayout. (The signed-in side has its
+   own /app/* copies of those reference pages and gets AppShell instead.)
+   Wraps page content in ChildContent. Page content is responsible for its own padding — including
+   the gap above the footer, which is why the footer itself carries no margin: the landing page's
+   last band runs straight into the water, and a margin here left a pale strip between the two.
 
-<div class="min-h-screen flex flex-col">
-    <header class="sticky top-0 z-30 bg-white/85 backdrop-blur border-b border-ink-200">
+   The header is deep chrome, painted the exact colour the hero's gradient starts from, so on the
+   landing page the two read as one sky and the page opens with no rule across the top. On the
+   reference pages, which are parchment from the first pixel, the same bar is the counterpart of
+   the signed-in side's dark sidebar, so the two halves of the app match.
+
+   It is deliberately OPAQUE. A translucent bar looks right over the hero but the header is
+   sticky, not overlaid — it holds its own 64px at the top of the document and what shows through
+   is the parchment body behind it, which turned a near-black bar into flat grey. Keeping it solid
+   also means it behaves the same on every public page instead of only looking correct on one.
+
+   It cannot use .deep either: that paints grain in an ::after, and an ::after on a sticky element
+   that also carries a bottom border ends up over the border. *@
+
+<div class="min-h-screen flex flex-col bg-ink-50">
+    <header class="sticky top-0 z-30 border-b on-deep-rule bg-deep-950">
         <div class="mx-auto max-w-6xl px-4 md:px-6 h-16 flex items-center justify-between">
-            <Logo Href="/"/>
+            <Logo Href="/" OnDeep="true"/>
 
-            <nav class="hidden md:flex items-center gap-6">
-                <NavLink class="top-nav-link" ActiveClass="active" href="/" Match="NavLinkMatch.All">Home</NavLink>
-                <NavLink class="top-nav-link" ActiveClass="active" href="/spirits">Spirits</NavLink>
-                <NavLink class="top-nav-link" ActiveClass="active" href="/adversaries">Adversaries</NavLink>
-                <NavLink class="top-nav-link" ActiveClass="active" href="/scenarios">Scenarios</NavLink>
-                <NavLink class="top-nav-link" ActiveClass="active" href="/boards">Boards</NavLink>
-            </nav>
+            <nav class="hidden md:flex items-center gap-6">@Links</nav>
 
             <div class="flex items-center gap-2">
                 <AuthorizeView>
                     <Authorized>
-                        <a href="/app/dashboard" class="btn btn-sm btn-ghost">Dashboard</a>
+                        <a href="/app/dashboard" class="btn btn-sm btn-ghost-deep">Dashboard</a>
                         <a href="/app/games/new" class="btn btn-sm btn-primary">
                             <Icon Name="plus" Class="w-4 h-4"/> New Game
                         </a>
                     </Authorized>
                     <NotAuthorized>
-                        <a href="/login" class="btn btn-sm btn-secondary">Sign in</a>
+                        <a href="/login" class="btn btn-sm btn-ghost-deep">Sign in</a>
                         <a href="/login" class="btn btn-sm btn-primary hidden sm:inline-flex">Get started</a>
                     </NotAuthorized>
                 </AuthorizeView>
             </div>
         </div>
 
-        <nav class="md:hidden flex items-center gap-5 px-4 pb-3 overflow-x-auto text-sm">
-            <NavLink class="top-nav-link" ActiveClass="active" href="/" Match="NavLinkMatch.All">Home</NavLink>
-            <NavLink class="top-nav-link" ActiveClass="active" href="/spirits">Spirits</NavLink>
-            <NavLink class="top-nav-link" ActiveClass="active" href="/adversaries">Adversaries</NavLink>
-            <NavLink class="top-nav-link" ActiveClass="active" href="/scenarios">Scenarios</NavLink>
-            <NavLink class="top-nav-link" ActiveClass="active" href="/boards">Boards</NavLink>
-        </nav>
+        @* The same links again below the bar, where there is no room for them beside the logo. One
+           list rendered twice rather than two copies to keep in step. *@
+        <nav class="md:hidden flex items-center gap-5 px-4 pb-3 overflow-x-auto text-sm">@Links</nav>
     </header>
 
     <main class="flex-1">
         @ChildContent
     </main>
 
-    <footer class="border-t border-ink-200 mt-16">
-        <div class="mx-auto max-w-6xl px-4 md:px-6 py-8 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-ink-500">
-            <div class="flex items-center gap-3">
-                <Logo Href="/"/>
-                <span class="text-ink-300">·</span>
-                <span>An unofficial companion for the Spirit Island board game.</span>
+    <footer class="deep">
+        <div class="mx-auto max-w-6xl px-4 md:px-6 py-10 flex flex-col md:flex-row items-center justify-between gap-5 text-sm">
+            <div class="flex flex-col md:flex-row md:items-center gap-3 text-center md:text-left">
+                <Logo Href="/" OnDeep="true"/>
+                <span class="on-deep-muted hidden md:inline">·</span>
+                <span class="on-deep-body">An unofficial companion for the Spirit Island board game.</span>
             </div>
             <div class="flex items-center gap-5">
-                <a href="/spirits" class="hover:text-ink-700">Spirits</a>
-                <a href="/adversaries" class="hover:text-ink-700">Adversaries</a>
-                <a href="https://spiritislandwiki.com" target="_blank" rel="noopener" class="hover:text-ink-700">Wiki</a>
+                <a href="/spirits" class="on-deep-body hover:text-ink-50 transition-colors">Spirits</a>
+                <a href="/adversaries" class="on-deep-body hover:text-ink-50 transition-colors">Adversaries</a>
+                <a href="https://spiritislandwiki.com" target="_blank" rel="noopener"
+                   class="on-deep-body hover:text-ink-50 transition-colors">Wiki</a>
             </div>
         </div>
     </footer>
@@ -67,4 +75,25 @@
 
 @code {
     [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>
+    /// The public routes, in the order the top bar lists them. Home matches exactly — on Prefix
+    /// every route would light it up, since every route starts with "/".
+    /// </summary>
+    private static readonly (string Href, string Label)[] PublicRoutes =
+    [
+        ("/",            "Home"),
+        ("/spirits",     "Spirits"),
+        ("/adversaries", "Adversaries"),
+        ("/scenarios",   "Scenarios"),
+        ("/boards",      "Boards"),
+    ];
+
+    private RenderFragment Links => @<text>
+        @foreach (var (href, label) in PublicRoutes)
+        {
+            <NavLink class="top-nav-link" ActiveClass="active" href="@href"
+                     Match="@(href == "/" ? NavLinkMatch.All : NavLinkMatch.Prefix)">@label</NavLink>
+        }
+    </text>;
 }

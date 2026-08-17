@@ -58,12 +58,14 @@
         _                  => "?",
     };
 
+    // Terror escalates from the island's own green, through the sun, into the invaders' ember —
+    // the palette's three semantic families in the order the game climbs them.
     public static string TerrorColor(TerrorLevel t) => t switch
     {
-        TerrorLevel.First  => "#10B981", // accent-500 — green
-        TerrorLevel.Second => "#FACC15", // yellow-400
-        TerrorLevel.Third  => "#F97316", // orange-500
-        TerrorLevel.Max    => "#DC2626", // red-600
-        _                  => "#A8A29E",
+        TerrorLevel.First  => StatsTheme.Accent500,
+        TerrorLevel.Second => StatsTheme.Sun400,
+        TerrorLevel.Third  => StatsTheme.DangerSoft,
+        TerrorLevel.Max    => StatsTheme.Danger,
+        _                  => StatsTheme.Ink400,
     };
 }

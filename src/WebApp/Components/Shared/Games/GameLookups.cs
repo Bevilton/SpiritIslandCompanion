@@ -11,8 +11,9 @@ namespace WebApp.Components.Shared.Games;
 /// </summary>
 public static class GameLookups
 {
-    /// <summary>Fallback swatch for an entity without a catalogue colour of its own.</summary>
-    public const string NeutralColor = "#78716c";
+    /// <summary>Fallback swatch for an entity without a catalogue colour of its own.
+    /// Kept in step with ink-500 in Styles/site.css, which is the warm parchment neutral.</summary>
+    public const string NeutralColor = "#7a6c4e";
 
     public static Spirit? SpiritFor(string? id) =>
         string.IsNullOrEmpty(id) ? null : GameData.Spirits.FirstOrDefault(x => x.Id.Value == id);

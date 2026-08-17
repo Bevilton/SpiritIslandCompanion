@@ -8,6 +8,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <base href="/"/>
 
+    @* The landing page is public and gets shared into Discord and forum threads, where a page with
+       no description renders as a bare URL. Set here rather than per page because the app pages
+       behind /login are never the thing being linked, and one accurate sentence beats a stale one
+       maintained in nineteen places. Deliberately no og:image: crawlers do not render SVG, and the
+       island art is the only picture the app has. *@
+    <meta name="description" content="Track your Spirit Island games: log matches with spirits, aspects, adversaries and island layouts, then study win rates for your whole group."/>
+    <meta property="og:type" content="website"/>
+    <meta property="og:site_name" content="Spirit Island Companion"/>
+    <meta property="og:title" content="Spirit Island Companion"/>
+    <meta property="og:description" content="Log your games, study your stats, and keep your group's history in one place."/>
+    <meta name="twitter:card" content="summary"/>
+
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet"/>

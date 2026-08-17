@@ -141,14 +141,19 @@ export function create(host, options = {}) {
   host.innerHTML = `
     <svg class="island-pg__sea" aria-label="Island layout">
       <defs>
-        <!-- Sun on open water: light in the middle, and #2b6fa4 by the time it reaches any
+        <!-- Sun on open water: light in the middle, and #1e5670 by the time it reaches any
              edge, which is the colour the surrounding scene has settled to. r is what makes
              that true — the nearest edge is 0.45 of the box from (50%, 45%), so r must not
              exceed it, or the perimeter stops short of the deep colour and the playground
-             reads as a lighter panel pasted onto the sea. -->
+             reads as a lighter panel pasted onto the sea.
+             The rim is deep-600 from Styles/site.css; the two inner stops are eased down off
+             deep-300 / deep-400 to keep the ramp even now that it ends one step darker. The
+             scene used to end at deep-500, which was the brightest water anywhere in the app
+             and left the one page built around an island looking louder than the island on the
+             landing page — the same sea has to be the same sea. -->
         <radialGradient id="ipgDeep" cx="50%" cy="45%" r="45%">
-          <stop offset="0%" stop-color="#7fc4e8"/><stop offset="55%" stop-color="#4a9fd0"/>
-          <stop offset="100%" stop-color="#2b6fa4"/>
+          <stop offset="0%" stop-color="#6cb6de"/><stop offset="55%" stop-color="#3d8cbe"/>
+          <stop offset="100%" stop-color="#1e5670"/>
         </radialGradient>
         <pattern id="ipgSwell" width="46" height="46" patternUnits="userSpaceOnUse">
           <path d="M0 34 q11.5 -9 23 0 t23 0" fill="none" stroke="#ffffff" stroke-opacity=".13" stroke-width="1.6"/>

@@ -2,31 +2,132 @@
 
 @source "../Components/**/*.{razor,cs}";
 
+/*  ── The palette ──────────────────────────────────────────────────────────────────────────
+ *  The game is dark painted board art with cream cards laid on top of it, and the app is
+ *  composed the same way: `deep` is the chrome the app sits in — the sidebar, the public nav,
+ *  the landing hero — and `ink` is the warm parchment the content sits on. Data is then the
+ *  brightest thing on any screen, which is the whole point of a companion app.
+ *
+ *  `ink` and `accent` keep their names through the redesign on purpose. Between them they are
+ *  spelled out about 1,150 times across the pages; remapping the values moves the entire app
+ *  onto the new palette at once, and a rename would have been 1,150 chances to miss one and
+ *  leave a page half-dressed. `ink` is no longer grey and `accent` is no longer emerald, but
+ *  what each is *for* has not changed.
+ *
+ *  --color-white is redefined for the same reason: `bg-white` appears 71 times and every one
+ *  of them means "a card", not "#ffffff". Pure white against warm parchment reads as a hole.
+ */
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-serif: "Fraunces", "Source Serif Pro", ui-serif, Georgia, serif;
 
-  --color-accent-50:  #ecfdf5;
-  --color-accent-100: #d1fae5;
-  --color-accent-200: #a7f3d0;
-  --color-accent-300: #6ee7b7;
-  --color-accent-400: #34d399;
-  --color-accent-500: #10b981;
-  --color-accent-600: #059669;
-  --color-accent-700: #047857;
-  --color-accent-800: #065f46;
-  --color-accent-900: #064e3b;
+  /* card / raised surface — warm, never #fff */
+  --color-white: #fdfbf6;
 
-  --color-ink-50:  #fafaf9;
-  --color-ink-100: #f5f5f4;
-  --color-ink-200: #e7e5e4;
-  --color-ink-300: #d6d3d1;
-  --color-ink-400: #a8a29e;
-  --color-ink-500: #78716c;
-  --color-ink-600: #57534e;
-  --color-ink-700: #44403c;
-  --color-ink-800: #292524;
-  --color-ink-900: #1c1917;
+  /* accent — jade. Growth, spirits, the primary action. */
+  --color-accent-50:  #edf7f1;
+  --color-accent-100: #d3efe0;
+  --color-accent-200: #a9e0c5;
+  --color-accent-300: #74cca6;
+  --color-accent-400: #3bb588;
+  --color-accent-500: #1fa877;
+  --color-accent-600: #15875f;
+  --color-accent-700: #0f6a4a;
+  --color-accent-800: #0b5138;
+  --color-accent-900: #083b29;
+
+  /* ink — parchment and the text on it. 50 is the page, 800 body, 900 headings. */
+  --color-ink-50:  #f7f3ea;
+  --color-ink-100: #f0eadc;
+  --color-ink-200: #e3dac6;
+  --color-ink-300: #cfc2a5;
+  --color-ink-400: #a89878;
+  --color-ink-500: #7a6c4e;
+  --color-ink-600: #5f5340;
+  --color-ink-700: #4a4031;
+  --color-ink-800: #352e23;
+  --color-ink-900: #221d16;
+
+  /* deep — ocean and night. The chrome the parchment sits in. */
+  --color-deep-50:  #f0f8fd;
+  --color-deep-100: #d9edf9;
+  --color-deep-200: #b4ddf2;
+  --color-deep-300: #7fc4e8;
+  --color-deep-400: #4a9fd0;
+  --color-deep-500: #2b6fa4;
+  --color-deep-600: #1e5670;
+  --color-deep-700: #164254;
+  --color-deep-800: #10323f;
+  --color-deep-900: #0a2431;
+  --color-deep-950: #04141c;
+
+  /* sun — difficulty, terror, a score worth noticing */
+  --color-sun-100: #fbf0cd;
+  --color-sun-300: #f2d36b;
+  --color-sun-400: #e6c341;
+  --color-sun-500: #d4ac1e;
+  --color-sun-600: #a8850f;
+  --color-sun-700: #7c6109;
+
+  /* ember — the invaders. Defeat, blight, danger. */
+  --color-ember-100: #fbe3da;
+  --color-ember-300: #f4a98a;
+  --color-ember-400: #ee8560;
+  --color-ember-500: #dc5b3c;
+  --color-ember-600: #b8412a;
+  --color-ember-700: #8f3020;
+
+  /*  Tailwind's own red / amber / sky are pulled onto the palette rather than left at their
+   *  stock values. All three are used semantically across the pages — red for a defeat, amber
+   *  for something waiting on you, sky for a request from another player — and there are far
+   *  too many of them to rename by hand. Stock red-500 against warm parchment is a raw signal
+   *  flare, and stock amber-50 is almost exactly ink-100, so an amber panel vanished into the
+   *  page. Pointing them at ember / sun / deep keeps every existing `bg-red-50`, `text-amber-800`
+   *  and `border-sky-200` meaning what it meant, in the app's own colours.
+   *
+   *  Anything genuinely red-for-red's-sake would now come out ember, so there is no longer a
+   *  true red in the app — which is correct: the invaders are the only thing that needed one. */
+  --color-red-50:  #fdf0eb;
+  --color-red-100: #fbe3da;
+  --color-red-200: #f7cbbb;
+  --color-red-300: #f4a98a;
+  --color-red-400: #ee8560;
+  --color-red-500: #dc5b3c;
+  --color-red-600: #c9492f;
+  --color-red-700: #b8412a;
+  --color-red-800: #8f3020;
+  --color-red-900: #6d2418;
+
+  --color-amber-50:  #fdf8e7;
+  --color-amber-100: #fbf0cd;
+  --color-amber-200: #f7e3a2;
+  --color-amber-300: #f2d36b;
+  --color-amber-400: #e6c341;
+  --color-amber-500: #d4ac1e;
+  --color-amber-600: #a8850f;
+  --color-amber-700: #8a6c0c;
+  --color-amber-800: #7c6109;
+  --color-amber-900: #5c4707;
+
+  --color-sky-50:  #f0f8fd;
+  --color-sky-100: #d9edf9;
+  --color-sky-200: #b4ddf2;
+  --color-sky-300: #7fc4e8;
+  --color-sky-400: #4a9fd0;
+  --color-sky-500: #2b6fa4;
+  --color-sky-600: #22608f;
+  --color-sky-700: #1e5670;
+  --color-sky-800: #164254;
+  --color-sky-900: #10323f;
+}
+
+/*  ── Atmosphere ───────────────────────────────────────────────────────────────────────────
+ *  Two things separate the chrome from a flat block of dark blue: a grain overlay, which is
+ *  what stops a large dark area reading as printer toner, and layered radial washes that put
+ *  a light source in it. Both are decoration and both sit behind everything, so they are
+ *  ::after / ::before on the element rather than extra markup at every call site.            */
+@theme {
+  --si-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.42'/%3E%3C/svg%3E");
 }
 
 @layer base {
@@ -66,14 +167,23 @@
   .btn:focus-visible {
     @apply ring-2 ring-accent-500/40 ring-offset-2;
   }
+  /* Lit from within rather than filled flat: the gradient plus the inner hairline is what
+     keeps a jade button from going muddy against warm parchment. */
   .btn-primary {
-    @apply bg-accent-700 text-white shadow-sm;
+    @apply text-white;
+    background-image: linear-gradient(180deg, var(--color-accent-500), var(--color-accent-700));
+    box-shadow: inset 0 0 0 1px rgb(from var(--color-accent-300) r g b / .35),
+                0 1px 2px rgb(from var(--color-ink-900) r g b / .10),
+                0 8px 20px -10px rgb(from var(--color-accent-600) r g b / .55);
   }
-  .btn-primary:hover:not(:disabled) { @apply bg-accent-800; }
+  .btn-primary:hover:not(:disabled) {
+    background-image: linear-gradient(180deg, var(--color-accent-600), var(--color-accent-800));
+  }
   .btn-primary:focus-visible { @apply ring-2 ring-accent-500/40 ring-offset-2; }
 
   .btn-secondary {
     @apply bg-white text-ink-800 border border-ink-200;
+    box-shadow: 0 1px 2px rgb(from var(--color-ink-900) r g b / .05);
   }
   .btn-secondary:hover:not(:disabled) { @apply bg-ink-50 border-ink-300; }
 
@@ -81,6 +191,30 @@
     @apply text-ink-700;
   }
   .btn-ghost:hover:not(:disabled) { @apply bg-ink-100; }
+
+  /* On deep chrome, where a parchment button would be a hole punched in the night. Frosted
+     glass instead: the sea shows through it. */
+  .btn-glass {
+    @apply text-deep-50;
+    background-color: rgb(from var(--color-deep-100) r g b / .09);
+    border-color: rgb(from var(--color-deep-200) r g b / .26);
+    backdrop-filter: blur(6px);
+  }
+  .btn-glass:hover:not(:disabled) {
+    background-color: rgb(from var(--color-deep-100) r g b / .16);
+    border-color: rgb(from var(--color-deep-200) r g b / .40);
+  }
+  .btn-glass:focus-visible { @apply ring-2 ring-deep-300/40 ring-offset-0; }
+
+  /* The unfilled action on deep chrome. .btn-glass works over the hero's lit water, but over the
+     near-black top bar its 9% wash is a visible grey chip rather than glass, so a secondary link
+     in the nav needs to carry no fill at all until it is hovered. */
+  .btn-ghost-deep { color: rgb(from var(--color-deep-100) r g b / .78); }
+  .btn-ghost-deep:hover:not(:disabled) {
+    @apply text-ink-50;
+    background-color: rgb(from var(--color-deep-200) r g b / .10);
+  }
+  .btn-ghost-deep:focus-visible { @apply ring-2 ring-deep-300/40 ring-offset-0; }
 
   /* The primary action of a card, where that card is one of twenty on screen. btn-primary's
      fill is sized for the one action a page is about; tiled across a grid it becomes a wall
@@ -124,14 +258,21 @@
   .textarea:disabled {
     @apply bg-ink-50 text-ink-500;
   }
+  /* The chevron is a data URI, so it cannot read a custom property — the hex is ink-500 spelled
+     out and has to be changed with it. It was the pre-redesign grey, which read as a cool tick
+     against a warm field on every select in the app. */
   .select {
     @apply pr-9 appearance-none bg-no-repeat;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%2378716c' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%237a6c4e' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E");
     background-position: right 0.5rem center;
     background-size: 1.25rem;
   }
+  /* accent-color, not text-*: without @tailwindcss/forms a native checkbox ignores the text
+     colour entirely and ticks itself in the browser's own blue — which was the one stock-blue
+     control left anywhere in the app. */
   .checkbox {
-    @apply h-4 w-4 rounded border-ink-300 text-accent-600;
+    @apply h-4 w-4 rounded border-ink-300;
+    accent-color: var(--color-accent-600);
   }
   .checkbox:focus {
     @apply ring-2 ring-accent-500/40 ring-offset-0;
@@ -140,15 +281,56 @@
     @apply block text-xs font-medium uppercase tracking-wide text-ink-500 mb-1.5;
   }
 
-  /* ---------- Surfaces ---------- */
+  /* ---------- Surfaces ----------
+     A card is parchment lifted off the page, so it carries a shadow as well as a border. The
+     shadow is warm (tinted with ink-900, not black) and very wide/very soft — on a warm ground
+     a neutral drop shadow reads as grey dirt under the card. */
   .surface {
     @apply bg-white border border-ink-200 rounded-xl;
+    box-shadow: 0 1px 2px rgb(from var(--color-ink-900) r g b / .05),
+                0 2px 5px -2px rgb(from var(--color-ink-900) r g b / .05),
+                0 16px 32px -22px rgb(from var(--color-ink-900) r g b / .28);
   }
   .surface-head {
     @apply px-5 md:px-6 py-4 border-b border-ink-200 flex items-center justify-between;
   }
   .surface-body { @apply p-5 md:p-6; }
   .surface-foot { @apply px-5 md:px-6 py-4 border-t border-ink-200; }
+
+  /* ---------- Deep chrome ----------
+     The sidebar, the public top nav, the hero, the footer. `.deep` is the flat night; `.deep-sea`
+     adds the light source and the water below it. Both take the grain. */
+  .deep {
+    @apply relative text-deep-100;
+    background-image: linear-gradient(180deg, var(--color-deep-900), #071d28);
+  }
+  .deep-sea {
+    @apply relative text-deep-100;
+    background-image:
+      radial-gradient(120% 90% at 66% 58%, rgb(from var(--color-deep-400) r g b / .40) 0%,
+                                           rgb(from var(--color-deep-400) r g b / 0) 56%),
+      radial-gradient(66% 46% at 16% 4%,   rgb(from var(--color-accent-300) r g b / .11) 0%,
+                                           rgb(from var(--color-accent-300) r g b / 0) 62%),
+      linear-gradient(180deg, var(--color-deep-950) 0%, #072230 32%, #0c3247 60%,
+                              #134a63 82%, #1a5b79 100%);
+  }
+  /* Grain, on its own layer above the gradients and below the content. Content inside a .deep
+     surface therefore needs no z-index of its own — but anything that must sit above the grain
+     (a sticky header's backdrop, say) does. */
+  .deep::after, .deep-sea::after {
+    content: "";
+    @apply pointer-events-none absolute inset-0;
+    background-image: var(--si-grain);
+    opacity: .15;
+    mix-blend-mode: overlay;
+  }
+  .deep > *, .deep-sea > * { @apply relative z-[1]; }
+
+  /* Headings and body copy sitting on deep chrome. */
+  .on-deep-title { @apply text-ink-50; font-family: var(--font-serif); }
+  .on-deep-body  { color: rgb(from var(--color-deep-100) r g b / .80); }
+  .on-deep-muted { color: rgb(from var(--color-deep-200) r g b / .58); }
+  .on-deep-rule  { border-color: rgb(from var(--color-deep-200) r g b / .14); }
 
   /* ---------- Tables ---------- */
   .table-wrap { @apply overflow-x-auto; }
@@ -185,10 +367,21 @@
   .alert-info    { @apply bg-sky-50 border-sky-200 text-sky-900; }
   .alert-warn    { @apply bg-amber-50 border-amber-200 text-amber-900; }
 
-  /* ---------- Eyebrow ---------- */
+  /* ---------- Eyebrow ----------
+     accent-700 has the contrast for parchment; on deep chrome it disappears into the water, so
+     .eyebrow-on-deep lifts it to the light end of the same ramp. */
   .eyebrow {
     @apply inline-flex items-center gap-2 text-xs font-medium uppercase text-accent-700;
     letter-spacing: 0.14em;
+  }
+  .eyebrow-on-deep { @apply text-accent-300; }
+  /* The lit dot some eyebrows carry. */
+  .eyebrow-dot {
+    @apply inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-accent-400;
+  }
+  .eyebrow-on-deep .eyebrow-dot {
+    @apply bg-accent-300;
+    box-shadow: 0 0 10px var(--color-accent-300);
   }
 
   /* ---------- Page header ---------- */
@@ -215,31 +408,87 @@
   .section-link  { @apply text-xs text-accent-700; }
   .section-link:hover { @apply underline; }
 
-  /* ---------- Stat tile ---------- */
+  /* ---------- Stat tile ----------
+     Carries a colour bar down its leading edge. The bar is jade by default and is what lets a
+     row of tiles say something (won / lost / at risk) without four different card fills; set
+     --tile-accent to change it. */
   .stat-tile {
-    @apply bg-white border border-ink-200 rounded-xl p-5 transition-all;
+    --tile-accent: var(--color-accent-400);
+    @apply relative overflow-hidden bg-white border border-ink-200 rounded-xl p-5 transition-all;
+    box-shadow: 0 1px 2px rgb(from var(--color-ink-900) r g b / .05),
+                0 2px 5px -2px rgb(from var(--color-ink-900) r g b / .05),
+                0 16px 32px -22px rgb(from var(--color-ink-900) r g b / .28);
+  }
+  .stat-tile::before {
+    content: "";
+    @apply absolute inset-y-0 left-0 w-[3px];
+    background-color: var(--tile-accent);
   }
   .stat-tile:hover { @apply border-ink-300; }
   .stat-tile-value {
     @apply text-3xl font-semibold text-ink-900 leading-none;
     font-family: var(--font-serif);
+    font-variant-numeric: tabular-nums;
   }
   .stat-tile-label {
     @apply mt-2 text-xs font-medium uppercase tracking-wide text-ink-500;
   }
+  .tile-sun   { --tile-accent: var(--color-sun-400); }
+  .tile-ember { --tile-accent: var(--color-ember-500); }
+  .tile-deep  { --tile-accent: var(--color-deep-400); }
 
-  /* ---------- Nav link (sidebar) ---------- */
+  /* ---------- Nav link (sidebar) ----------
+     The sidebar is deep chrome now, so these are light-on-dark. The active item is a jade wash
+     fading to the right with a lit bar on the leading edge — a solid fill at this size reads as
+     a button, and there are nine of them stacked. */
   .nav-item {
-    @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm
-           text-ink-600 transition-colors;
+    @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors;
+    color: rgb(from var(--color-deep-100) r g b / .72);
   }
-  .nav-item:hover { @apply bg-ink-100 text-ink-900; }
-  .nav-item.active { @apply bg-accent-50 text-accent-800 font-medium; }
+  .nav-item:hover {
+    background-color: rgb(from var(--color-deep-200) r g b / .08);
+    @apply text-ink-50;
+  }
+  .nav-item.active {
+    @apply text-white font-medium;
+    background-image: linear-gradient(90deg, rgb(from var(--color-accent-500) r g b / .26),
+                                             rgb(from var(--color-accent-500) r g b / .06));
+    box-shadow: inset 2px 0 0 var(--color-accent-300);
+  }
+  .nav-group {
+    @apply px-3 pt-4 pb-2 text-[11px] font-medium uppercase tracking-wider;
+    color: rgb(from var(--color-deep-200) r g b / .42);
+  }
 
   /* ---------- Top nav (public) ---------- */
-  .top-nav-link { @apply text-sm text-ink-600 transition-colors; }
-  .top-nav-link:hover { @apply text-ink-900; }
-  .top-nav-link.active { @apply text-ink-900 font-medium; }
+  .top-nav-link {
+    @apply text-sm transition-colors;
+    color: rgb(from var(--color-deep-100) r g b / .72);
+  }
+  .top-nav-link:hover { @apply text-ink-50; }
+  .top-nav-link.active { @apply text-ink-50 font-medium; }
+
+  /* ---------- Figure ----------
+     A number on deep chrome, as on the landing page's community band. Deliberately not a
+     .stat-tile: boxing four figures on top of the hero would put four parchment cards over the
+     sea, and the point of the band is that the numbers themselves are the surface. */
+  /* the rule colour is spelled out rather than @apply-ing .on-deep-rule: Tailwind v4 will only
+     @apply utilities, not other component classes */
+  .figure {
+    @apply px-6 first:pl-0 border-l first:border-l-0;
+    border-color: rgb(from var(--color-deep-200) r g b / .14);
+  }
+  .figure-value {
+    @apply block text-4xl md:text-5xl font-semibold leading-none text-ink-50;
+    font-family: var(--font-serif);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+  .figure-unit  { @apply text-3xl text-sun-400; }
+  .figure-label {
+    @apply mt-3 block text-[11px] font-semibold uppercase tracking-[.14em];
+    color: rgb(from var(--color-deep-200) r g b / .62);
+  }
 }
 
 /* ---------- Form error summary ----------
@@ -247,9 +496,9 @@
    still visibly a response to the button. Focus does the accessible half of the job (see
    FormErrorSummary); this is for whoever was watching the button.                          */
 @keyframes si-attention {
-  0%   { box-shadow: 0 0 0 0 rgb(220 38 38 / .5); }
-  70%  { box-shadow: 0 0 0 12px rgb(220 38 38 / 0); }
-  100% { box-shadow: 0 0 0 0 rgb(220 38 38 / 0); }
+  0%   { box-shadow: 0 0 0 0 rgb(from var(--color-ember-500) r g b / .5); }
+  70%  { box-shadow: 0 0 0 12px rgb(from var(--color-ember-500) r g b / 0); }
+  100% { box-shadow: 0 0 0 0 rgb(from var(--color-ember-500) r g b / 0); }
 }
 .si-attention { animation: si-attention 1s ease-out 2; }
 /* The summary is focused programmatically, never tabbed to, so its ring would only ever be
@@ -257,6 +506,79 @@
 .si-attention:focus { outline: none; }
 @media (prefers-reduced-motion: reduce) {
   .si-attention { animation: none; }
+}
+
+/* ---------- Landing hero ----------
+   The island art is wwwroot/img/hero-island.svg, emitted by tools/island-geometry/build.mjs from
+   the same board geometry the playground uses — see the generator for why it is painted rather
+   than reusing a layout thumbnail. Everything here is decoration, so it all degrades to a plain
+   deep-sea panel if the image fails to load. */
+.hero-isle {
+  @apply block;
+  filter: drop-shadow(0 30px 40px rgb(from var(--color-deep-950) r g b / .55));
+  animation: si-isle 11s ease-in-out infinite;
+  /* The art is padded with its own glow, so it wants to sit larger than its column. max-width has
+     to be released as well — Tailwind's preflight caps every img at 100% of its container. */
+  max-width: none;
+  width: 112%;
+  margin-inline: -6%;
+}
+@keyframes si-isle {
+  0%, 100% { transform: translateY(0)     rotate(-.45deg); }
+  50%      { transform: translateY(-13px) rotate(.55deg);  }
+}
+
+/* The waterline: wave contours drawn across the bottom of the hero, so the panel ends in water
+   rather than in a straight edge. */
+.hero-waves {
+  @apply pointer-events-none absolute inset-x-0 bottom-0 z-0 h-52;
+  opacity: .42;
+}
+.hero-waves svg { @apply h-full w-full; }
+.hero-waves path {
+  fill: none;
+  stroke: var(--color-deep-200);
+  stroke-opacity: .22;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  animation: si-swell 26s ease-in-out infinite;
+}
+.hero-waves path:nth-child(2) { animation-duration: 31s; animation-direction: reverse; }
+.hero-waves path:nth-child(3) { animation-duration: 22s; }
+.hero-waves path:nth-child(4) { animation-duration: 35s; animation-direction: reverse; }
+@keyframes si-swell {
+  0%, 100% { transform: translateX(0); }
+  50%      { transform: translateX(38px); }
+}
+
+/* The invader fleet, ringing the island. Overlays the island's own box (see Home.razor) so the
+   ships stay with the island at every breakpoint instead of drifting across the hero. */
+.hero-fleet { @apply pointer-events-none absolute inset-0 z-[2]; }
+
+/*  Size and haze both come off --ship-scale, which is really "how near this ship is". Deriving
+ *  them from one number is what stops them disagreeing and a small ship reading as a near one.
+ *  Position is set per ship instead, because the fleet now has to sit around a coastline rather
+ *  than along a horizon. */
+.hero-ship {
+  @apply absolute block;
+  width:  calc(3.4rem * var(--ship-scale, 1));
+  height: calc(3.2rem * var(--ship-scale, 1));
+  opacity: calc(0.46 + 0.48 * var(--ship-scale, 1));
+  filter: drop-shadow(0 3px 5px rgb(from var(--color-deep-950) r g b / .45));
+  /* left/top are the ship's centre — the centring has to live in the transform, and therefore in
+     every keyframe, since the animation owns transform outright. */
+  transform: translate(-50%, -50%);
+  animation: si-sail 13s ease-in-out infinite;
+  will-change: transform;
+}
+/* Heel and rise together — a hull that bobs without leaning reads as a lift, not a swell. */
+@keyframes si-sail {
+  0%, 100% { transform: translate(-50%, -50%) rotate(-2.4deg); }
+  50%      { transform: translate(-50%, calc(-50% - 7px)) rotate(2.4deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-isle, .hero-waves path, .hero-ship { animation: none; }
 }
 
 /* ---------- New-game island scene ---------- */
@@ -323,19 +645,21 @@
 }
 .island-pg__outline.is-selected { stroke: #ffffff; stroke-width: 2.6; }
 /* after .is-selected, so a board that is both reports the problem rather than the selection */
-.island-pg__outline.has-error   { stroke: #ef4444; stroke-width: 2.4; }
+/* ember-400 rather than 500 for the two marks that land on open water: the palette's mid ember is
+   only a little lighter than the sea and a warning has to be seen at a glance. */
+.island-pg__outline.has-error   { stroke: var(--color-ember-400); stroke-width: 2.4; }
 /* the drop would leave this board lying across another — it will spring back */
 .island-pg__board.is-blocked { opacity: .55; }
-.island-pg__board.is-blocked .ipg-land { stroke: #ef4444; stroke-dasharray: 5 3; }
+.island-pg__board.is-blocked .ipg-land { stroke: var(--color-ember-400); stroke-dasharray: 5 3; }
 
 /* the seams a drag is about to click into — one path per side, tracing that side's outline */
 .island-pg__snapline {
   fill: none;
-  stroke: #fbbf24;
+  stroke: var(--color-sun-300);
   stroke-width: 2.6;
   stroke-linecap: round;
   stroke-linejoin: round;
-  filter: drop-shadow(0 0 4px rgb(251 191 36 / .9));
+  filter: drop-shadow(0 0 4px rgb(from var(--color-sun-300) r g b / .9));
 }
 
 /* per-board chip in the HTML overlay, so labels stay crisp at any zoom */
@@ -385,9 +709,12 @@
 .island-pg-tools__sep:first-child { @apply hidden; }
 .island-pg-tools__hint { @apply hidden truncate whitespace-nowrap px-2 py-1 text-[11px] text-ink-500 sm:block; }
 
-/* Blazor scaffolding */
+/* Blazor scaffolding. These shipped with the template in stock Tailwind red and were the last
+   place in the app still painting one — ember is the invaders' colour and therefore what every
+   other failure state here is drawn in. ember-700 rather than 500 so white text on the error
+   boundary and ember-on-parchment validation text both clear WCAG AA. */
 .blazor-error-boundary {
-  background: #b32121;
+  background: var(--color-ember-700);
   padding: 1rem;
   color: white;
 }
@@ -395,5 +722,5 @@
 #blazor-error-ui { display: none; }
 
 .valid.modified:not([type=checkbox]) { outline: 1px solid var(--color-accent-500); }
-.invalid { outline: 1px solid #ef4444; }
-.validation-message { color: #b91c1c; font-size: 0.875rem; }
+.invalid { outline: 1px solid var(--color-ember-500); }
+.validation-message { color: var(--color-ember-700); font-size: 0.875rem; }

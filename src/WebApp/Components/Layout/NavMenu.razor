@@ -1,5 +1,7 @@
+@* Sidebar navigation. Lives on deep chrome — see AppShell — so .nav-item and .nav-group are the
+   light-on-dark pair from Styles/site.css. *@
 <nav class="flex flex-col gap-1">
-    <div class="px-3 pt-1 pb-2 text-[11px] font-medium uppercase tracking-wider text-ink-400">App</div>
+    <div class="nav-group pt-1">App</div>
     <NavLink class="nav-item" ActiveClass="active" href="/app/dashboard" Match="NavLinkMatch.All">
         <Icon Name="dashboard" Class="w-4 h-4"/> Dashboard
     </NavLink>
@@ -10,12 +12,12 @@
         <Icon Name="chart" Class="w-4 h-4"/> Statistics
     </NavLink>
 
-    <div class="px-3 pt-4 pb-2 text-[11px] font-medium uppercase tracking-wider text-ink-400">People</div>
+    <div class="nav-group">People</div>
     <NavLink class="nav-item" ActiveClass="active" href="/app/people">
         <Icon Name="users" Class="w-4 h-4"/> People
     </NavLink>
 
-    <div class="px-3 pt-4 pb-2 text-[11px] font-medium uppercase tracking-wider text-ink-400">Reference</div>
+    <div class="nav-group">Reference</div>
     <NavLink class="nav-item" ActiveClass="active" href="/app/spirits">
         <Icon Name="sparkles" Class="w-4 h-4"/> Spirits
     </NavLink>
@@ -29,7 +31,7 @@
         <Icon Name="map" Class="w-4 h-4"/> Boards
     </NavLink>
 
-    <div class="px-3 pt-4 pb-2 text-[11px] font-medium uppercase tracking-wider text-ink-400">Account</div>
+    <div class="nav-group">Account</div>
     <NavLink class="nav-item" ActiveClass="active" href="/app/settings">
         <Icon Name="settings" Class="w-4 h-4"/> Settings
     </NavLink>

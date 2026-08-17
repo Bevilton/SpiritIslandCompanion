@@ -1,4 +1,13 @@
-@* Sidebar + content area chrome. Used by MainLayout and ReferenceLayout (authenticated branch).
+@* Sidebar + content area chrome, wrapped round every signed-in page: MainLayout is the router's
+   default layout and every page that uses it carries [Authorize]. The AuthorizeView branches below
+   are therefore not for anonymous *pages* but for the moment before RedirectToLogin lands —
+   AuthorizeRouteView renders its NotAuthorized content inside this layout.
+
+   The sidebar is deep chrome and the content area is parchment — the app composed the way the
+   game is on a table, dark board with cream cards laid on it. See the palette note at the top of
+   Styles/site.css. Practical consequence: nothing inside <aside> may use the ink-600/700/800 text
+   colours, which are now parchment-dark; the .nav-item and .on-deep-* classes carry the
+   light-on-dark equivalents.
 
    Outer container is locked to h-screen (not min-h-screen) so <main> below becomes the actual
    scroll container — that's what makes sticky elements inside the page (right summary panel,
@@ -12,11 +21,11 @@
 
 <CascadingValue Value="@UserState.OwnedExpansions" Name="OwnedExpansions">
 <div class="h-screen flex bg-ink-50">
-    <aside class="hidden md:flex w-60 shrink-0 flex-col bg-white border-r border-ink-200">
-        <div class="px-5 h-16 flex items-center border-b border-ink-200">
+    <aside class="deep hidden md:flex w-60 shrink-0 flex-col">
+        <div class="px-5 h-16 flex items-center border-b on-deep-rule">
             <AuthorizeView>
-                <Authorized><Logo Href="/app/dashboard"/></Authorized>
-                <NotAuthorized><Logo Href="/"/></NotAuthorized>
+                <Authorized><Logo Href="/app/dashboard" OnDeep="true"/></Authorized>
+                <NotAuthorized><Logo Href="/" OnDeep="true"/></NotAuthorized>
             </AuthorizeView>
         </div>
 
@@ -24,27 +33,28 @@
             <NavMenu/>
         </div>
 
-        <div class="p-3 border-t border-ink-200">
+        <div class="p-3 border-t on-deep-rule">
             <AuthorizeView>
                 <Authorized>
                     @* The account's own name, not the identity provider's — see User.Nickname. *@
                     @{ var displayName = UserState.DisplayName ?? context.User.Identity?.Name; }
                     <div class="flex items-center gap-3 px-2 py-1.5">
-                        <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-accent-100 text-accent-800 text-sm font-medium">
+                        <span class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold text-accent-900"
+                              style="background-image: linear-gradient(160deg, var(--color-accent-300), var(--color-accent-500));">
                             @GetInitial(displayName)
                         </span>
                         <div class="flex-1 min-w-0">
-                            <div class="text-sm font-medium text-ink-900 truncate" title="@displayName">
+                            <div class="text-sm font-medium text-ink-50 truncate" title="@displayName">
                                 @displayName
                             </div>
-                            <a href="/logout" class="text-xs text-ink-500 hover:text-ink-700 inline-flex items-center gap-1">
+                            <a href="/logout" class="text-xs on-deep-muted hover:text-ink-50 inline-flex items-center gap-1 transition-colors">
                                 <Icon Name="logout" Class="w-3.5 h-3.5"/> Sign out
                             </a>
                         </div>
                     </div>
                 </Authorized>
                 <NotAuthorized>
-                    <a href="/login" class="btn btn-secondary w-full">
+                    <a href="/login" class="btn btn-glass w-full">
                         <Icon Name="login" Class="w-4 h-4"/> Sign in
                     </a>
                 </NotAuthorized>
@@ -53,12 +63,12 @@
     </aside>
 
     <div class="flex-1 flex flex-col min-w-0">
-        <header class="md:hidden h-14 px-4 flex items-center justify-between bg-white border-b border-ink-200">
+        <header class="deep md:hidden h-14 px-4 flex items-center justify-between">
             <AuthorizeView>
-                <Authorized><Logo Href="/app/dashboard"/></Authorized>
-                <NotAuthorized><Logo Href="/"/></NotAuthorized>
+                <Authorized><Logo Href="/app/dashboard" OnDeep="true"/></Authorized>
+                <NotAuthorized><Logo Href="/" OnDeep="true"/></NotAuthorized>
             </AuthorizeView>
-            <a href="/" class="text-sm text-ink-600">Home</a>
+            <a href="/" class="text-sm on-deep-body hover:text-ink-50 transition-colors">Home</a>
         </header>
         <main class="flex-1 overflow-y-auto">
             <div class="mx-auto max-w-6xl px-4 md:px-8 py-6 md:py-10">

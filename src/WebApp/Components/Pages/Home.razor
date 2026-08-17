@@ -4,55 +4,108 @@
 
 <PageTitle>Spirit Island Companion</PageTitle>
 
-@* === HERO === *@
-<section class="relative overflow-hidden">
-    <div class="absolute inset-0 -z-10 bg-gradient-to-b from-accent-50/60 via-ink-50 to-ink-50"></div>
-    <div class="mx-auto max-w-6xl px-4 md:px-6 pt-20 md:pt-28 pb-16 md:pb-24">
-        <div class="max-w-3xl">
-            <span class="eyebrow">
-                <span class="h-1.5 w-1.5 rounded-full bg-accent-500"></span>
-                Companion app for Spirit Island
-            </span>
-            <h1 class="mt-5 text-4xl md:text-6xl font-semibold leading-[1.05] text-ink-900" style="font-family: var(--font-serif);">
-                Track every match.
-                <span class="text-accent-700">Defend the island.</span>
-            </h1>
-            <p class="mt-6 text-lg md:text-xl text-ink-600 max-w-2xl">
-                Log your games, study your stats, and keep your group's history in one calm, unhurried place — built for the cooperative board game by R. Eric Reuss.
-            </p>
-            <div class="mt-8 flex flex-wrap items-center gap-3">
-                <AuthorizeView>
-                    <NotAuthorized>
-                        <a href="/login" class="btn btn-primary btn-lg">
-                            Get started
-                            <Icon Name="arrow-right" Class="w-4 h-4"/>
-                        </a>
-                        <a href="/spirits" class="btn btn-secondary btn-lg">Browse spirits</a>
-                    </NotAuthorized>
-                    <Authorized>
-                        <a href="/app/dashboard" class="btn btn-primary btn-lg">
-                            Go to dashboard
-                            <Icon Name="arrow-right" Class="w-4 h-4"/>
-                        </a>
-                        <a href="/app/games/new" class="btn btn-secondary btn-lg">Record a game</a>
-                    </Authorized>
-                </AuthorizeView>
+@* The landing page runs dark → light → dark: the hero and the community band are the sea, the
+   middle is parchment, and the footer closes it back into the water. See the palette note at the
+   top of Styles/site.css for why the app is composed that way.
+
+   Both dark sections are one continuous gradient read top to bottom — the hero rises from night
+   to lit surface water, and the band below carries on down into the deep. They must therefore
+   stay adjacent, and nothing may be inserted between them. *@
+
+@* ============================== HERO ============================== *@
+<section class="deep-sea relative overflow-hidden">
+    <div class="hero-waves">
+        <svg viewBox="0 0 1440 210" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M-20 34q44-17 88 0t88 0 88 0 88 0 88 0 88 0 88 0 88 0 88 0 88 0 88 0 88 0 88 0 88 0 88 0 88 0 88 0"/>
+            <path d="M-60 84q48-19 96 0t96 0 96 0 96 0 96 0 96 0 96 0 96 0 96 0 96 0 96 0 96 0 96 0 96 0 96 0"/>
+            <path d="M-20 136q52-20 104 0t104 0 104 0 104 0 104 0 104 0 104 0 104 0 104 0 104 0 104 0 104 0 104 0 104 0"/>
+            <path d="M-70 184q56-22 112 0t112 0 112 0 112 0 112 0 112 0 112 0 112 0 112 0 112 0 112 0 112 0 112 0"/>
+        </svg>
+    </div>
+
+    <div class="mx-auto max-w-6xl px-4 md:px-6">
+        <div class="grid items-center gap-8 py-16 md:grid-cols-[1.02fr_.98fr] md:py-24">
+            <div>
+                <span class="eyebrow eyebrow-on-deep">
+                    <span class="eyebrow-dot"></span>
+                    Companion app for Spirit Island
+                </span>
+                @* Not .page-title, and no h1 focus ring: FocusOnNavigate lands focus here and
+                   Chrome's default outline draws a box round the headline. *@
+                <h1 class="on-deep-title mt-5 text-4xl leading-[1.03] tracking-[-.03em] md:text-6xl focus:outline-none">
+                    Track every match.
+                    <span class="block text-accent-300" style="text-shadow: 0 0 44px rgb(from var(--color-accent-300) r g b / .34);">
+                        Defend the island.
+                    </span>
+                </h1>
+                <p class="on-deep-body mt-6 max-w-[36ch] text-lg leading-relaxed md:text-xl">
+                    Log your games, study your stats, and keep your group's history in one calm,
+                    unhurried place — built for the cooperative board game by R. Eric Reuss.
+                </p>
+                <div class="mt-8 flex flex-wrap items-center gap-3">
+                    <a href="@(_signedIn ? "/app/dashboard" : "/login")" class="btn btn-primary btn-lg">
+                        @(_signedIn ? "Go to dashboard" : "Get started")
+                        <Icon Name="arrow-right" Class="w-4 h-4"/>
+                    </a>
+                    <a href="@(_signedIn ? "/app/games/new" : "/spirits")" class="btn btn-glass btn-lg">
+                        @(_signedIn ? "Record a game" : "Browse spirits")
+                    </a>
+                </div>
+            </div>
+
+            @* The island, painted from the same board geometry the playground arranges — see
+               tools/island-geometry/build.mjs. Decorative, hence empty alt.
+               It stacks under the copy on one column rather than being dropped: it is the one
+               thing on the page that says which game this is. Capped there so it stays an
+               illustration under the headline instead of a second screenful. *@
+            <div class="relative mx-auto w-full max-w-xs md:max-w-none">
+                @* width/height are the art's own viewBox (321.4 × 304.6) at ×5, purely to reserve
+                   the right box before it loads. They are NOT square: an img with width and height
+                   attributes gets aspect-ratio from them, so a square pair letterboxed the island
+                   inside its own column and the fleet's per-cent positions no longer lined up with
+                   the coast. Re-derive them if the hero layout changes. *@
+                <img src="img/hero-island.svg" alt="" class="hero-isle" width="1607" height="1523"/>
+
+                @* The invaders, standing off the coast. The fleet lives INSIDE the island's own
+                   column so the ships ring the island at every breakpoint — spread across the
+                   whole hero they drifted under the headline and read as a row of icons in the
+                   waves rather than as ships closing on a coast.
+                   Positions are per cent of this box and the art carries its own margin, so the
+                   coast sits at roughly 10–90% of it and these all fall outside that. Purely
+                   decorative: no data, nothing interactive. *@
+                <div class="hero-fleet" aria-hidden="true">
+                    @* The sails' gradient, defined once for the whole fleet rather than per ship:
+                       an SVG id resolves across the whole document, so four identical copies were
+                       three too many. Zero-sized so it takes no space of its own. *@
+                    <svg width="0" height="0" class="absolute" aria-hidden="true">
+                        <linearGradient id="hero-sail" x1="0" y1="0" x2=".5" y2="1">
+                            <stop offset="0" stop-color="#FDFBF6"/>
+                            <stop offset="1" stop-color="#DCD2BC"/>
+                        </linearGradient>
+                    </svg>
+                    @Ship(3,  58, 0.72, 0)
+                    @Ship(23, 90, 1.00, -5200)
+                    @Ship(62, 94, 1.06, -2600)
+                    @Ship(93, 62, 0.80, -8100)
+                </div>
             </div>
         </div>
     </div>
 </section>
 
-@* === GLOBAL STATS === *@
-<section class="border-y border-ink-200 bg-white">
-    <div class="mx-auto max-w-6xl px-4 md:px-6 py-10 md:py-14">
-        <div class="flex items-end justify-between flex-wrap gap-4 mb-8">
+@* ============================== COMMUNITY BAND ==============================
+   Figures on the water rather than four cards floating on it — see .figure. *@
+<section class="deep relative overflow-hidden"
+         style="background-image: linear-gradient(180deg, #1a5b79 0%, var(--color-deep-800) 62%, var(--color-deep-900) 100%);">
+    <div class="mx-auto max-w-6xl px-4 md:px-6 py-12 md:py-16">
+        <div class="mb-10 flex flex-wrap items-end justify-between gap-4">
             <div>
-                <span class="eyebrow">Across the community</span>
-                <h2 class="mt-2 text-2xl md:text-3xl font-semibold" style="font-family: var(--font-serif);">
+                <span class="eyebrow eyebrow-on-deep">Across the community</span>
+                <h2 class="on-deep-title mt-2 text-2xl md:text-3xl">
                     Every island, every defeat, every victory.
                 </h2>
             </div>
-            <a href="/login" class="text-sm text-accent-700 hover:text-accent-800 inline-flex items-center gap-1">
+            <a href="@RecordGameHref" class="inline-flex items-center gap-1.5 text-sm text-accent-300 hover:text-accent-200 transition-colors">
                 Add your games <Icon Name="arrow-right" Class="w-3.5 h-3.5"/>
             </a>
         </div>
@@ -63,167 +116,238 @@
         }
         else if (_stats is null || _stats.TotalGames == 0)
         {
-            <div class="surface text-center py-12 px-4">
-                <p class="text-ink-600">No games tracked yet — be the first to log one.</p>
-                <a href="/login" class="btn btn-primary mt-4">Sign in to record a game</a>
+            <div class="rounded-xl border on-deep-rule px-4 py-12 text-center"
+                 style="background-color: rgb(from var(--color-deep-100) r g b / .06);">
+                <p class="on-deep-body">No games tracked yet — be the first to log one.</p>
+                <a href="@RecordGameHref" class="btn btn-primary mt-5">
+                    @(_signedIn ? "Record a game" : "Sign in to record a game")
+                </a>
             </div>
         }
         else
         {
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="stat-tile">
-                    <div class="stat-tile-value">@_stats.TotalGames</div>
-                    <div class="stat-tile-label">Games tracked</div>
+            @* Four different dimensions, not two views of one. "Completed" used to sit here beside
+               "Games tracked" and was really the same figure minus the drafts — and the win rate
+               already implies it, since only completed games have an outcome to average. Hours on
+               the island says something none of the others do. *@
+            <div class="grid grid-cols-2 gap-y-10 md:grid-cols-4 md:gap-y-0">
+                <div class="figure">
+                    <span class="figure-value">@_stats.TotalGames</span>
+                    <span class="figure-label">Games tracked</span>
                 </div>
-                <div class="stat-tile">
-                    <div class="stat-tile-value">@_stats.CompletedGames</div>
-                    <div class="stat-tile-label">Completed</div>
+                @* Whole hours, deliberately not StatsFormat.Hours: that rolls over into "7d 21h"
+                   past a day, which is right for one player's total and wrong here — a community
+                   figure has to be one big number with a small unit beside it, and days undersell
+                   a number that only ever grows. *@
+                <div class="figure">
+                    <span class="figure-value">
+                        @((int)_stats.TotalPlayTime.TotalHours)<span class="figure-unit">h</span>
+                    </span>
+                    <span class="figure-label">On the island</span>
                 </div>
-                <div class="stat-tile">
-                    <div class="stat-tile-value">@_stats.TotalPlayers</div>
-                    <div class="stat-tile-label">Players</div>
+                @* At the two-column breakpoint the third figure starts a new row, so its rule
+                   would hang off the left edge with nothing before it. *@
+                <div class="figure max-md:border-l-0 max-md:pl-0">
+                    <span class="figure-value">@_stats.TotalPlayers</span>
+                    <span class="figure-label">Players</span>
                 </div>
-                <div class="stat-tile">
-                    <div class="stat-tile-value">@($"{_stats.WinRate:F0}%")</div>
-                    <div class="stat-tile-label">Community win rate</div>
+                <div class="figure">
+                    <span class="figure-value">
+                        @($"{_stats.WinRate:F0}")<span class="figure-unit">%</span>
+                    </span>
+                    <span class="figure-label">Community win rate</span>
                 </div>
             </div>
-
-            @if (_stats.TopSpirits.Count > 0)
-            {
-                <div class="grid md:grid-cols-2 gap-4 mt-6">
-                    <div class="surface">
-                        <div class="surface-head">
-                            <h3 class="text-base font-semibold">Most-played spirits</h3>
-                            <a href="/spirits" class="text-xs text-accent-700">See all</a>
-                        </div>
-                        <ul class="divide-y divide-ink-100">
-                            @foreach (var s in _stats.TopSpirits)
-                            {
-                                <li class="px-5 py-3 flex items-center justify-between">
-                                    <span class="text-sm font-medium text-ink-800">@SpiritName(s.SpiritId)</span>
-                                    <span class="flex items-center gap-3 text-xs text-ink-500">
-                                        <span>@s.GamesPlayed games</span>
-                                        <span class="badge badge-success">@($"{s.WinRate:F0}%") win</span>
-                                    </span>
-                                </li>
-                            }
-                        </ul>
-                    </div>
-
-                    <div class="surface">
-                        <div class="surface-head">
-                            <h3 class="text-base font-semibold">Most-faced adversaries</h3>
-                            <a href="/adversaries" class="text-xs text-accent-700">See all</a>
-                        </div>
-                        <ul class="divide-y divide-ink-100">
-                            @foreach (var a in _stats.TopAdversaries)
-                            {
-                                <li class="px-5 py-3 flex items-center justify-between">
-                                    <span class="text-sm font-medium text-ink-800">@AdversaryName(a.AdversaryId)</span>
-                                    <span class="flex items-center gap-3 text-xs text-ink-500">
-                                        <span>@a.GamesPlayed games</span>
-                                        <span class="badge badge-success">@($"{a.WinRate:F0}%") win</span>
-                                    </span>
-                                </li>
-                            }
-                        </ul>
-                    </div>
-                </div>
-            }
         }
     </div>
 </section>
 
-@* === FEATURES === *@
+@* ============================== FEATURES ============================== *@
 <section class="mx-auto max-w-6xl px-4 md:px-6 py-16 md:py-24">
     <div class="max-w-2xl">
         <span class="eyebrow">What's inside</span>
-        <h2 class="mt-2 text-2xl md:text-3xl font-semibold" style="font-family: var(--font-serif);">
-            Built for groups who play often.
-        </h2>
+        <h2 class="mt-2 text-2xl md:text-3xl">Built for groups who play often.</h2>
     </div>
-    <div class="mt-10 grid md:grid-cols-3 gap-6">
-        <div class="surface p-6">
-            <span class="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-accent-50 text-accent-700">
-                <Icon Name="controller" Class="w-5 h-5"/>
-            </span>
-            <h3 class="mt-4 text-lg font-semibold">Match logging</h3>
-            <p class="mt-2 text-sm text-ink-600 leading-relaxed">
-                Capture spirits, aspects, boards, adversaries, and the result. Save drafts mid-game and finish them later.
-            </p>
-        </div>
-        <div class="surface p-6">
-            <span class="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-accent-50 text-accent-700">
-                <Icon Name="chart" Class="w-5 h-5"/>
-            </span>
-            <h3 class="mt-4 text-lg font-semibold">Deep statistics</h3>
-            <p class="mt-2 text-sm text-ink-600 leading-relaxed">
-                Win rates per spirit, adversary, scenario, and player. See trends month over month.
-            </p>
-        </div>
-        <div class="surface p-6">
-            <span class="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-accent-50 text-accent-700">
-                <Icon Name="users" Class="w-5 h-5"/>
-            </span>
-            <h3 class="mt-4 text-lg font-semibold">Friends &amp; players</h3>
-            <p class="mt-2 text-sm text-ink-600 leading-relaxed">
-                Add friends to track shared games. Add local players for the regulars who don't have an account.
-            </p>
-        </div>
+    @* Four across rather than three: the island builder is the thing this app has that a
+       spreadsheet doesn't, and leaving it off the landing page meant a visitor had to start a game
+       before discovering it. *@
+    <div class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        @Feature("controller", "Match logging",
+                 "Capture spirits, aspects, boards, adversaries, and the result. Save drafts mid-game and finish them later.")
+        @Feature("map", "Island layouts",
+                 "Drag the boards into the island you actually played, then save the shape and reuse it next time.")
+        @Feature("chart", "Deep statistics",
+                 "Win rates per spirit, adversary, scenario, and player. See trends month over month.")
+        @Feature("users", "Friends & players",
+                 "Add friends to track shared games. Add local players for the regulars who don't have an account.")
     </div>
 </section>
 
-@* === BROWSE === *@
-<section class="bg-white border-t border-ink-200">
-    <div class="mx-auto max-w-6xl px-4 md:px-6 py-16 md:py-20">
-        <div class="flex items-end justify-between flex-wrap gap-4 mb-10">
-            <div>
-                <span class="eyebrow">Reference</span>
-                <h2 class="mt-2 text-2xl md:text-3xl font-semibold" style="font-family: var(--font-serif);">
-                    Browse the game.
-                </h2>
-                <p class="mt-2 text-ink-600 max-w-xl">
-                    Every spirit, adversary, scenario, and board across the base game and expansions — no account required.
-                </p>
+@* ============================== WHAT THE COMMUNITY PLAYS ============================== *@
+@if (_stats is { TotalGames: > 0 } && _stats.TopSpirits.Count > 0)
+{
+    <section class="mx-auto max-w-6xl px-4 md:px-6 pb-16 md:pb-24">
+        @* Headed like its three sibling sections. Without this the page went from "Built for groups
+           who play often" straight into a table of community figures, which is the one place a
+           visitor reading top to bottom had to work out for themselves whose numbers they were. *@
+        <div class="mb-10 max-w-2xl">
+            <span class="eyebrow">Community trends</span>
+            <h2 class="mt-2 text-2xl md:text-3xl">What everyone plays.</h2>
+        </div>
+
+        @* How the island holds as it gets harder. This is here rather than as a third "top five"
+           table because it is the one figure a visitor can locate themselves against: everyone
+           who plays this game knows roughly what difficulty they play at, and nobody knows
+           whether their win rate at it is normal. Bars are the games, the percentage is the
+           outcome — so a band nobody plays reads as thin rather than as a suspicious 0%. *@
+        @{
+            var bands = _stats.DifficultyBands.Where(b => b.Games > 0).ToList();
+        }
+        @* One band is not a comparison, so the block only earns its place from two up. *@
+        @if (bands.Count > 1)
+        {
+            // every band here has games in it, so this is at least 1 and safe to divide by
+            var busiest = bands.Max(b => b.Games);
+            <div class="surface mb-5 overflow-hidden">
+                <div class="surface-head">
+                    <div>
+                        <h3 class="text-base font-semibold">How the island holds</h3>
+                        <p class="mt-0.5 text-xs text-ink-500">Win rate by difficulty, across every recorded game</p>
+                    </div>
+                    <span class="section-note">@_stats.CompletedGames completed</span>
+                </div>
+                <div class="grid gap-x-6 gap-y-4 p-5 md:p-6 sm:grid-cols-2 lg:grid-cols-5">
+                    @foreach (var b in bands)
+                    {
+                        <div @key="b.Label">
+                            <div class="flex items-baseline justify-between gap-2">
+                                <span class="text-[11px] font-semibold uppercase tracking-wide text-ink-500">
+                                    Difficulty @b.Label
+                                </span>
+                                <span class="text-sm font-semibold tabular-nums @(b.Completed > 0 ? WinTone.ForRate(b.WinRate) : "text-ink-400")">
+                                    @(b.Completed > 0 ? $"{b.WinRate:F0}%" : "—")
+                                </span>
+                            </div>
+                            @* Bar length is how much the community plays this band; its colour is
+                               how they do in it. Two facts, one mark. *@
+                            <div class="mt-2 h-2 overflow-hidden rounded-full bg-ink-200">
+                                <div class="h-full rounded-full transition-all"
+                                     style="width: @($"{b.Games * 100.0 / busiest:F1}")%;
+                                            background-color: @WinTone.FillFor(b.WinRate, b.Completed);"></div>
+                            </div>
+                            <div class="mt-1.5 text-[11px] text-ink-500 tabular-nums">
+                                @b.Games @(b.Games == 1 ? "game" : "games")
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        <div class="grid gap-5 md:grid-cols-2">
+            <div class="surface overflow-hidden">
+                <div class="surface-head">
+                    <h3 class="text-base font-semibold">Most-played spirits</h3>
+                    <a href="/spirits" class="section-link">See all</a>
+                </div>
+                <ul class="divide-y divide-ink-100">
+                    @foreach (var s in _stats.TopSpirits)
+                    {
+                        <li @key="s.SpiritId" class="flex items-center gap-3 px-5 py-3">
+                            @* The spirit's own colour, the same one its card and its presence
+                               markers carry everywhere else in the app. *@
+                            <span class="h-2.5 w-2.5 shrink-0 rounded-full"
+                                  style="background-color: @SpiritColor(s.SpiritId);"></span>
+                            <span class="min-w-0 flex-1 truncate text-sm font-medium text-ink-800">@SpiritName(s.SpiritId)</span>
+                            <span class="shrink-0 text-xs text-ink-500 tabular-nums">@s.GamesPlayed games</span>
+                            @RatePill(s.WinRate, s.Completed)
+                        </li>
+                    }
+                </ul>
+            </div>
+
+            <div class="surface overflow-hidden">
+                <div class="surface-head">
+                    <h3 class="text-base font-semibold">Most-faced adversaries</h3>
+                    <a href="/adversaries" class="section-link">See all</a>
+                </div>
+                @* An adversary is optional — difficulty comes from the scenario and the blight card
+                   too — so a community that has only played open islands has spirits to show here
+                   and no adversaries at all. Without this the card was a header over nothing. *@
+                @if (_stats.TopAdversaries.Count == 0)
+                {
+                    <p class="px-5 py-6 text-sm text-ink-500">No adversaries faced yet.</p>
+                }
+                else
+                {
+                    <ul class="divide-y divide-ink-100">
+                        @foreach (var a in _stats.TopAdversaries)
+                        {
+                            <li @key="a.AdversaryId" class="flex items-center gap-3 px-5 py-3">
+                                <span class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-ember-100 text-ember-700">
+                                    <Icon Name="shield" Class="w-3.5 h-3.5"/>
+                                </span>
+                                <span class="min-w-0 flex-1 truncate text-sm font-medium text-ink-800">@AdversaryName(a.AdversaryId)</span>
+                                <span class="shrink-0 text-xs text-ink-500 tabular-nums">@a.GamesPlayed games</span>
+                                @RatePill(a.WinRate, a.Completed)
+                            </li>
+                        }
+                    </ul>
+                }
             </div>
         </div>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <a href="/spirits" class="surface p-6 hover:border-accent-300 hover:bg-accent-50/40 transition-colors group">
-                <Icon Name="sparkles" Class="w-6 h-6 text-accent-700"/>
-                <div class="mt-4 text-base font-semibold text-ink-900">Spirits</div>
-                <div class="mt-1 text-xs text-ink-500">@GameData.Spirits.Count entries</div>
-            </a>
-            <a href="/adversaries" class="surface p-6 hover:border-accent-300 hover:bg-accent-50/40 transition-colors group">
-                <Icon Name="shield" Class="w-6 h-6 text-accent-700"/>
-                <div class="mt-4 text-base font-semibold text-ink-900">Adversaries</div>
-                <div class="mt-1 text-xs text-ink-500">@GameData.Adversaries.Count entries</div>
-            </a>
-            <a href="/scenarios" class="surface p-6 hover:border-accent-300 hover:bg-accent-50/40 transition-colors group">
-                <Icon Name="book" Class="w-6 h-6 text-accent-700"/>
-                <div class="mt-4 text-base font-semibold text-ink-900">Scenarios</div>
-                <div class="mt-1 text-xs text-ink-500">@GameData.Scenarios.Count entries</div>
-            </a>
-            <a href="/boards" class="surface p-6 hover:border-accent-300 hover:bg-accent-50/40 transition-colors group">
-                <Icon Name="map" Class="w-6 h-6 text-accent-700"/>
-                <div class="mt-4 text-base font-semibold text-ink-900">Boards</div>
-                <div class="mt-1 text-xs text-ink-500">@GameData.Boards.Count entries</div>
-            </a>
+    </section>
+}
+
+@* ============================== BROWSE ============================== *@
+<section class="border-t border-ink-200 bg-ink-100">
+    <div class="mx-auto max-w-6xl px-4 md:px-6 py-16 md:py-20">
+        <div class="mb-10 max-w-xl">
+            <span class="eyebrow">Reference</span>
+            <h2 class="mt-2 text-2xl md:text-3xl">Browse the game.</h2>
+            <p class="mt-2 text-ink-600">
+                Every spirit, adversary, scenario, and board across the base game and expansions —
+                no account required.
+            </p>
+        </div>
+        <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+            @Browse("/spirits",     "sparkles", "Spirits",     GameData.Spirits.Count)
+            @Browse("/adversaries", "shield",   "Adversaries", GameData.Adversaries.Count)
+            @Browse("/scenarios",   "book",     "Scenarios",   GameData.Scenarios.Count)
+            @Browse("/boards",      "map",      "Boards",      GameData.Boards.Count)
         </div>
     </div>
 </section>
 
 @code {
+    /// <summary>
+    /// Read once rather than through four <c>AuthorizeView</c> blocks, because every call to action
+    /// on this page asks the same single question and only differs in where it points. /login
+    /// unconditionally issues an OIDC challenge (see AuthEndpoints), so aiming a signed-in visitor
+    /// at it bounces them out to Auth0 and back to this same page — which is why the CTAs branch at
+    /// all. Cascaded by AddCascadingAuthenticationState in Program.cs, as AuthorizeView needs too.
+    /// </summary>
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
+
     private Application.Features.Statistics.GlobalStatisticsResponse? _stats;
     private bool _loading = true;
+    private bool _signedIn;
+
+    /// <summary>Where "record a game" goes: the form itself, or the door.</summary>
+    private string RecordGameHref => _signedIn ? "/app/games/new" : "/login";
 
     private static readonly Dictionary<string, string> _spiritNames =
         GameData.Spirits.ToDictionary(s => s.Id.Value, s => s.Name);
     private static readonly Dictionary<string, string> _adversaryNames =
         GameData.Adversaries.ToDictionary(a => a.Id.Value, a => a.Name);
+    private static readonly Dictionary<string, string> _spiritColors =
+        GameData.Spirits.ToDictionary(s => s.Id.Value,
+                                      s => SpiritDetails.For(s.Id)?.ColorHex ?? GameLookups.NeutralColor);
 
     protected override async Task OnInitializedAsync()
     {
+        _signedIn = (await AuthState).User.Identity?.IsAuthenticated ?? false;
+
         var result = await Mediator.Send(new Application.Features.Statistics.GetGlobalStatisticsQuery());
         if (result.IsSuccess) _stats = result.Value;
         _loading = false;
@@ -231,4 +355,70 @@
 
     private static string SpiritName(string id) => _spiritNames.GetValueOrDefault(id, id);
     private static string AdversaryName(string id) => _adversaryNames.GetValueOrDefault(id, id);
+    private static string SpiritColor(string id) => _spiritColors.GetValueOrDefault(id, GameLookups.NeutralColor);
+
+    /// <summary>
+    /// A win rate as a pill, for the two "most-played" lists. Toned by the rate rather than always
+    /// green — the difficulty bars above turn on the same threshold, and a fixed success pill called
+    /// a 38% win rate a win. A dash while nothing has finished: a spirit played three times with all
+    /// three still drafts has a rate of 0 by arithmetic, not a record of three defeats.
+    /// </summary>
+    private static RenderFragment RatePill(double winRate, int completed) =>
+        @<span class="badge @WinTone.BadgeFor(winRate, completed) shrink-0 tabular-nums">@(completed > 0 ? $"{winRate:F0}%" : "—")</span>;
+
+    /// <summary>
+    /// One invader ship for the hero's fleet. <paramref name="leftPct"/> and <paramref name="topPct"/>
+    /// place it around the island — both per cent of the island's own box, and the ship is centred
+    /// on that point. <paramref name="scale"/> is how near it is, which drives its size and its
+    /// haze together. <paramref name="delayMs"/> is negative so each ship starts part-way through
+    /// the swell rather than all four rising as one. The pennant is ember because these are the
+    /// invaders — the same colour a defeat is drawn in everywhere else in the app.
+    /// </summary>
+    private RenderFragment Ship(double leftPct, double topPct, double scale, int delayMs) =>
+        @<span class="hero-ship" style="left: @(leftPct.ToString(Inv))%; top: @(topPct.ToString(Inv))%; --ship-scale: @(scale.ToString(Inv)); animation-delay: @(delayMs)ms;">
+            <svg viewBox="0 0 64 60" class="block h-full w-full" aria-hidden="true">
+                @* wake first, so the hull sits in it *@
+                <path d="M4 50q9-4.5 18 0t18 0 18 0" fill="none" stroke="#D9EDF9" stroke-opacity=".5"
+                      stroke-width="2.2" stroke-linecap="round"/>
+                <path d="M11 55q10-4 21 0t21 0" fill="none" stroke="#D9EDF9" stroke-opacity=".28"
+                      stroke-width="1.8" stroke-linecap="round"/>
+
+                <path d="M32 3v9l11-3.6z" fill="#DC5B3C"/>
+                <rect x="30.8" y="5" width="2.4" height="30" rx="1.2" fill="#4A3520"/>
+                @* two sails, both billowing away from the mast so the ship reads as under way *@
+                <path d="M34.4 10c13 5.6 14.6 18 0 24.6z" fill="url(#hero-sail)"/>
+                <path d="M29.4 14.5c-10.6 4.4-11.8 14.4 0 19.4z" fill="url(#hero-sail)" opacity=".9"/>
+                @* hull: dark below the waterline, lit deck strip above it *@
+                <path d="M7 36h50l-6 11q-19 4.6-38 0z" fill="#5C4326"/>
+                <path d="M7 36h50l-1.9 3.6H8.9z" fill="#886138"/>
+            </svg>
+        </span>;
+
+    /// <summary>Invariant culture for the inline styles above — a comma decimal separator in a
+    /// CSS custom property is silently invalid and the ships would all render full size.</summary>
+    private static readonly System.Globalization.CultureInfo Inv =
+        System.Globalization.CultureInfo.InvariantCulture;
+
+    private RenderFragment Feature(string icon, string title, string body) =>
+        @<div class="surface p-6">
+            <span class="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-accent-200/70 bg-accent-50 text-accent-700">
+                <Icon Name="@icon" Class="w-5 h-5"/>
+            </span>
+            <h3 class="mt-4 text-lg font-semibold">@title</h3>
+            <p class="mt-2 text-sm leading-relaxed text-ink-600">@body</p>
+        </div>;
+
+    private RenderFragment Browse(string href, string icon, string label, int count) =>
+        @<a href="@href"
+            class="surface group flex flex-col gap-4 p-6 transition-all hover:-translate-y-0.5 hover:border-accent-300
+                   focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+            <span class="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-accent-200/70 bg-accent-50
+                         text-accent-700 transition-colors group-hover:bg-accent-100">
+                <Icon Name="@icon" Class="w-5 h-5"/>
+            </span>
+            <span>
+                <span class="block text-base font-semibold text-ink-900">@label</span>
+                <span class="mt-1 block text-xs text-ink-500">@count entries</span>
+            </span>
+        </a>;
 }

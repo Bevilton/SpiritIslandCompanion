@@ -16,9 +16,13 @@
         <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" />
     </ItemGroup>
 
+    <!-- Must stay in step with the @source directive in Styles/site.css, which scans .cs as well as
+         .razor: class names are built in C# too (WinTone, StatsTheme), and leaving .cs out here let
+         a build skip Tailwind while site.css still needed regenerating for a class only C# names. -->
     <ItemGroup>
         <TailwindInputs Include="Styles\**\*.css" />
         <TailwindInputs Include="Components\**\*.razor" />
+        <TailwindInputs Include="Components\**\*.cs" />
         <TailwindInputs Include="package.json" />
     </ItemGroup>
 

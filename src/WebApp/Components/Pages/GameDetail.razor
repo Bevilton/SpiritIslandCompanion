@@ -232,7 +232,10 @@ else
                     var headerWin = _game.Result?.Win == true;
                     var headerLoss = _game.Result is not null && _game.Result.Win == false;
                 }
-                <div class="@(headerWin ? "bg-gradient-to-br from-accent-700 to-accent-900 text-white" : headerLoss ? "bg-gradient-to-br from-red-700 to-red-900 text-white" : "bg-gradient-to-br from-ink-700 to-ink-900 text-white") px-5 py-4">
+                @* Neutral (a draft with no outcome yet) is the deep ramp, not ink: ink is the
+                   parchment family now, so from-ink-700 painted this panel dark brown beside a
+                   deep-teal sidebar. Won and lost keep their own colours. *@
+                <div class="@(headerWin ? "bg-gradient-to-br from-accent-700 to-accent-900 text-white" : headerLoss ? "bg-gradient-to-br from-red-700 to-red-900 text-white" : "bg-gradient-to-br from-deep-700 to-deep-900 text-white") px-5 py-4">
                     <div class="text-[10px] font-semibold uppercase tracking-wider opacity-80">
                         @(_game.Result is null ? "Difficulty" : "Score")
                     </div>

@@ -34,12 +34,16 @@ else
     @* ============================== THE SCENE ============================== *@
     @* One body of water, not two. The stops are in pixels, not percentages, so the sky band
        stays put whatever the ship row does, and the sea reaches the playground's own edge
-       colour (#2b6fa4) by 238px — where the playground begins. A ship row that wraps only
-       pushes the playground further down, into sea that is already that colour, so the two
+       colour (#1e5670, deep-600) by 238px — where the playground begins. A ship row that wraps
+       only pushes the playground further down, into sea that is already that colour, so the two
        still meet seamlessly and the playground reads as open water in the middle of the same
-       sea rather than as a framed picture pasted onto the sky. *@
+       sea rather than as a framed picture pasted onto the sky.
+       The final stop is tied to the ipgDeep gradient's outermost stop in
+       wwwroot/js/island-playground.js: change one and the seam opens as a visible band across
+       the scene. Both were moved off #2b6fa4 with the redesign so this water matches the
+       landing page's. *@
     <section class="relative overflow-hidden rounded-3xl border border-sky-200 shadow-sm"
-             style="background: linear-gradient(180deg, #f0f9ff 0px, #e8f6fe 70px, #cdebfb 112px, #a5dcf5 148px, #6fbee2 182px, #4593c6 208px, #2f76b8 226px, #2b6fa4 238px);">
+             style="background: linear-gradient(180deg, #f0f9ff 0px, #e8f6fe 70px, #cdebfb 112px, #a5dcf5 148px, #6fbee2 182px, #4593c6 208px, #2a679a 226px, #1e5670 238px);">
 
         @* --- decorations (sun, clouds) --- *@
         @* The sun's core sits off-canvas, clear of the difficulty dial in the same corner. *@
@@ -151,7 +155,8 @@ else
                             class="flex flex-col items-center rounded-xl px-1 pb-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
                             title="@(adv?.Name ?? "Adversary") — level @item.Level. Tap to change.">
                         <svg viewBox="0 0 72 62" class="h-14 w-16 drop-shadow-md" aria-hidden="true">
-                            <path d="M36 3 L36 11 L47 7 Z" fill="#dc2626"/>
+                            @* ember-500, the same pennant the landing page's fleet flies *@
+                            <path d="M36 3 L36 11 L47 7 Z" fill="#dc5b3c"/>
                             <rect x="35" y="5" width="2.5" height="36" rx="1" fill="#44403c"/>
                             <path d="M39.5 9 C53 15 55 29 39.5 37 Z" fill="#fef3c7" stroke="#e7e5e4" stroke-width="1"/>
                             <path d="M34 13 C23.5 18 21.5 30 34 36 Z" fill="#ffffff" stroke="#e7e5e4" stroke-width="1"/>

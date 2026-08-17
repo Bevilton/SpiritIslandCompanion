@@ -163,8 +163,13 @@ else
         </div>
     }
 
-    @* ============================== HERO STRIP ============================== *@
-    @* Top row: the three headline stats — large tiles. *@
+    @* ============================== HERO STRIP ==============================
+       Top row: the three headline stats — large tiles.
+
+       Each tile's leading-edge bar says what family the figure belongs to rather than decorating
+       it: jade for the island's side of the ledger (games played, wins), sun for a score or a
+       difficulty, ember for what the invaders took (blight, a loss, the worst result), deep for
+       time and neutral counts. Read down a row it groups the numbers without needing a legend. *@
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-3">
         <StatHero Value="@_stats.TotalGames.ToString()"
                   Label="Total games"
@@ -177,7 +182,7 @@ else
         <StatHero Value="@(_stats.BestScoreGameId is not null ? _stats.BestScore.ToString() : "—")"
                   Label="Best score"
                   Caption="@(_stats.BestScoreGameId is not null ? "View that match →" : "no completed games")"
-                  Icon="star"
+                  Icon="star" Class="tile-sun"
                   Href="@(_stats.BestScoreGameId is { } id ? $"/app/games/{id}" : null)"/>
     </div>
     @* Second row: secondary stats, denser. *@
@@ -185,11 +190,11 @@ else
         <StatHero Value="@($"{_stats.AverageScore:F0}")"
                   Label="Avg score"
                   Caption="@($"{_stats.AverageDifficulty:F1} avg difficulty")"
-                  Icon="chart"/>
+                  Icon="chart" Class="tile-sun"/>
         <StatHero Value="@StatsFormat.Hours(_stats.TotalPlayTime)"
                   Label="Time played"
                   Caption="@($"avg {_stats.AverageDuration:h\\:mm} per game")"
-                  Icon="clock"/>
+                  Icon="clock" Class="tile-deep"/>
         <StatHero Value="@(_stats.LongestStreak > 0 ? _stats.LongestStreak.ToString() : "—")"
                   Label="Best streak"
                   Caption="consecutive wins"
@@ -197,16 +202,16 @@ else
         <StatHero Value="@(_stats.MinScore?.ToString() ?? "—")"
                   Label="Lowest score"
                   Caption="@(_stats.MinScoreGameId is not null ? "View that match →" : "no completed games")"
-                  Icon="minus"
+                  Icon="minus" Class="tile-ember"
                   Href="@(_stats.MinScoreGameId is { } minId ? $"/app/games/{minId}" : null)"/>
         <StatHero Value="@($"{_stats.AverageDahan:F1}")"
                   Label="Avg dahan"
                   Caption="alive at game end"
-                  Icon="users"/>
+                  Icon="users" Class="tile-deep"/>
         <StatHero Value="@($"{_stats.AverageBlight:F1}")"
                   Label="Avg blight"
                   Caption="on island at game end"
-                  Icon="shield"/>
+                  Icon="shield" Class="tile-ember"/>
     </div>
 
     @* ============================== TABS ============================== *@

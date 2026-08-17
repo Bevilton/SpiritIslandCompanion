@@ -78,6 +78,71 @@ const NAME = ['AB', 'BC', 'CD', 'DA'];
 // and a published layout sitting next to a player's own shape must not be a different island.
 const ART = { land: '#e2d6b4', edge: '#6b563d', edgeWidth: 1.2, shallow: '#4a90c4', margin: 4 };
 
+// The landing page's hero island, painted rather than diagrammed — see the emitter below for
+// why it can't just be one of the thumbnails. Caldera is the shape used because the crater
+// gives the silhouette something to be recognised by; any id in layouts.json works.
+const HERO = {
+  layout: 'caldera-6p',
+  pad: 0.13,                 // fraction of the long side left round the island for the glow
+  land:     ['#84B061', '#5F9149', '#43703B', '#2E5231'],   // canopy, lit to shadowed
+  beach:    ['#F0E3BE', '#C6B085'],
+  shallow:  ['#86D9E4', '#4FADD6', '#2E86B8'],
+  halo:     '#5CC9DC',       // the island's mass glowing up through deep water
+  sounding: '#8FE6C4',       // depth contours echoing the coast outward
+  soundings: [1.34, 1.26, 1.185, 1.115, 1.055],
+  soundingOpacity: 0.30,
+  soundingFade: 0.035,
+  highland: '#0C2216',       // what the interior relief shades towards
+  sunlit:   '#C6E39B',
+  castShadow: '#02131C',
+  canopyScale: 0.05,         // turbulence base frequency; lower is broader stands of forest
+  canopyShade: '#123018',    // what the mottling multiplies down towards
+  canopyStrength: 1.15,      // contrast of the mottling
+  canopyFloor: -0.18,        // lifts the clear patches back to untextured canopy
+  reliefSpread: 15,          // blur radius of the silhouette, i.e. how far inland it shades
+  reliefFalloff: 3.0,        // gamma on that blur; higher keeps the shading off the coast
+  // Held down deliberately: relief shades the interior, which is exactly where the mountains and
+  // wetlands are, and at 0.30 it flattened both back into the jungle it was meant to give depth to.
+  reliefOpacity: 0.22,
+  rimOpacity: 0.45,
+  // Two board fills that abut leave an antialiased hairline of whatever is behind them, which
+  // on a six-board island is six pale scratches across the interior. A stroke in the same paint
+  // as the fill covers them without changing the silhouette by more than half its width.
+  seamCover: 0.9,
+
+  // The game's four terrains, laid down by elevation so the island reads as geography rather
+  // than as a paint-by-numbers board: mountains on the high interior, wetland in the low ground
+  // near the coast, sand behind the beaches, jungle everywhere else as the base. `band` is the
+  // eroded-depth range a patch may be centred in (see erosion() in the emitter) — 0 is the
+  // coast — and `patches`/`lobes` control how many blobs and how lumpy each one is.
+  // `r` and `blur` are FRACTIONS of the island's short side, not board units: the layout is a
+  // config value, and hardcoded radii that look right on caldera-6p come out as specks on a
+  // six-board sprawl and as continents on a two-board one.
+  // Sand is NOT in here — it is the shore, a continuous band inside the whole coastline (see
+  // `shore` below), which is where sand actually is on an island. As scattered patches it looked
+  // like four deserts had been dropped at random. What is left in here is the inland terrain, and
+  // it is banded away from the coast so the island reads outward as shore → marsh → jungle →
+  // mountains rather than as a spatter of colours.
+  // Mountains take a TIGHTER blur than the wetlands on purpose: rock has edges and marsh does not,
+  // and at equal blur both came out as the same soft haze and neither read as anything.
+  terrain: [
+    { id: 'wetland',  fill: '#2E6B5C', band: [1, 3], patches: 5, r: [.045, .072], lobes: 3, blur: .026, opacity: 0.88 },
+    { id: 'mountain', fill: '#9A8F7E', band: [2, 9], patches: 4, r: [.066, .098], lobes: 4, blur: .014, opacity: 0.95 },
+  ],
+
+  // The shore: one band hugging every coast the island has, the crater included. Made by eroding
+  // the silhouette and subtracting it from itself, so it follows the real coastline at a constant
+  // width instead of being drawn. `width` is a fraction of the short side; `wobble` displaces the
+  // inland edge with noise, without which the band reads as a drawn outline rather than as beach.
+  shore: { fill: '#E0CB94', width: .026, wobble: .022, opacity: 0.92 },
+  terrainSpacing: 0.11,        // fraction of the short side two patch centres must keep apart
+  ridge: '#5E594F',            // shadowed flank, pushed away from the light
+  peak:  '#C4BAA4',            // lit crest, pushed towards it
+  terrainSeed: 20260817,       // any change reshuffles every patch; kept fixed so builds match
+  erosionSteps: [3, 6, 9, 12, 15, 18, 21, 24, 27],  // radii, in board units, the erosion tests
+};
+const HERO_SVG = path.join(REPO, 'src/WebApp/wwwroot/img/hero-island.svg');
+
 // ── read board.svg ──────────────────────────────────────────────────────────
 function loadTraced(file, M) {
   const d = fs.readFileSync(file, 'utf8').match(/\sd="([^"]+)"/)[1];
@@ -470,6 +535,311 @@ for (const [id, def] of Object.entries(layouts)) {
     `<path d="${pathOf(OUTLINE)}"/></clipPath></defs>${body}</svg>\n`);
 }
 console.log(`wrote ${Object.keys(layouts).length} thumbnails to ${path.relative(REPO, THUMB_DIR)}`);
+
+// ── landing-page hero art ───────────────────────────────────────────────────
+// The same island, painted rather than diagrammed. The thumbnails above stroke every board's
+// own outline, so a shared edge gets stroked twice and the picture reads as a jigsaw of game
+// components — right for a layout preview, wrong for the first thing a visitor sees. Here the
+// land is FILLED with no stroke, which makes the arrangement one continuous silhouette, and
+// the beach and shallows are produced by dilating that silhouette with same-colour strokes
+// (fill and stroke the same paint, so the interior seams disappear under it).
+//
+// The boards go into <defs> once and every layer is a <use> of them: the twelve layers below
+// would otherwise repeat the geometry twelve times and the file would be a third of a megabyte.
+{
+  // Decimate hard — this is decoration at 500-odd pixels, not a preview to measure against.
+  // Same constraint as STRIDE below: a stride that doesn't divide the outline at every corner
+  // samples the two halves of a join out of step, and the gaps show as sea inside the island.
+  const heroStride = [16, 12, 8, 6, 4, 3, 2, 1].find(s => EDGE_START.every(k => k % s === 0));
+  const def = layouts[HERO.layout];
+  if (!def) throw new Error(`hero layout "${HERO.layout}" is not in layouts.json`);
+
+  const boards = def.boards.map(b => {
+    const Tf = boardTf(b);
+    const pts = [];
+    for (let i = 0; i < OUTLINE.length; i += heroStride) pts.push(xf(OUTLINE[i], Tf));
+    return 'M' + pts.map(q => `${q[0].toFixed(1)} ${q[1].toFixed(1)}`).join('L') + 'Z';
+  });
+
+  const [x0, y0, x1, y1] = bbox(def.boards.flatMap(b => HULL.map(p => xf(p, boardTf(b)))));
+  const w = x1 - x0, h = y1 - y0;
+  const pad = Math.max(w, h) * HERO.pad;
+  const cx = x0 + w / 2, cy = y0 + h / 2;
+  // scale about the island's centre — how the depth soundings are drawn
+  const about = k =>
+    `translate(${cx.toFixed(2)} ${cy.toFixed(2)}) scale(${k}) translate(${(-cx).toFixed(2)} ${(-cy).toFixed(2)})`;
+  const use = attrs => `<use href="#isle" ${attrs}/>`;
+  // The land is painted fill PLUS a seamCover stroke, so what ends up on screen is half a stroke
+  // wider than the bare silhouette. Any filter that derives a mask from SourceAlpha therefore has
+  // to be fed the same dilated shape, or it stops short of the painted edge — which is what left a
+  // hairline of dark land showing outside the sand shore all the way round the island.
+  const useLand = paint =>
+    use(`fill="${paint}" stroke="${paint}" stroke-width="${HERO.seamCover}" stroke-linejoin="round"`);
+  // Every gradient spans the island in USER space. On objectBoundingBox units each of the six
+  // <use>d boards would get its own copy of the ramp, which shades them individually and puts
+  // the seams straight back — the thing this whole emitter exists to avoid.
+  const span = `gradientUnits="userSpaceOnUse" x1="${x0.toFixed(1)}" y1="${y0.toFixed(1)}" ` +
+               `x2="${(x0 + w * 0.55).toFixed(1)}" y2="${(y0 + h).toFixed(1)}"`;
+
+  const soundings = HERO.soundings.map((k, i) =>
+    `<g transform="${about(k)}" opacity="${(HERO.soundingOpacity - i * HERO.soundingFade).toFixed(3)}">` +
+    use(`fill="none" stroke="${HERO.sounding}" stroke-width="${(1.5 - i * 0.14).toFixed(2)}" stroke-linejoin="round"`) +
+    `</g>`).join('');
+
+  // ── terrain ───────────────────────────────────────────────────────────────
+  // Where a patch of each terrain may sit is decided by EROSION DEPTH: how far inland a point is,
+  // measured as the number of successive radii whose whole disc still fits inside the island. It
+  // is a coarse elevation model and that is the point — mountains want the high interior, wetland
+  // and sand want the low ground behind the beaches, and neither should be placed by hand on a
+  // shape the layout file is free to change.
+  //
+  // Deliberately NOT the real board's land polygons: those are eight numbered regions per board
+  // with hard edges, which is what a rules diagram needs and exactly the boardgame-component look
+  // the hero is trying to get away from. These are soft organic blobs of the same four terrains.
+  const boardPolys = def.boards.map(b => {
+    const Tf = boardTf(b), pts = [];
+    for (let i = 0; i < OUTLINE.length; i += heroStride) pts.push(xf(OUTLINE[i], Tf));
+    return pts;
+  });
+
+  const inPoly = (x, y, poly) => {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const [xi, yi] = poly[i], [xj, yj] = poly[j];
+      if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  };
+  // The island is the UNION of the boards, so a point inside any one of them is on land — which
+  // also means a point on a shared seam is land, and the seams do not show up as coastline.
+  const onLand = (x, y) => boardPolys.some(P => inPoly(x, y, P));
+
+  // How many of the erosion radii fit: 0 is the coast itself, higher is deeper inland.
+  const erosion = (x, y) => {
+    if (!onLand(x, y)) return -1;
+    let depth = 0;
+    for (const r of HERO.erosionSteps) {
+      let clear = true;
+      for (let a = 0; a < 8 && clear; a++) {
+        const t = (a / 8) * Math.PI * 2;
+        if (!onLand(x + Math.cos(t) * r, y + Math.sin(t) * r)) clear = false;
+      }
+      if (!clear) break;
+      depth++;
+    }
+    return depth;
+  };
+
+  // Seeded so the committed file is byte-identical on every rebuild; Math.random would make the
+  // island silently different each time the generator ran.
+  let seed = HERO.terrainSeed >>> 0;
+  const rnd = () => {
+    seed = (seed + 0x6d2b79f5) >>> 0;
+    let t = seed;
+    t = (Math.imul(t ^ (t >>> 15), t | 1)) >>> 0;
+    t = (t ^ (t + Math.imul(t ^ (t >>> 7), t | 61))) >>> 0;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const pick = arr => arr[Math.floor(rnd() * arr.length)];
+  const between = ([lo, hi]) => lo + rnd() * (hi - lo);
+
+  // one sample per ~4 units, bucketed by depth
+  const step = 4, byDepth = new Map();
+  for (let y = y0; y <= y1; y += step) {
+    for (let x = x0; x <= x1; x += step) {
+      const d = erosion(x, y);
+      if (d < 0) continue;
+      if (!byDepth.has(d)) byDepth.set(d, []);
+      byDepth.get(d).push([x, y]);
+    }
+  }
+
+  const short = Math.min(w, h);            // every terrain size is a fraction of this
+  const spacing = short * HERO.terrainSpacing;
+  const taken = [];   // patch centres already placed, so terrains don't stack on one spot
+  const terrainFilters = [];
+  const terrainLayers = HERO.terrain.map(t => {
+    const pool = [];
+    for (const [d, pts] of byDepth) if (d >= t.band[0] && d <= t.band[1]) pool.push(...pts);
+    // A band with nothing in it is a real possibility on a thin layout — no interior means no
+    // mountains — and the island is still correct without that terrain.
+    if (!pool.length) return '';
+
+    const fid = `soft-${t.id}`;
+    terrainFilters.push(
+      `<filter id="${fid}" x="-45%" y="-45%" width="190%" height="190%">` +
+      `<feGaussianBlur stdDeviation="${(short * t.blur).toFixed(2)}"/></filter>`);
+
+    // Placed one patch per angular SECTOR around the island's centre, not by picking freely from
+    // the pool: free picks plus a rejection test kept landing every terrain in the same half of
+    // the island and left the other half bare jungle. Each terrain starts from a different sector
+    // so the terrains interleave instead of stacking up along one bearing.
+    const sectorOf = ([px, py]) =>
+      Math.floor(((Math.atan2(py - cy, px - cx) + Math.PI) / (Math.PI * 2)) * t.patches) % t.patches;
+    const bySector = Array.from({ length: t.patches }, () => []);
+    for (const p of pool) bySector[sectorOf(p)].push(p);
+    const startSector = Math.floor(rnd() * t.patches);
+
+    const lobes = [];
+    for (let n = 0; n < t.patches; n++) {
+      // fall back to the whole pool for a sector the band happens not to reach
+      const sector = bySector[(startSector + n) % t.patches];
+      const from = sector.length ? sector : pool;
+      // a handful of tries to land clear of the patches already down; the last one stands
+      let c = pick(from);
+      for (let tryN = 0; tryN < 40; tryN++) {
+        const cand = pick(from);
+        if (!taken.some(([tx, ty]) => Math.hypot(tx - cand[0], ty - cand[1]) < spacing)) { c = cand; break; }
+      }
+      taken.push(c);
+      // each patch is a few overlapping circles, so its edge is lumpy rather than a disc
+      const base = between(t.r) * short;
+      for (let l = 0; l < t.lobes; l++) {
+        const r = l === 0 ? base : base * (0.55 + rnd() * 0.35);
+        const spread = l === 0 ? 0 : base * (0.35 + rnd() * 0.55);
+        const a = rnd() * Math.PI * 2;
+        lobes.push([c[0] + Math.cos(a) * spread, c[1] + Math.sin(a) * spread, r]);
+      }
+    }
+
+    const circles = lobes.map(([lx, ly, r]) =>
+      `<circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="${r.toFixed(1)}"/>`).join('');
+
+    // Mountains carry a crest: the same lobes again, smaller and pushed up-left, in a darker
+    // grey. Without it a grey patch reads as bare rock rather than as high ground.
+    // Two passes, not one: a shadowed flank pushed down-right and a lit crest pushed up-left, both
+    // from the same lobes. One flat darker blob only made the patch muddier — a mountain is read
+    // from which side of it the light is on.
+    const crest = t.id !== 'mountain' ? '' :
+      `<g fill="${HERO.ridge}" opacity=".55" filter="url(#${fid})">` +
+      lobes.map(([lx, ly, r]) =>
+        `<circle cx="${(lx + r * 0.18).toFixed(1)}" cy="${(ly + r * 0.24).toFixed(1)}" r="${(r * 0.62).toFixed(1)}"/>`)
+        .join('') + `</g>` +
+      `<g fill="${HERO.peak}" opacity=".5" filter="url(#${fid})">` +
+      lobes.map(([lx, ly, r]) =>
+        `<circle cx="${(lx - r * 0.22).toFixed(1)}" cy="${(ly - r * 0.3).toFixed(1)}" r="${(r * 0.42).toFixed(1)}"/>`)
+        .join('') + `</g>`;
+
+    return `<g fill="${t.fill}" opacity="${t.opacity}" filter="url(#${fid})">${circles}</g>${crest}`;
+  }).join('\n');
+
+  const svg =
+`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${(x0-pad).toFixed(1)} ${(y0-pad).toFixed(1)} ${(w+pad*2).toFixed(1)} ${(h+pad*2).toFixed(1)}">
+<title>The island</title>
+<defs>
+<g id="isle">${boards.map(d => `<path d="${d}"/>`).join('')}</g>
+<linearGradient id="land" ${span}>
+<stop offset="0" stop-color="${HERO.land[0]}"/><stop offset=".38" stop-color="${HERO.land[1]}"/>
+<stop offset=".78" stop-color="${HERO.land[2]}"/><stop offset="1" stop-color="${HERO.land[3]}"/></linearGradient>
+<linearGradient id="beach" ${span}>
+<stop offset="0" stop-color="${HERO.beach[0]}"/><stop offset="1" stop-color="${HERO.beach[1]}"/></linearGradient>
+<radialGradient id="shallow" gradientUnits="userSpaceOnUse"
+ cx="${(x0 + w * .42).toFixed(1)}" cy="${(y0 + h * .38).toFixed(1)}" r="${(Math.max(w, h) * .7).toFixed(1)}">
+<stop offset="0" stop-color="${HERO.shallow[0]}"/><stop offset=".6" stop-color="${HERO.shallow[1]}"/>
+<stop offset="1" stop-color="${HERO.shallow[2]}"/></radialGradient>
+<filter id="softer"><feGaussianBlur stdDeviation="6"/></filter>
+<filter id="halo" x="-45%" y="-45%" width="190%" height="190%"><feGaussianBlur stdDeviation="11"/></filter>
+<filter id="cast" x="-45%" y="-45%" width="190%" height="190%">
+<feDropShadow dx="1.5" dy="8" stdDeviation="6.5" flood-color="${HERO.castShadow}" flood-opacity=".5"/></filter>
+
+<!-- Canopy. Turbulence tinted dark green, clipped to the land and multiplied back over it, all
+     in one pass: the alternative is a textured rect with mix-blend-mode, which is CSS and so
+     does nothing when this file is loaded as an <img>.
+     The mottling is driven by the noise's LUMINANCE, not its alpha — fractalNoise's alpha
+     channel sits in a narrow band around .5, so using it directly yields a flat wash that
+     looks like no texture was applied at all. -->
+<filter id="canopy" x="0" y="0" width="100%" height="100%">
+<feTurbulence type="fractalNoise" baseFrequency="${HERO.canopyScale}" numOctaves="4" seed="11" result="t"/>
+<feColorMatrix in="t" type="matrix"
+ values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  .34 .34 .34 0 0" result="a"/>
+<feComponentTransfer in="a" result="a2">
+<feFuncA type="linear" slope="${HERO.canopyStrength}" intercept="${HERO.canopyFloor}"/></feComponentTransfer>
+<feFlood flood-color="${HERO.canopyShade}" result="c"/>
+<feComposite in="c" in2="a2" operator="in" result="tex"/>
+<feComposite in="tex" in2="SourceAlpha" operator="in" result="clipped"/>
+<feBlend in="SourceGraphic" in2="clipped" mode="multiply"/>
+</filter>
+
+<!-- Interior relief, derived from the silhouette's own alpha rather than from scaled copies of
+     the boards. A blur of the union reads as distance-from-coast, so gamma-shaping it and
+     filling it dark shades the highlands continuously — a per-board copy shrinks each board
+     towards the island's centre instead, and the gaps it opens between them are exactly the
+     seams this emitter is here to hide. -->
+<filter id="relief" x="-25%" y="-25%" width="150%" height="150%">
+<feGaussianBlur in="SourceAlpha" stdDeviation="${HERO.reliefSpread}" result="d"/>
+<feComponentTransfer in="d" result="s"><feFuncA type="gamma" exponent="${HERO.reliefFalloff}" amplitude="1"/></feComponentTransfer>
+<feFlood flood-color="${HERO.highland}" result="c"/>
+<feComposite in="c" in2="s" operator="in" result="shade"/>
+<feComposite in="shade" in2="SourceAlpha" operator="in"/>
+</filter>
+
+<!-- Sun from the north-west: the silhouette minus a copy of itself pushed south-east, which
+     leaves a band hugging only the lit coast. -->
+<filter id="rimlight" x="-25%" y="-25%" width="150%" height="150%">
+<feGaussianBlur in="SourceAlpha" stdDeviation="4" result="b"/>
+<feOffset in="b" dx="${(w * .022).toFixed(2)}" dy="${(h * .03).toFixed(2)}" result="o"/>
+<feComposite in="SourceAlpha" in2="o" operator="out" result="edge"/>
+<feFlood flood-color="${HERO.sunlit}" result="c"/>
+<feComposite in="c" in2="edge" operator="in"/>
+</filter>
+
+<!-- terrain patches are drawn as circles and blurred into each other, one blur per terrain -->
+${terrainFilters.join('\n')}
+
+<!-- The shore. Blurring the silhouette turns distance-from-coast into alpha, so thresholding that
+     blur at .84 gives a copy of the island eroded by about one blur radius; subtracting it from
+     the silhouette leaves a band of that width following every coast, the crater's included. The
+     displacement map then breaks the inland edge up, because a band of dead-constant width reads
+     as an outline someone drew rather than as beach. -->
+<filter id="shore" x="-25%" y="-25%" width="150%" height="150%">
+<feGaussianBlur in="SourceAlpha" stdDeviation="${(short * HERO.shore.width).toFixed(2)}" result="b"/>
+<feComponentTransfer in="b" result="core">
+<feFuncA type="linear" slope="20" intercept="-16.8"/></feComponentTransfer>
+<feTurbulence type="fractalNoise" baseFrequency=".035" numOctaves="2" seed="5" result="n"/>
+<!-- Displace the CORE, then subtract it — not the finished band. Wobbling the band moves both of
+     its edges, and wherever the seaward edge moved inland it exposed a hairline of the land fill's
+     darkest gradient stop between the sand and the water, all the way round the island. Taking the
+     difference against an undisplaced SourceAlpha pins the seaward edge to the true coastline and
+     leaves only the inland edge free to wander, which is the edge that wanted to. -->
+<feDisplacementMap in="core" in2="n" scale="${(short * HERO.shore.wobble).toFixed(2)}"
+ xChannelSelector="R" yChannelSelector="G" result="coreWobbled"/>
+<feComposite in="SourceAlpha" in2="coreWobbled" operator="out" result="ring"/>
+<feFlood flood-color="${HERO.shore.fill}" result="c"/>
+<feComposite in="c" in2="ring" operator="in"/>
+</filter>
+
+<!-- The boards spelled out again rather than <use href="#isle"/>: a clipPath child must be a
+     graphics element and #isle is a <g>, a container, so that reference is invalid and Chrome
+     drops the clip entirely — which let the terrain patches bleed out past the coastline into
+     open water. Every other layer masks with feComposite/SourceAlpha, so nothing else here
+     depends on this clip and nothing else caught it. -->
+<clipPath id="landOnly">${boards.map(d => `<path d="${d}"/>`).join('')}</clipPath>
+</defs>
+
+<g filter="url(#halo)" opacity=".42">${use(`fill="${HERO.halo}" stroke="${HERO.halo}" stroke-width="16" stroke-linejoin="round"`)}</g>
+${soundings}
+<g filter="url(#cast)">
+<g filter="url(#softer)" opacity=".9">${use('fill="url(#shallow)" stroke="url(#shallow)" stroke-width="13" stroke-linejoin="round"')}</g>
+${use('fill="url(#shallow)" stroke="url(#shallow)" stroke-width="8" stroke-linejoin="round"')}
+${use('fill="url(#beach)" stroke="url(#beach)" stroke-width="4.2" stroke-linejoin="round"')}
+<g filter="url(#canopy)">${useLand('url(#land)')}</g>
+<!-- Terrain sits above the canopy so its patches replace the mottling where they fall — sand and
+     rock should not be flecked with jungle — and below the relief and rim light, so one lighting
+     pass covers the whole island and the patches read as ground rather than as decals. -->
+<g clip-path="url(#landOnly)">${terrainLayers}</g>
+<!-- Shore last of the ground layers: a wetland reaching the coast should meet the beach, not be
+     painted over it, so the band stays one continuous ring round the island. -->
+<g filter="url(#shore)" opacity="${HERO.shore.opacity}">${useLand('#000')}</g>
+<g filter="url(#relief)" opacity="${HERO.reliefOpacity}">${useLand('#000')}</g>
+<g filter="url(#rimlight)" opacity="${HERO.rimOpacity}">${useLand('#000')}</g>
+</g>
+</svg>
+`;
+  fs.mkdirSync(path.dirname(HERO_SVG), { recursive: true });
+  fs.writeFileSync(HERO_SVG, svg);
+  console.log(`wrote ${path.relative(REPO, HERO_SVG)} (${(svg.length/1024).toFixed(1)} kB, ` +
+              `${HERO.layout}, stride ${heroStride})`);
+}
 
 // ── the board itself, for islands only the server knows ─────────────────────
 // A published layout can ship as a picture; a player's own shape cannot — it exists only as

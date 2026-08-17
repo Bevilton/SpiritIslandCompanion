@@ -10,7 +10,10 @@
         : null;
 }
 
-<div class="@WrapperClass" style="@(string.IsNullOrEmpty(AccentColor) ? null : $"border-left: 4px solid {AccentColor};")">
+@* The accent is set as --tile-accent, which .stat-tile paints as a bar down the leading edge in
+   an ::before. It used to be an inline border-left here; with the bar now part of the tile itself
+   that would have drawn a second, differently-sized stripe beside the first. *@
+<div class="@WrapperClass" style="@(string.IsNullOrEmpty(AccentColor) ? null : $"--tile-accent: {AccentColor};")">
     <div class="flex items-start justify-between gap-3 h-full">
         <div class="min-w-0 flex flex-col gap-1.5">
             <div class="text-[10px] uppercase tracking-wide text-ink-500 font-medium">@Label</div>
@@ -39,9 +42,21 @@
     [Parameter] public string? Caption { get; set; }
     [Parameter] public string? Icon { get; set; }
     [Parameter] public string? Href { get; set; }
+
+    /// <summary>Colour of the bar down the tile's leading edge. Defaults to jade; pass a
+    /// StatsTheme constant, a spirit's own colour, or one of the tile-* classes via
+    /// <see cref="Class"/> for the standard semantic pairs.</summary>
     [Parameter] public string? AccentColor { get; set; }
 
-    private string WrapperClass => Href is null
-        ? "stat-tile relative"
-        : "stat-tile relative hover:border-accent-300 hover:bg-accent-50/30 transition-colors";
+    /// <summary>Extra classes on the tile — in practice one of tile-sun / tile-ember / tile-deep,
+    /// which is how a row of tiles says what kind of figure each one is.</summary>
+    [Parameter] public string? Class { get; set; }
+
+    /// <summary>.stat-tile already carries `relative` and a transition, so neither is repeated here.</summary>
+    private string WrapperClass => string.Join(' ', new[]
+    {
+        "stat-tile",
+        Class,
+        Href is null ? null : "hover:border-accent-300 hover:bg-accent-50/30",
+    }.Where(c => !string.IsNullOrEmpty(c)));
 }
