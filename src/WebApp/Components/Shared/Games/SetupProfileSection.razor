@@ -127,31 +127,65 @@
         }
 
         @* --- recent games --- *@
+        @* Each line is the game it reports, so a sheet is a way into the record and not just a
+           readout of it — and the header carries the whole slice, which is more games than the
+           five shown here. Only where the host asked for links: mid-setup these same sheets are
+           how a spirit is chosen, and a link out would abandon the game being set up. *@
         @if (_shown.Recent.Count > 0)
         {
             <div>
-                <div class="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-ink-500">Recent games</div>
+                <div class="mb-1.5 flex items-baseline justify-between gap-2">
+                    <span class="text-[10px] font-medium uppercase tracking-wider text-ink-500">Recent games</span>
+                    @* No count on it: the five lines below may be a person's seats or the whole
+                       table's, and a number here could only be right for one of them. *@
+                    @if (AllGamesHref is { } allHref)
+                    {
+                        <a href="@allHref" class="text-[10px] font-medium text-accent-700 hover:text-accent-800 hover:underline"
+                           title="@($"Open the games list, filtered to {Name}")">
+                            See all games →
+                        </a>
+                    }
+                </div>
                 <div class="divide-y divide-ink-100 overflow-hidden rounded-lg border border-ink-200">
                     @foreach (var game in _shown.Recent)
                     {
-                        <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-2.5 py-1.5 text-[11px]">
-                            @* As stored, not converted to server-local — see GameDetail. *@
-                            <span class="w-14 shrink-0 tabular-nums text-ink-500">@game.When.DateTime.ToString("MMM d")</span>
-                            <span class="shrink-0 scale-90 origin-left">
-                                <GameStatusBadge IsCompleted="game.IsCompleted" Win="game.Win"/>
-                            </span>
-                            <span class="min-w-0 flex-1 truncate text-ink-700">@game.Context</span>
-                            <span class="shrink-0 tabular-nums text-ink-400">diff @game.Difficulty</span>
-                            <span class="w-7 shrink-0 text-right font-semibold tabular-nums text-ink-800">
-                                @(game.Score?.ToString() ?? "—")
-                            </span>
-                        </div>
+                        @if (LinkGames)
+                        {
+                            <a href="@GamesLink.Game(game.GameId, null)" title="Open this game"
+                               class="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-2.5 py-1.5 text-[11px] transition-colors
+                                      hover:bg-accent-50/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                                @GameLine(game)
+                            </a>
+                        }
+                        else
+                        {
+                            <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-2.5 py-1.5 text-[11px]">
+                                @GameLine(game)
+                            </div>
+                        }
                     }
                 </div>
             </div>
         }
     }
 </div>
+
+@code {
+    /// One line of the recent-games list, whether or not it is wrapped in a link.
+    private RenderFragment GameLine(SetupProfiles.ProfileGame game) =>
+        @<text>
+            @* As stored, not converted to server-local — see GameDetail. *@
+            <span class="w-14 shrink-0 tabular-nums text-ink-500">@game.When.DateTime.ToString("MMM d")</span>
+            <span class="shrink-0 scale-90 origin-left">
+                <GameStatusBadge IsCompleted="game.IsCompleted" Win="game.Win"/>
+            </span>
+            <span class="min-w-0 flex-1 truncate text-ink-700">@game.Context</span>
+            <span class="shrink-0 tabular-nums text-ink-400">diff @game.Difficulty</span>
+            <span class="w-7 shrink-0 text-right font-semibold tabular-nums text-ink-800">
+                @(game.Score?.ToString() ?? "—")
+            </span>
+        </text>;
+}
 
 @code {
     [Parameter, EditorRequired] public SetupProfiles.Profile Profile { get; set; } = default!;
@@ -173,6 +207,18 @@
 
     /// <summary>The subject's catalogue id — a spirit or board id.</summary>
     [Parameter] public string? SubjectId { get; set; }
+
+    /// <summary>
+    /// Whether a recent-games line opens the game. Off by default: the same sheets are the
+    /// picker on the setup screen, where following a link would walk out of a half-built game.
+    /// </summary>
+    [Parameter] public bool LinkGames { get; set; }
+
+    /// <summary>
+    /// The games list narrowed to this subject, when there is a filter that expresses it. Shown
+    /// beside the recent-games heading, since those five are rarely all of them.
+    /// </summary>
+    [Parameter] public string? AllGamesHref { get; set; }
 
     private string? _ownerKey;
     private string? _lastSubject;

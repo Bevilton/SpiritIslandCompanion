@@ -7,7 +7,6 @@
 @if (_adversary is not null)
 {
     var detail = _detail;
-    var modes = _adversary.Modes.OrderBy(m => m.Level).ToList();
 
     <ModalShell OnClose="Close" ZIndex="z-[60]">
             <div class="px-6 pt-6 pb-5 relative bg-ink-50/60 border-b border-ink-200">
@@ -40,39 +39,25 @@
                     <p class="text-ink-500 italic">No additional information available.</p>
                 }
 
+                @* The one grid that carries both the rules and the record — the same strip the
+                   catalogue card and the statistics card draw (see AdversaryLevelGrid), so a
+                   level reads the same wherever it is met. *@
                 <div>
                     <h3 class="text-sm font-medium uppercase tracking-wide text-ink-500 mb-3">
                         @(_profile is null ? "Difficulty by level" : "Difficulty and your record by level")
                     </h3>
-                    <div class="grid grid-cols-4 gap-1.5 sm:grid-cols-7">
-                        @foreach (var m in modes)
-                        {
-                            var record = _facing?.Levels.GetValueOrDefault(m.Level);
-                            var isPickable = OnSelected.HasDelegate;
-                            <button type="button" disabled="@(!isPickable)"
-                                    @onclick="() => Select(m.Level)"
-                                    title="@LevelTooltip(m.Level, m.Difficulty, record, isPickable)"
-                                    class="rounded-md border px-1 py-2 text-center transition-colors
-                                           @(record is { Played: > 0 } ? "border-ink-300 bg-white" : "border-ink-200 bg-ink-50/60")
-                                           @(isPickable ? "cursor-pointer hover:border-accent-400 hover:bg-accent-50" : "cursor-default")">
-                                <div class="text-[10px] uppercase text-ink-500">L@(m.Level)</div>
-                                <div class="text-sm font-semibold text-ink-900">+@m.Difficulty</div>
-                                @if (_profile is not null)
-                                {
-                                    <div class="mt-0.5 text-[9px] leading-tight tabular-nums @WinTone.ForRecord(record)">
-                                        @(record is { Played: > 0 }
-                                            ? $"{record.Played}×{(record.Completed > 0 ? $" · {record.WinRate:F0}%" : "")}"
-                                            : "—")
-                                    </div>
-                                }
-                            </button>
-                        }
-                    </div>
+                    <AdversaryLevelGrid Adversary="_adversary"
+                                        Records="@(_profile is null ? null : _facing?.Levels ?? AdversaryLevelGrid.NoRecords)"
+                                        OnPick="PickLevel" LinkGames="LinkGames"/>
                     <p class="mt-2 text-xs text-ink-500">
                         Each level adds escalation rules.
                         @if (OnSelected.HasDelegate)
                         {
                             <text>Tap a level to play it.</text>
+                        }
+                        else if (LinkGames && _profile is not null)
+                        {
+                            <text>Tap a level you've played to see those games.</text>
                         }
                         else
                         {
@@ -84,7 +69,9 @@
                 @if (_profile is not null)
                 {
                     <SetupProfileSection Profile="_profile" Name="@_adversary.Name"
-                                         Title="Your record against this foe"/>
+                                         Title="Your record against this foe"
+                                         LinkGames="LinkGames"
+                                         AllGamesHref="@(LinkGames ? GamesLink.ForAdversary(_adversary.Id.Value) : null)"/>
                 }
 
                 <div class="pt-2">
@@ -114,6 +101,12 @@
     /// against this adversary; empty or null hides the stats (plain reference sheet).
     /// </summary>
     [Parameter] public IReadOnlyList<SetupGameFact>? Facts { get; set; }
+
+    /// <summary>
+    /// Whether the record may link out to the games behind it. Off by default, and never set by
+    /// the setup picker: following a link from there would leave a half-built game behind.
+    /// </summary>
+    [Parameter] public bool LinkGames { get; set; }
 
     /// <summary>When set, tapping a level picks this adversary at that level.</summary>
     [Parameter] public EventCallback<(Adversary Adversary, int Level)> OnSelected { get; set; }
@@ -145,19 +138,20 @@
         _facing = null;
     }
 
+    /// <summary>
+    /// The level tiles are only a pick where somebody is listening for one. Handed <see cref="Select"/>
+    /// unconditionally, the grid took every host for a picker: on the statistics and reference
+    /// pages the tiles became buttons that swallowed the click and did nothing, hiding the links
+    /// to those levels' games behind them.
+    /// </summary>
+    private EventCallback<int> PickLevel =>
+        OnSelected.HasDelegate ? EventCallback.Factory.Create<int>(this, Select) : default;
+
     private async Task Select(int level)
     {
         var adversary = _adversary;
         if (!OnSelected.HasDelegate || adversary is null) return;
         Close();
         await OnSelected.InvokeAsync((adversary, level));
-    }
-
-    private static string LevelTooltip(int level, int difficulty, SetupInsights.PlayRecord? record, bool pickable)
-    {
-        var history = record is { Played: > 0 }
-            ? $"played {record.Played}×{(record.Completed > 0 ? $", {record.Wins} won / {record.Losses} lost" : ", no results yet")}"
-            : "never played at this level";
-        return $"Level {level} · +{difficulty} difficulty — {history}{(pickable ? ". Tap to play it." : "")}";
     }
 }

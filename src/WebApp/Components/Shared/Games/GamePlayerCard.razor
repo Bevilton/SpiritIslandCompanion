@@ -42,7 +42,19 @@
                     <div class="flex items-center gap-3">
                         <span class="inline-block h-9 w-1.5 rounded-full shrink-0" style="background-color: @color;"></span>
                         <div class="min-w-0 flex-1">
-                            <div class="text-sm font-semibold text-ink-900 truncate">@spirit.Name</div>
+                            @* The name is the link, where the host asked for one — no extra
+                               control on a card that is already three columns of them. *@
+                            <div class="text-sm font-semibold text-ink-900 truncate">
+                                @if (LinkGames)
+                                {
+                                    <a href="@GamesLink.ForSpirit(Player.SpiritId)" title="@($"See every game played as {spirit.Name}")"
+                                       class="rounded hover:text-accent-800 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">@spirit.Name</a>
+                                }
+                                else
+                                {
+                                    @spirit.Name
+                                }
+                            </div>
                             @if (spiritDetail is not null)
                             {
                                 <div class="text-[11px] text-ink-500 truncate">@spiritDetail.PlayStyle</div>
@@ -70,7 +82,17 @@
                             @boardLetter
                         </span>
                         <div class="min-w-0 flex-1">
-                            <div class="text-sm font-semibold text-ink-900 truncate">@board.Name</div>
+                            <div class="text-sm font-semibold text-ink-900 truncate">
+                                @if (LinkGames)
+                                {
+                                    <a href="@GamesLink.ForBoard(Player.BoardId)" title="@($"See every game with {board.Name} on the island")"
+                                       class="rounded hover:text-accent-800 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">@board.Name</a>
+                                }
+                                else
+                                {
+                                    @board.Name
+                                }
+                            </div>
                             @if (boardDetail is not null)
                             {
                                 <div class="text-[11px] text-ink-500 truncate">@boardDetail.ThematicName</div>
@@ -88,8 +110,22 @@
                 <div class="text-[10px] uppercase tracking-wide text-ink-500 mb-1">Played by</div>
                 @{
                     var info = ResolveAssignee();
+                    // Nobody named means nothing to look up — an "unassigned" slice of the
+                    // history is a set of seats, not a person's record.
+                    var named = Player.UserId is not null || Player.PlayerId is not null;
                 }
-                <PlayerAssigneeBadge Kind="@info.Kind" Name="@info.Name" DetailLabel="@info.Detail"/>
+                @if (LinkGames && named)
+                {
+                    <a href="@GamesLink.ForPlayer(Player.UserId, Player.PlayerId)"
+                       title="@($"See every game {info.Name} sat in")"
+                       class="block rounded transition-colors hover:bg-ink-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                        <PlayerAssigneeBadge Kind="@info.Kind" Name="@info.Name" DetailLabel="@info.Detail"/>
+                    </a>
+                }
+                else
+                {
+                    <PlayerAssigneeBadge Kind="@info.Kind" Name="@info.Name" DetailLabel="@info.Detail"/>
+                }
             </div>
         </div>
     </div>
@@ -98,6 +134,12 @@
 @code {
     [Parameter, EditorRequired] public Application.Features.Games.Dtos.GamePlayerResponse Player { get; set; } = default!;
     [Parameter, EditorRequired] public int Index { get; set; }
+
+    /// <summary>
+    /// Whether the spirit, board and person on the card link to their own slice of the history.
+    /// Off by default — see GameSetupSummary.
+    /// </summary>
+    [Parameter] public bool LinkGames { get; set; }
 
     [Parameter] public Guid? CurrentUserId { get; set; }
     [Parameter] public IReadOnlyList<Application.Features.Friendships.FriendResponse> Friends { get; set; } = [];

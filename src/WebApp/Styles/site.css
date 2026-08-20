@@ -153,6 +153,14 @@
   a:hover { @apply text-accent-800; }
   hr { @apply border-ink-200; }
   input, select, textarea, button { font-family: inherit; }
+
+  /* Tailwind v4's preflight gives buttons `cursor: default`, which is a deliberate reset of the
+     browser default and wrong for this app: half of what is clickable here is a button rather
+     than a link — the catalogue and statistics cards, the filter pills, the table rows' record
+     sheets — and every one of them read as inert text. Restored once, globally, so a thing that
+     can be clicked always says so. Disabled buttons keep the reset, and an explicit
+     `cursor-*` utility still wins over this (utilities come after base). */
+  button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
 }
 
 @layer components {

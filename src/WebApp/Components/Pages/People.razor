@@ -18,9 +18,9 @@
     </div>
     @if (!_loading && _people is not null)
     {
-        <button class="btn btn-primary" @onclick="() => SetTab(TabFriends)">
+        <a class="btn btn-primary" href="@PeopleLink.ForTab(PeopleLink.Friends)">
             <Icon Name="plus" Class="w-4 h-4"/> Add a friend
-        </button>
+        </a>
     }
 </div>
 
@@ -40,26 +40,27 @@ else if (_people is null)
 }
 else
 {
-    @* Same pill row the games list and statistics slice with. *@
-    <div class="mb-6 flex flex-wrap items-center gap-2">
-        @foreach (var t in _tabs)
+    @* Same pill row the games list and statistics slice with — and, like the statistics tabs,
+       real links, so which list you were reading survives following somebody out of it. *@
+    <nav class="mb-6 flex flex-wrap items-center gap-2" aria-label="People lists">
+        @foreach (var (key, label) in PeopleLink.Tabs)
         {
-            var count = TabCount(t.Key);
-            <FilterPill Active="@(_tab == t.Key)" OnToggle="() => SetTab(t.Key)">
-                @t.Label
+            var count = TabCount(key);
+            <FilterPill Active="@(_tab == key)" Href="@PeopleLink.ForTab(key)">
+                @label
                 @if (count > 0)
                 {
                     <span class="tabular-nums opacity-60">@count</span>
                 }
             </FilterPill>
         }
-        @if (PendingForMe > 0 && _tab != TabRequests)
+        @if (PendingForMe > 0 && _tab != PeopleLink.Requests)
         {
-            <button type="button" class="badge badge-info ml-1" @onclick="() => SetTab(TabRequests)">
+            <a class="badge badge-info ml-1" href="@PeopleLink.ForTab(PeopleLink.Requests)">
                 <Icon Name="alert" Class="w-3 h-3"/> @PendingForMe waiting on you
-            </button>
+            </a>
         }
-    </div>
+    </nav>
 
     @switch (_tab)
     {
@@ -122,6 +123,7 @@ else
                                     Name="@f.Name" DetailLabel="@f.Email"
                                     Games="f.GamesTogether" Wins="f.Wins" Losses="f.Losses" WinRate="f.WinRate"
                                     FavouriteSpiritId="@f.FavouriteSpiritId"
+                                    GamesHref="@(f.GamesTogether > 0 ? GamesLink.ForPlayer(f.UserId, null) : null)"
                                     EmptyNote="No games together yet — seat them in your next one.">
                             <Details>@RecordLines(f)</Details>
                             <Actions>
@@ -188,6 +190,7 @@ else
                                     Name="@p.Name" DetailLabel="Local player · no account"
                                     Games="p.GamesTogether" Wins="p.Wins" Losses="p.Losses" WinRate="p.WinRate"
                                     FavouriteSpiritId="@p.FavouriteSpiritId"
+                                    GamesHref="@(p.GamesTogether > 0 ? GamesLink.ForPlayer(null, p.PlayerId) : null)"
                                     EmptyNote="Not in any game yet.">
                             <Details>@RecordLines(p)</Details>
                             <Actions>
@@ -409,12 +412,12 @@ else
 }
 
 @code {
-    private const string TabFriends = "friends";
-    private const string TabPlayers = "players";
-    private const string TabRequests = "requests";
+    private const string TabFriends = PeopleLink.Friends;
+    private const string TabPlayers = PeopleLink.Players;
+    private const string TabRequests = PeopleLink.Requests;
 
-    /// <summary>Opens the page on a named tab — the dashboard's request row links straight here.</summary>
-    [SupplyParameterFromQuery(Name = "tab")]
+    /// <summary>Which list is open. Written back on every tab click — see PeopleLink.</summary>
+    [SupplyParameterFromQuery(Name = PeopleLink.TabKey)]
     public string? TabParam { get; set; }
 
     private PeopleResponse? _people;
@@ -430,14 +433,6 @@ else
     private ConfirmDialog _confirmDialog = default!;
     private LinkPlayerModal _linkModal = default!;
     private MergeRequestModal _mergeModal = default!;
-
-    private record TabDef(string Key, string Label);
-    private readonly TabDef[] _tabs =
-    [
-        new(TabFriends, "Friends"),
-        new(TabPlayers, "Local players"),
-        new(TabRequests, "Requests"),
-    ];
 
     private int TabCount(string key) => key switch
     {
@@ -473,6 +468,11 @@ else
         }
     }
 
+    /// <summary>
+    /// The URL says which list is open — read straight through on every change, because the tabs
+    /// write it back and so a re-read is what the last click asked for. That is also what makes
+    /// the browser's Back undo a tab rather than leave the page.
+    /// </summary>
     protected override void OnParametersSet()
     {
         // The old Friends and Players routes still resolve here, so a bookmark lands where it
@@ -484,15 +484,15 @@ else
             _             => null,
         };
 
-        var wanted = _tabs.Any(t => t.Key == TabParam) ? TabParam : fromRoute;
-        if (wanted is not null && wanted != _appliedTab)
-        {
-            _appliedTab = wanted;
-            _tab = wanted;
-        }
-    }
+        var wanted = PeopleLink.IsTab(TabParam) ? TabParam! : fromRoute ?? TabFriends;
+        if (wanted == _tab) return;
+        _tab = wanted;
 
-    private string? _appliedTab;
+        // Switching lists leaves the last action's feedback and any half-finished rename behind —
+        // both belong to the list just navigated away from.
+        _editingId = null;
+        _form.Clear();
+    }
 
     protected override async Task OnInitializedAsync() => await LoadData();
 
@@ -509,18 +509,8 @@ else
         _loading = false;
     }
 
-    /// <summary>Switching tabs leaves the last action's feedback behind — it belongs to the
-    /// list the user has just navigated away from.</summary>
-    private void SetTab(string key)
-    {
-        _tab = key;
-        _editingId = null;
-        _form.Clear();
-    }
-
     /// <summary>The statistics page scoped to this person — the same scope its own picker sets.</summary>
-    private static string StatsHref(PersonSummary p) =>
-        p.UserId is { } uid ? $"/app/statistics?user={uid}" : $"/app/statistics?player={p.PlayerId}";
+    private static string StatsHref(PersonSummary p) => StatsLink.ForPlayer(p.UserId, p.PlayerId);
 
     private async Task OnMergeChanged()
     {

@@ -74,7 +74,8 @@
     </div>
 </div>
 
-<ScenarioDetailModal @ref="_modal" Facts="Facts"/>
+@* LinkGames only where there is a record to link from — see AdversariesView. *@
+<ScenarioDetailModal @ref="_modal" Facts="Facts" LinkGames="@(Records is not null)"/>
 
 @code {
     /// <summary>Null (default) shows everything; non-null restricts to those expansions.</summary>

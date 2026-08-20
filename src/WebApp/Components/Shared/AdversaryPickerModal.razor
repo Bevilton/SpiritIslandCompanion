@@ -88,29 +88,19 @@
 
                             @if (isExpanded)
                             {
+                                @* The same ladder the reference card, the record sheet and the
+                                   statistics card draw (AdversaryLevelGrid) — it used to be a
+                                   fourth hand-rolled strip here, and the odd one out: it counted
+                                   wins where the others show a win rate. *@
                                 <div class="border-t border-ink-200 px-4 py-3 bg-ink-50/50">
                                     <div class="text-[10px] uppercase tracking-wider text-ink-500 mb-2">Pick a level</div>
-                                    <div class="flex flex-wrap gap-1.5">
-                                        @foreach (var m in modes)
-                                        {
-                                            var rec = facing?.Levels.GetValueOrDefault(m.Level);
-                                            var isCurrentLevel = isCurrent && _currentLevel == m.Level;
-                                            <button type="button"
-                                                    @onclick="() => Pick(a, m.Level)"
-                                                    title="@(rec is { Played: > 0 } ? $"You played L{m.Level} {rec.Played}×{(rec.Completed > 0 ? $" — {rec.Wins} won, {rec.Losses} lost" : "")}" : null)"
-                                                    class="@(isCurrentLevel ? "border-accent-500 bg-accent-50 ring-1 ring-accent-500/30" : "border-ink-200 bg-white")
-                                                           inline-flex flex-col items-center justify-center min-w-[3.25rem] px-2 py-1.5 rounded-lg border text-ink-800 hover:border-accent-400 hover:bg-accent-50 transition-colors">
-                                                <span class="text-[10px] uppercase tracking-wide text-ink-500">L@(m.Level)</span>
-                                                <span class="text-sm font-semibold">+@m.Difficulty</span>
-                                                @if (rec is { Played: > 0 })
-                                                {
-                                                    <span class="text-[9px] tabular-nums leading-tight @WinTone.ForRecord(rec)">
-                                                        @(rec.Played)×@(rec.Completed > 0 ? $" · {rec.Wins}W" : "")
-                                                    </span>
-                                                }
-                                            </button>
-                                        }
-                                    </div>
+                                    @* Four to a row rather than seven: two cards sit side by side
+                                       in this sheet, so a seven-wide tile is too narrow to hold
+                                       "4× · 33%" on one line. *@
+                                    <AdversaryLevelGrid Adversary="a" Columns="grid-cols-4"
+                                                        Records="@(HasStats ? facing?.Levels ?? AdversaryLevelGrid.NoRecords : null)"
+                                                        Current="@(isCurrent ? _currentLevel : null)"
+                                                        OnPick="level => Pick(a, level)"/>
                                 </div>
                             }
                         </div>

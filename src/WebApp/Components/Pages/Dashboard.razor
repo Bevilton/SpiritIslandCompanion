@@ -86,7 +86,7 @@ else
 
                     @foreach (var r in _incoming.Take(MaxAttentionRows))
                     {
-                        <a @key="r.FriendshipId" href="/app/people?tab=requests"
+                        <a @key="r.FriendshipId" href="@PeopleLink.ForTab(PeopleLink.Requests)"
                            title="@($"{r.Name} wants to connect")"
                            class="group flex items-center gap-3 rounded-lg border border-sky-200 bg-white px-3 py-2.5 transition-colors
                                   hover:border-sky-300 hover:bg-sky-50/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
@@ -104,7 +104,7 @@ else
                        seats, so it belongs here beside the other things only you can settle. *@
                     @foreach (var m in _incomingMerges.Take(MaxAttentionRows))
                     {
-                        <a @key="m.Id" href="/app/people?tab=requests"
+                        <a @key="m.Id" href="@PeopleLink.ForTab(PeopleLink.Requests)"
                            title="@($"{m.OtherUserName} says “{m.PlayerName}” in their games is you")"
                            class="group flex items-center gap-3 rounded-lg border border-sky-200 bg-white px-3 py-2.5 transition-colors
                                   hover:border-sky-300 hover:bg-sky-50/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
@@ -198,7 +198,8 @@ else
                 <div class="surface px-5 py-5">
                     <div class="section-head">
                         <h2 class="section-title">Your table</h2>
-                        <a href="/app/statistics" class="section-link">Per player →</a>
+                        @* Straight at the tab that answers it, rather than the page it lives on. *@
+                        <a href="@StatsLink.ForTab(StatsLink.Players)" class="section-link">Per player →</a>
                     </div>
                     @if (_tableMates.Count == 0)
                     {
@@ -206,7 +207,7 @@ else
                             Every game so far has been yours alone. Add the people you play with and their
                             records show up here.
                         </p>
-                        <a href="/app/people?tab=players" class="btn btn-secondary btn-sm mt-3">
+                        <a href="@PeopleLink.ForTab(PeopleLink.Players)" class="btn btn-secondary btn-sm mt-3">
                             <Icon Name="plus" Class="w-3.5 h-3.5"/> Add a player
                         </a>
                     }
@@ -244,7 +245,7 @@ else
             <div>
                 <div class="section-head">
                     <h2 class="section-title">Recent games</h2>
-                    <a href="/app/games" class="section-link">View all →</a>
+                    <a href="@GamesLink.Path" class="section-link">View all →</a>
                 </div>
                 <RecentGamesStrip Games="_stats.RecentGames"/>
             </div>
@@ -260,21 +261,23 @@ else
                             Counted against the expansions you own — see Settings to change them.
                         </p>
                     </div>
-                    <a href="/app/statistics" class="section-link">What's missing →</a>
+                    @* Each bar goes to its own tab below; the section link opens the first of
+                       them, since the coverage panels live on the tabs rather than the page. *@
+                    <a href="@StatsLink.ForTab(StatsLink.Spirits)" class="section-link">What's missing →</a>
                 </div>
                 <div class="grid gap-x-4 gap-y-1 sm:grid-cols-2 xl:grid-cols-4">
                     <CoverageBar Label="Spirits" Icon="sparkles"
                                  Played="_spiritCoverage.Played" Total="_spiritCoverage.Total"
-                                 Href="/app/statistics?tab=spirits"/>
+                                 Href="@StatsLink.ForTab(StatsLink.Spirits)"/>
                     <CoverageBar Label="Adversary levels" Icon="shield"
                                  Played="_adversaryCoverage.Played" Total="_adversaryCoverage.Total"
-                                 Href="/app/statistics?tab=adversaries"/>
+                                 Href="@StatsLink.ForTab(StatsLink.Adversaries)"/>
                     <CoverageBar Label="Scenarios" Icon="book"
                                  Played="_scenarioCoverage.Played" Total="_scenarioCoverage.Total"
-                                 Href="/app/statistics?tab=scenarios"/>
+                                 Href="@StatsLink.ForTab(StatsLink.Scenarios)"/>
                     <CoverageBar Label="Boards" Icon="map"
                                  Played="_boardCoverage.Played" Total="_boardCoverage.Total"
-                                 Href="/app/statistics?tab=boards"/>
+                                 Href="@StatsLink.ForTab(StatsLink.Boards)"/>
                 </div>
             </section>
 
@@ -288,9 +291,9 @@ else
     /// where the sidebar is hidden.</summary>
     private RenderFragment QuickLinks() =>
         @<div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            @Tile("/app/games", "controller", "Games", $"{_games.Count} recorded")
-            @Tile("/app/statistics", "chart", "Statistics", "The full breakdown")
-            @Tile("/app/people", "users", "People", FriendsCaption)
+            @Tile(GamesLink.Path, "controller", "Games", $"{_games.Count} recorded")
+            @Tile(StatsLink.Path, "chart", "Statistics", "The full breakdown")
+            @Tile(PeopleLink.Path, "users", "People", FriendsCaption)
             @Tile("/app/settings", "settings", "Settings", "Your collection and name")
         </div>;
 

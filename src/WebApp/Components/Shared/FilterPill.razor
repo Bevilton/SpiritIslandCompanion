@@ -1,20 +1,43 @@
 @* Toggleable filter pill — clean active/inactive states.
-   Usage: <FilterPill Active="@isActive" OnToggle="() => Toggle(value)">Label</FilterPill> *@
+   Usage: <FilterPill Active="@isActive" OnToggle="() => Toggle(value)">Label</FilterPill>
 
-@* aria-pressed as literal "true"/"false": handed a bool, Blazor drops the attribute for false. *@
-<button type="button"
-        @onclick="OnToggle"
-        aria-pressed="@(Active ? "true" : "false")"
-        class="@CssClass">
-    @ChildContent
-</button>
+   Given an Href instead it is the same pill as a link, for a row of pills that is really a set
+   of addresses rather than a set of switches — the statistics tabs, which live in the URL. Same
+   shape either way, so the two kinds of row still look like one control. *@
+
+@if (Href is { } href)
+{
+    <a href="@href" aria-current="@(Active ? "page" : null)" title="@Title" class="@CssClass">
+        @ChildContent
+    </a>
+}
+else
+{
+    @* aria-pressed as literal "true"/"false": handed a bool, Blazor drops the attribute for false. *@
+    <button type="button"
+            @onclick="OnToggle"
+            aria-pressed="@(Active ? "true" : "false")"
+            title="@Title"
+            class="@CssClass">
+        @ChildContent
+    </button>
+}
 
 @code {
     [Parameter, EditorRequired] public RenderFragment? ChildContent { get; set; }
     [Parameter] public bool Active { get; set; }
     [Parameter] public EventCallback OnToggle { get; set; }
 
-    private string CssClass => Active
-        ? "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-accent-100 text-accent-800 border border-accent-300 transition-colors"
-        : "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-white text-ink-600 border border-ink-200 hover:border-ink-300 hover:text-ink-800 transition-colors";
+    /// <summary>Makes the pill a link to this address rather than a switch.</summary>
+    [Parameter] public string? Href { get; set; }
+
+    [Parameter] public string? Title { get; set; }
+
+    private string CssClass =>
+        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors "
+        + (Active
+            ? "bg-accent-100 text-accent-800 border-accent-300"
+            // A link inherits the accent colour from the base stylesheet, so the inactive pill
+            // has to say what colour its text is or it comes out jade among the switches.
+            : "bg-white text-ink-600 border-ink-200 hover:border-ink-300 hover:text-ink-800");
 }

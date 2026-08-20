@@ -13,14 +13,27 @@ public sealed record ListGamesQuery(Guid UserId) : IQuery<List<ListGamesResponse
 
 public enum GamePlayerKind { Me, Friend, Local, Unassigned }
 
+/// <param name="UserId">
+/// The account in the seat, when a friend (or the reader) sat in it. With
+/// <paramref name="PlayerId"/> this is what lets a list be narrowed to one person —
+/// the name alone can't, since two locals may share one.
+/// </param>
 public sealed record GamePlayerSummary(
     string Name,
     GamePlayerKind Kind,
-    string SpiritId);
+    string SpiritId,
+    string BoardId,
+    Guid? UserId,
+    Guid? PlayerId);
 
 /// <param name="CustomLayoutName">
 /// The saved layout the island came from, when the player set one up out of their library.
 /// Null for published layouts, one-off hand-built islands, and layouts deleted since.
+/// </param>
+/// <param name="CustomLayoutId">
+/// That layout's id, for grouping games by the shape they were played on. Set even when the
+/// layout has been deleted since — <paramref name="CustomLayoutName"/> is what says whether
+/// it still exists.
 /// </param>
 /// <param name="OwnerId">
 /// Who recorded it. Everyone at the table can read the game, but only the owner can finish
@@ -38,6 +51,7 @@ public sealed record ListGamesResponse(
     List<Dtos.GameAdversaryResponse> Adversaries,
     string? ScenarioId,
     string IslandSetupId,
+    Guid? CustomLayoutId,
     string? CustomLayoutName,
     List<GamePlayerSummary> Players);
 
@@ -99,6 +113,7 @@ internal sealed class ListGamesHandler(IAppDbContext db) : IQueryHandler<ListGam
             g.PlayedAdversaries.Select(a => new Dtos.GameAdversaryResponse(a.AdversaryId.Value, a.Level.Value)).ToList(),
             g.Scenario?.ScenarioId.Value,
             g.IslandSetupId.Value,
+            g.CustomLayoutId?.Value,
             g.CustomLayoutId is { } layoutId ? layoutLookup.GetValueOrDefault(layoutId) : null,
             g.Players.Select(p => ResolvePlayer(p, request.UserId, userLookup, playerLookup)).ToList())).ToList();
 
@@ -113,22 +128,26 @@ internal sealed class ListGamesHandler(IAppDbContext db) : IQueryHandler<ListGam
     {
         if (p.UserId is { } uid)
         {
-            if (uid.Value == currentUserId)
-            {
-                return new GamePlayerSummary("You", GamePlayerKind.Me, p.SpiritId.Value);
-            }
+            var isMe = uid.Value == currentUserId;
             return new GamePlayerSummary(
-                users.GetValueOrDefault(uid.Value, "Unknown"),
-                GamePlayerKind.Friend,
-                p.SpiritId.Value);
+                isMe ? "You" : users.GetValueOrDefault(uid.Value, "Unknown"),
+                isMe ? GamePlayerKind.Me : GamePlayerKind.Friend,
+                p.SpiritId.Value,
+                p.StartingBoard.Value,
+                uid.Value,
+                null);
         }
         if (p.PlayerId is { } pid)
         {
             return new GamePlayerSummary(
                 players.GetValueOrDefault(pid.Value, "Unknown"),
                 GamePlayerKind.Local,
-                p.SpiritId.Value);
+                p.SpiritId.Value,
+                p.StartingBoard.Value,
+                null,
+                pid.Value);
         }
-        return new GamePlayerSummary("Unassigned", GamePlayerKind.Unassigned, p.SpiritId.Value);
+        return new GamePlayerSummary(
+            "Unassigned", GamePlayerKind.Unassigned, p.SpiritId.Value, p.StartingBoard.Value, null, null);
     }
 }

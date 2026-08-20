@@ -70,7 +70,9 @@
 
                 @if (_profile is not null)
                 {
-                    <SetupProfileSection Profile="_profile" Name="@_name" Title="Your record on this island"/>
+                    <SetupProfileSection Profile="_profile" Name="@_name" Title="Your record on this island"
+                                         LinkGames="LinkGames"
+                                         AllGamesHref="@(LinkGames ? _gamesHref : null)"/>
                 }
                 else if (!ReferenceOnly)
                 {
@@ -98,6 +100,9 @@
     /// </summary>
     [Parameter] public bool ReferenceOnly { get; set; }
 
+    /// <summary>Whether the record may link out to the games behind it — see AdversaryDetailModal.</summary>
+    [Parameter] public bool LinkGames { get; set; }
+
     private bool _open;
     private string _name = "";
     private int _boardCount;
@@ -105,6 +110,9 @@
     private string? _geometry;
     private DateTimeOffset? _savedAt;
     private SetupProfiles.Profile? _profile;
+
+    /// The games list narrowed to whichever island this sheet was opened for.
+    private string? _gamesHref;
 
     /// <summary>The boards this island is made of, for a thematic layout; null for any other.</summary>
     private IReadOnlyList<BoardId>? _regions;
@@ -127,6 +135,7 @@
         _profile = Facts is { Count: > 0 }
             ? SetupProfiles.Build(SetupSubjectKind.IslandLayout, setup.Id.Value, Facts)
             : null;
+        _gamesHref = GamesLink.ForIsland(setup.Id.Value);
         _open = true;
         StateHasChanged();
     }
@@ -143,6 +152,7 @@
         _profile = Facts is { Count: > 0 }
             ? SetupProfiles.Build(SetupSubjectKind.SavedLayout, saved.Id.ToString(), Facts)
             : null;
+        _gamesHref = GamesLink.ForSavedLayout(saved.Id);
         _open = true;
         StateHasChanged();
     }
@@ -155,5 +165,6 @@
         _savedAt = null;
         _regions = null;
         _profile = null;
+        _gamesHref = null;
     }
 }

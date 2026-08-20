@@ -43,26 +43,63 @@ else if (_games.Count == 0)
 }
 else
 {
+    var facets = ActiveFacets;
+    var inSlice = FacetFiltered;
+
+    @* What the list is currently narrowed to, spelled out and undoable one pill at a time. It
+       leads the page because a slice is often arrived at by link — from an adversary's level
+       grid, a spirit's row, a record sheet — and a list that has quietly dropped most of the
+       history has to say so, and has to be wideable again without starting over. *@
+    @if (facets.Count > 0)
+    {
+        <div class="mb-3 flex flex-wrap items-center gap-1.5">
+            <span class="mr-0.5 text-[11px] uppercase tracking-wide text-ink-500">Showing</span>
+            @foreach (var facet in facets)
+            {
+                <button type="button" @onclick="() => RemoveFacet(facet)"
+                        title="@($"{facet.Group}: {facet.Label} — remove this filter")"
+                        class="inline-flex items-center gap-1.5 rounded-full border border-accent-300 bg-accent-100 px-2.5 py-1
+                               text-xs font-medium text-accent-800 transition-colors hover:bg-accent-200
+                               focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                    @facet.Label
+                    <Icon Name="x" Class="w-3 h-3 opacity-60"/>
+                </button>
+            }
+            @if (facets.Count > 1)
+            {
+                <button type="button" @onclick="ClearFacets"
+                        class="ml-0.5 rounded px-1 text-[11px] text-accent-700 hover:underline
+                               focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                    Clear all
+                </button>
+            }
+        </div>
+    }
+
     @* The first question of the page — which slice — stays out in the open; everything finer
-       lives in the filter bar below, the same shell the catalogue pages use. *@
+       lives in the filter bar below, the same shell the catalogue pages use.
+
+       The tallies are over the games the filters above already allow, not the whole history:
+       on a list narrowed to one foe, "38 victories" would be counting games the page is
+       refusing to show. *@
     <div class="mb-3 flex flex-wrap items-center gap-2">
         <FilterPill Active="@(_filter.Status == GameStatusTab.All)" OnToggle="() => SetStatus(GameStatusTab.All)">
-            All <span class="tabular-nums opacity-60">@_games.Count</span>
+            All <span class="tabular-nums opacity-60">@inSlice.Count</span>
         </FilterPill>
         <FilterPill Active="@(_filter.Status == GameStatusTab.Victories)" OnToggle="() => SetStatus(GameStatusTab.Victories)">
-            Victories <span class="tabular-nums opacity-60">@_games.Count(g => g.Win == true)</span>
+            Victories <span class="tabular-nums opacity-60">@inSlice.Count(g => g.Win == true)</span>
         </FilterPill>
         <FilterPill Active="@(_filter.Status == GameStatusTab.Defeats)" OnToggle="() => SetStatus(GameStatusTab.Defeats)">
-            Defeats <span class="tabular-nums opacity-60">@_games.Count(g => g.Win == false)</span>
+            Defeats <span class="tabular-nums opacity-60">@inSlice.Count(g => g.Win == false)</span>
         </FilterPill>
         <FilterPill Active="@(_filter.Status == GameStatusTab.Drafts)" OnToggle="() => SetStatus(GameStatusTab.Drafts)">
-            Drafts <span class="tabular-nums opacity-60">@_games.Count(g => !g.IsCompleted)</span>
+            Drafts <span class="tabular-nums opacity-60">@inSlice.Count(g => !g.IsCompleted)</span>
         </FilterPill>
     </div>
 
     <FilterBar @ref="_bar" Filter="_filter"
                ShowingCount="Visible.Count" TotalCount="_games.Count"
-               Changed="StateHasChanged">
+               Changed="FilterChanged">
         <Facets>
             @if (_bar is not null)
             {
@@ -75,7 +112,7 @@ else
     {
         <div class="surface mt-6 py-10 text-center text-ink-500">
             <p class="text-sm">No games match the current filters.</p>
-            <button type="button" class="btn btn-secondary btn-sm mt-4" @onclick="_filter.Reset">Reset filters</button>
+            <button type="button" class="btn btn-secondary btn-sm mt-4" @onclick="ResetFilters">Reset filters</button>
         </div>
     }
     else if (_filter.GroupsByMonth)
@@ -120,6 +157,23 @@ else
 }
 
 @code {
+    // Every slice the list can be in, as the router hands it over. The names and the reading of
+    // them live in GamesLink, which is also what the statistics page builds its links with — so
+    // a link can only ever ask for something the list knows how to be.
+    [SupplyParameterFromQuery(Name = GamesLink.AdversaryKey)] public string[]? AdversaryParam { get; set; }
+    [SupplyParameterFromQuery(Name = GamesLink.LevelKey)] public int[]? LevelParam { get; set; }
+    [SupplyParameterFromQuery(Name = GamesLink.ScenarioKey)] public string[]? ScenarioParam { get; set; }
+    [SupplyParameterFromQuery(Name = GamesLink.SpiritKey)] public string[]? SpiritParam { get; set; }
+    [SupplyParameterFromQuery(Name = GamesLink.SpiritModeKey)] public string? SpiritModeParam { get; set; }
+    [SupplyParameterFromQuery(Name = GamesLink.BoardKey)] public string[]? BoardParam { get; set; }
+    [SupplyParameterFromQuery(Name = GamesLink.IslandKey)] public string[]? IslandParam { get; set; }
+    [SupplyParameterFromQuery(Name = GamesLink.WhoKey)] public string[]? WhoParam { get; set; }
+    [SupplyParameterFromQuery(Name = GamesLink.SizeKey)] public int[]? SizeParam { get; set; }
+    [SupplyParameterFromQuery(Name = GamesLink.DifficultyKey)] public string[]? DifficultyParam { get; set; }
+    [SupplyParameterFromQuery(Name = GamesLink.StatusKey)] public string? StatusParam { get; set; }
+    [SupplyParameterFromQuery(Name = GamesLink.SortKey)] public string? SortParam { get; set; }
+    [SupplyParameterFromQuery(Name = GamesLink.DirectionKey)] public string? DirectionParam { get; set; }
+
     private List<ListGamesResponse> _games = [];
     private bool _loading = true;
 
@@ -127,6 +181,12 @@ else
     private FilterBar? _bar;
 
     private List<ListGamesResponse> Visible => _filter.Apply(_games);
+
+    /// <summary>Everything the filters allow before the status tab has its say — what the tab
+    /// counts are taken over.</summary>
+    private List<ListGamesResponse> FacetFiltered => _games.Where(_filter.MatchesFacets).ToList();
+
+    private IReadOnlyList<GamesFilter.ActiveFacet> ActiveFacets => _filter.ActiveFacets(_games);
 
     protected override async Task OnInitializedAsync()
     {
@@ -136,7 +196,60 @@ else
         _loading = false;
     }
 
-    private void SetStatus(GameStatusTab status) => _filter.Status = status;
+    /// <summary>
+    /// The URL is the filter. Read straight through on every parameter change — the page writes
+    /// itself back out after each edit, so re-reading what it just wrote is a no-op, and the
+    /// browser's own Back leaves a slice the way it arrived.
+    /// </summary>
+    protected override void OnParametersSet() =>
+        GamesLink.Read(
+            new GamesLink.Params(
+                AdversaryParam, LevelParam, ScenarioParam, SpiritParam, SpiritModeParam,
+                BoardParam, IslandParam, WhoParam, SizeParam, DifficultyParam,
+                StatusParam, SortParam, DirectionParam),
+            _filter);
+
+    /// <summary>
+    /// Writes the filter into the address bar, replacing rather than pushing: a run of pill
+    /// clicks is one act of narrowing, and Back should leave for wherever the slice came from
+    /// rather than walk back through every pill on the way in.
+    /// </summary>
+    private void SyncUrl() => Nav.NavigateTo(GamesLink.For(_filter), forceLoad: false, replace: true);
+
+    private void FilterChanged() => SyncUrl();
+
+    private void SetStatus(GameStatusTab status)
+    {
+        _filter.Status = status;
+        SyncUrl();
+    }
+
+    private void RemoveFacet(GamesFilter.ActiveFacet facet)
+    {
+        facet.Remove();
+        SyncUrl();
+    }
+
+    private void ClearFacets()
+    {
+        _filter.Clear();
+        SyncUrl();
+    }
+
+    private void ResetFilters()
+    {
+        _filter.Reset();
+        SyncUrl();
+    }
+
+    /// <summary>
+    /// The current slice as a query, carried on every game's link so the game page can offer the
+    /// way back to this list rather than to the whole history. Empty on an unnarrowed list, which
+    /// keeps a game's URL clean in the ordinary case.
+    /// </summary>
+    private string BackQuery => GamesLink.Query(_filter);
+
+    private string GameHref(Guid id) => GamesLink.Game(id, BackQuery);
 
     private string HeaderSummary
     {
@@ -153,9 +266,13 @@ else
         }
     }
 
-    private void Open(Guid id) => Nav.NavigateTo($"/app/games/{id}");
+    private void Open(Guid id) => Nav.NavigateTo(GameHref(id));
 
-    private void Finish(Guid id) => Nav.NavigateTo($"/app/games/{id}?finish=true");
+    private void Finish(Guid id)
+    {
+        var href = GameHref(id);
+        Nav.NavigateTo(href.Contains('?') ? $"{href}&finish=true" : $"{href}?finish=true");
+    }
 
     private RenderFragment GameRow(ListGamesResponse g) => __builder =>
     {
@@ -185,7 +302,7 @@ else
                 <div class="flex min-w-0 items-center gap-2">
                     @* A real link inside the clickable row, so the game is reachable by keyboard
                        and middle-click too. *@
-                    <a href="/app/games/@g.Id"
+                    <a href="@GameHref(g.Id)"
                        class="truncate rounded text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40
                               @(isFreeplay ? "font-normal italic text-ink-500" : "font-semibold text-ink-900")">
                         @title

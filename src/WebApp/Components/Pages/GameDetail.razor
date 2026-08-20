@@ -24,8 +24,11 @@ else
 
     <div class="page-head">
         <div class="min-w-0">
-            <a href="/app/games" class="mb-2 flex w-fit items-center gap-1 text-sm text-ink-500 hover:text-ink-700">
-                <Icon Name="arrow-left" Class="w-3.5 h-3.5"/> Games
+            @* Back to the list as it was left, filters and all, when the game was opened from a
+               slice of it — otherwise to the whole history. Same one link either way. *@
+            <a href="@GamesLink.Back(Back)" title="@(HasSlice ? "Back to the filtered list you came from" : "All your games")"
+               class="mb-2 flex w-fit items-center gap-1 text-sm text-ink-500 hover:text-ink-700">
+                <Icon Name="arrow-left" Class="w-3.5 h-3.5"/> @(HasSlice ? "Filtered games" : "Games")
             </a>
             <span class="eyebrow">@(_game.IsCompleted ? "Recorded match" : "Draft in progress")</span>
             <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
@@ -154,7 +157,10 @@ else
                 <div class="mb-3 flex items-end justify-between">
                     <h2 class="text-xl font-semibold" style="font-family: var(--font-serif);">Setup</h2>
                 </div>
+                @* A recorded game links sideways: its foe, its scenario, and each seat's spirit,
+                   board and player all reach the rest of the history that shares them. *@
                 <GameSetupSummary
+                    LinkGames="true"
                     IslandSetupId="@_game.IslandSetupId"
                     CustomLayoutName="@_game.CustomLayoutName"
                     IslandLayoutJson="@_game.IslandLayoutJson"
@@ -180,6 +186,7 @@ else
                         <GamePlayerCard
                             Player="_game.Players[i]"
                             Index="i"
+                            LinkGames="true"
                             CurrentUserId="CurrentUser.UserId"
                             Friends="_friends"
                             LocalPlayers="_localPlayers"/>
@@ -320,6 +327,15 @@ else
     [SupplyParameterFromQuery(Name = "finish")]
     public bool Finish { get; set; }
 
+    /// <summary>
+    /// The games-list query this game was opened from, so the back link returns to that slice
+    /// rather than to the whole history. Absent when the list wasn't narrowed — see GamesLink.
+    /// </summary>
+    [SupplyParameterFromQuery(Name = GamesLink.BackKey)]
+    public string? Back { get; set; }
+
+    private bool HasSlice => !string.IsNullOrWhiteSpace(Back);
+
     private GetGameResponse? _game;
     private List<Application.Features.Friendships.FriendResponse> _friends = [];
     private List<Application.Features.Players.ListPlayersResponse> _localPlayers = [];
@@ -414,7 +430,7 @@ else
         if (!await _confirmDialog.ShowAsync()) return;
 
         var result = await Mediator.Send(new DeleteGameCommand(Id, CurrentUser.UserId!.Value));
-        if (_form.Apply(result)) Nav.NavigateTo("/app/games");
+        if (_form.Apply(result)) Nav.NavigateTo(GamesLink.Back(Back));
     }
 
     private static string FormatDuration(TimeSpan d)

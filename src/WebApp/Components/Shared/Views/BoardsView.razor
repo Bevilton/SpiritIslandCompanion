@@ -166,8 +166,9 @@
 @* ReferenceOnly rather than "Facts is null": the public route loads nobody's history, so its
    sheets must not report "no games yet" — a signed-in reader browsing it has a record, this
    page just never went and fetched one. *@
-<BoardDetailModal @ref="_modal" Facts="Facts" ReferenceOnly="@(!SignedIn)"/>
-<IslandLayoutDetailModal @ref="_layoutModal" Facts="Facts" ReferenceOnly="@(!SignedIn)"/>
+@* LinkGames only for a signed-in reader — see AdversariesView. *@
+<BoardDetailModal @ref="_modal" Facts="Facts" ReferenceOnly="@(!SignedIn)" LinkGames="SignedIn"/>
+<IslandLayoutDetailModal @ref="_layoutModal" Facts="Facts" ReferenceOnly="@(!SignedIn)" LinkGames="SignedIn"/>
 
 @code {
     /// <summary>Null (default) shows everything; non-null restricts to those expansions.</summary>

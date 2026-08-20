@@ -27,48 +27,58 @@
 <div class="grid lg:grid-cols-2 gap-4 mt-6">
     @foreach (var a in _visible)
     {
-        var modes = a.Modes.OrderBy(m => m.Level).ToList();
         var detail = AdversaryDetails.For(a.Id);
-        <button @key="a.Id.Value" type="button"
-                @onclick="() => OpenDetail(a)"
-                class="text-left surface p-5 md:p-6 transition-all hover:shadow-sm hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
-            <div class="flex items-start justify-between gap-3">
-                <div class="min-w-0">
-                    <h3 class="text-lg font-semibold leading-tight">@a.Name</h3>
-                    <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-500">
-                        <span>@GameLookups.ExpansionName(a.ExpansionId)</span>
-                        @if (detail is not null)
-                        {
-                            <span>·</span>
-                            <span>@detail.Theme</span>
-                        }
-                    </div>
-                </div>
-                <Icon Name="shield" Class="w-5 h-5 text-accent-600 shrink-0"/>
-            </div>
-
-            <div class="mt-5">
-                <div class="text-xs uppercase tracking-wide text-ink-500 mb-2">Difficulty by level</div>
-                <div class="grid grid-cols-7 gap-1.5">
-                    @foreach (var m in modes)
-                    {
-                        <div class="rounded-md border border-ink-200 bg-ink-50/60 px-1 py-2 text-center">
-                            <div class="text-[10px] uppercase text-ink-500">L@(m.Level)</div>
-                            <div class="text-sm font-semibold text-ink-900">+@m.Difficulty</div>
+        var levels = _facing?.GetValueOrDefault(a.Id.Value)?.Levels
+                     ?? (Records is null ? null : AdversaryLevelGrid.NoRecords);
+        @* A card whose numbers link has to stop being a button — a link inside one is not
+           something the browser will render. The disclosure becomes a full-card overlay and the
+           level tiles are raised above it, the same arrangement the statistics cards use. *@
+        <div @key="a.Id.Value"
+             class="surface relative p-5 transition-all hover:shadow-sm hover:-translate-y-px md:p-6">
+            <button type="button" @onclick="() => OpenDetail(a)"
+                    title="@($"{a.Name} — details{(Records is null ? "" : " and full record")}")"
+                    class="absolute inset-0 w-full rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                <span class="sr-only">@a.Name — details@(Records is null ? "" : " and full record")</span>
+            </button>
+            <div class="pointer-events-none relative">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <h3 class="text-lg font-semibold leading-tight">@a.Name</h3>
+                        <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-500">
+                            <span>@GameLookups.ExpansionName(a.ExpansionId)</span>
+                            @if (detail is not null)
+                            {
+                                <span>·</span>
+                                <span>@detail.Theme</span>
+                            }
                         </div>
+                    </div>
+                    @* The record over every level, beside the name — the strip below already
+                       splits it up, so the total belongs with the foe it is about rather than in
+                       a section of its own under it. The shield stays where there is no record
+                       to put here, which is the public route. *@
+                    @if (Records is not null)
+                    {
+                        <RecordChip Record="Records.GetValueOrDefault(a.Id.Value)" Subject="@a.Name" NeverLabel="Never faced"/>
+                    }
+                    else
+                    {
+                        <Icon Name="shield" Class="w-5 h-5 text-accent-600 shrink-0"/>
                     }
                 </div>
-            </div>
 
-            @* Passive pill — the whole card opens the same sheet. Shows the numbers the
-               play-based orderings sort on, in the shape used everywhere else. *@
-            @if (Records is not null)
-            {
-                <div class="mt-4 border-t border-ink-100 pt-3">
-                    <RecordChip Record="Records.GetValueOrDefault(a.Id.Value)" Subject="@a.Name" NeverLabel="Never faced"/>
+                @* The same strip the record sheet and the statistics card draw — which is why a
+                   signed-in reader sees their record per level here too, rather than having to
+                   open the sheet to find out that this page was showing them half the picture. *@
+                <div class="mt-5">
+                    <div class="text-xs uppercase tracking-wide text-ink-500 mb-2">
+                        @(Records is null ? "Difficulty by level" : "Difficulty and your record by level")
+                    </div>
+                    <AdversaryLevelGrid Adversary="a" Records="levels" Columns="grid-cols-7"
+                                        LinkGames="@(Records is not null)" RaiseAboveOverlay="true"/>
                 </div>
-            }
-        </button>
+            </div>
+        </div>
     }
 </div>
 
@@ -77,7 +87,9 @@
     <div class="surface text-center py-10 mt-6 text-ink-500">No adversaries match the current filters.</div>
 }
 
-<AdversaryDetailModal @ref="_modal" Facts="Facts"/>
+@* LinkGames only where there is a record to link from: the public route has no reader to have
+   one, and no games page to send them to. *@
+<AdversaryDetailModal @ref="_modal" Facts="Facts" LinkGames="@(Records is not null)"/>
 
 @code {
     /// <summary>Null (default) shows everything; non-null restricts to those expansions.</summary>
@@ -95,6 +107,9 @@
 
     private AdversaryDetailModal _modal = default!;
 
+    /// Per-level records, derived once per parameter change rather than per card.
+    private Dictionary<string, SetupInsights.AdversaryFacing>? _facing;
+
     /// Difficulty is the top of its range: what the adversary asks of you at its hardest.
     private readonly CatalogueFilter<Adversary> _filter = new(
         a => a.Id.Value, a => a.Name, a => a.ExpansionId,
@@ -103,6 +118,7 @@
     protected override void OnParametersSet()
     {
         _filter.UseHistory(Records);
+        _facing = Facts is { Count: > 0 } ? SetupInsights.AdversaryRecords(Facts) : null;
     }
 
     private IReadOnlyList<Adversary> _inScope =>

@@ -4,6 +4,7 @@
 @using Application.Features.Statistics
 @inject IMediator Mediator
 @inject ICurrentUserService CurrentUser
+@inject NavigationManager Nav
 
 <PageTitle>Statistics</PageTitle>
 
@@ -126,6 +127,13 @@ else
                             </div>
                         </div>
                     }
+                    @* The one place a person's games are reachable from: the cards below are the
+                       page's scope picker, and a link inside a button is not something a browser
+                       will render — so it belongs here, once, beside the scope it belongs to. *@
+                    <a href="@GamesLink.ForPlayer(_scoped.UserId, _scoped.PlayerId)" class="btn btn-secondary btn-sm"
+                       title="@($"Open the games list, filtered to the games {(isMe ? "you" : _scoped.Name)} sat in")">
+                        <Icon Name="controller" Class="w-3.5 h-3.5"/> @(isMe ? "Your games" : "Their games")
+                    </a>
                     <button class="btn btn-ghost btn-sm" @onclick="() => SetScope(null)">
                         <Icon Name="x" Class="w-3.5 h-3.5"/> Clear filter
                     </button>
@@ -183,7 +191,7 @@ else
                   Label="Best score"
                   Caption="@(_stats.BestScoreGameId is not null ? "View that match →" : "no completed games")"
                   Icon="star" Class="tile-sun"
-                  Href="@(_stats.BestScoreGameId is { } id ? $"/app/games/{id}" : null)"/>
+                  Href="@(_stats.BestScoreGameId is { } id ? GamesLink.Game(id, null) : null)"/>
     </div>
     @* Second row: secondary stats, denser. *@
     <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
@@ -203,7 +211,7 @@ else
                   Label="Lowest score"
                   Caption="@(_stats.MinScoreGameId is not null ? "View that match →" : "no completed games")"
                   Icon="minus" Class="tile-ember"
-                  Href="@(_stats.MinScoreGameId is { } minId ? $"/app/games/{minId}" : null)"/>
+                  Href="@(_stats.MinScoreGameId is { } minId ? GamesLink.Game(minId, null) : null)"/>
         <StatHero Value="@($"{_stats.AverageDahan:F1}")"
                   Label="Avg dahan"
                   Caption="alive at game end"
@@ -215,39 +223,43 @@ else
     </div>
 
     @* ============================== TABS ============================== *@
-    @* Same pill row the games list slices with — one pill active at a time. *@
-    <div class="mb-6 flex flex-wrap items-center gap-2">
-        @foreach (var t in _tabs)
+    @* Same pill row the games list slices with — one pill active at a time. Real links, since a
+       tab is an address here: it can be opened in a new tab, sent to somebody, and returned to
+       after following a game out of the page. The scope rides along, so a friend's numbers stay
+       a friend's numbers while you move between the sections. *@
+    <nav class="mb-6 flex flex-wrap items-center gap-2" aria-label="Statistics sections">
+        @foreach (var (key, label) in StatsLink.Tabs)
         {
-            var count = TabCount(t.Key);
-            <FilterPill Active="@(_tab == t.Key)" OnToggle="() => SetTab(t.Key)">
-                @t.Label
+            var count = TabCount(key);
+            <FilterPill Active="@(_tab == key)" Href="@StatsLink.For(key, _scoped?.UserId, _scoped?.PlayerId)"
+                        Title="@(_scoped is null ? label : $"{label} — {_scoped.Name}'s games")">
+                @label
                 @if (count is { } c)
                 {
                     <span class="tabular-nums opacity-60">@c</span>
                 }
             </FilterPill>
         }
-    </div>
+    </nav>
 
     @switch (_tab)
     {
-        case "overview":
+        case StatsLink.Overview:
             @OverviewTab();
             break;
-        case "players":
+        case StatsLink.Players:
             @PlayersTab();
             break;
-        case "spirits":
+        case StatsLink.Spirits:
             @SpiritsTab();
             break;
-        case "adversaries":
+        case StatsLink.Adversaries:
             @AdversariesTab();
             break;
-        case "scenarios":
+        case StatsLink.Scenarios:
             @ScenariosTab();
             break;
-        case "boards":
+        case StatsLink.Boards:
             @BoardsTab();
             break;
     }
@@ -255,14 +267,18 @@ else
 
 @* Record sheets — the same reference modals the catalogue pages and the setup screen open.
    Spirit and board sheets scope their profile to the picked player; the game-level sheets
-   (adversary / scenario / layout) always show the full table history. *@
+   (adversary / scenario / layout) always show the full table history.
+
+   LinkGames on all five: from here a sheet is a place to read the record, so every line in it
+   may be opened as the game it reports. The setup screen opens the same sheets to choose with
+   and leaves it off, since a link out of there would abandon a half-built game. *@
 <SpiritDetailModal @ref="_spiritModal" OwnedExpansions="OwnedExpansions" Facts="_facts"
-                   SeatFilter="ScopeSeatFilter" SubjectName="@ScopeSubjectName"/>
-<AdversaryDetailModal @ref="_adversaryModal" Facts="_facts"/>
-<ScenarioDetailModal @ref="_scenarioModal" Facts="_facts"/>
+                   SeatFilter="ScopeSeatFilter" SubjectName="@ScopeSubjectName" LinkGames="true"/>
+<AdversaryDetailModal @ref="_adversaryModal" Facts="_facts" LinkGames="true"/>
+<ScenarioDetailModal @ref="_scenarioModal" Facts="_facts" LinkGames="true"/>
 <BoardDetailModal @ref="_boardModal" Facts="_facts"
-                  SeatFilter="ScopeSeatFilter" SubjectName="@ScopeSubjectName"/>
-<IslandLayoutDetailModal @ref="_layoutModal" Facts="_facts"/>
+                  SeatFilter="ScopeSeatFilter" SubjectName="@ScopeSubjectName" LinkGames="true"/>
+<IslandLayoutDetailModal @ref="_layoutModal" Facts="_facts" LinkGames="true"/>
 
 @* ============================== OVERVIEW TAB ============================== *@
 @code {
@@ -358,7 +374,11 @@ else
             <div>
                 <div class="section-head">
                     <h2 class="section-title">Recent games</h2>
-                    <a href="/app/games" class="section-link">View all →</a>
+                    @* The strip is the newest of whatever this page is counting, so "all" has to
+                       mean the same thing — a scoped page sends you to that person's games, not
+                       to everybody's. *@
+                    <a href="@(_scoped is null ? GamesLink.Path : GamesLink.ForPlayer(_scoped.UserId, _scoped.PlayerId))"
+                       class="section-link">View all →</a>
                 </div>
                 <RecentGamesStrip Games="_stats.RecentGames"/>
             </div>
@@ -385,7 +405,8 @@ else
                         return new LossLeaderboard.Row(
                             adv?.Name ?? a.AdversaryId,
                             a.Losses,
-                            $"avg L{a.AverageLevel:F1} · {a.WinRate:F0}% win");
+                            $"avg L{a.AverageLevel:F1} · {a.WinRate:F0}% win",
+                            GamesLink.ForAdversary(a.AdversaryId, status: GameStatusTab.Defeats));
                     })
                     .ToList();
                 var hardScenarios = _stats.ScenarioStatistics
@@ -399,7 +420,8 @@ else
                         return new LossLeaderboard.Row(
                             sc?.Name ?? s.ScenarioId,
                             s.Losses,
-                            $"{s.WinRate:F0}% win");
+                            $"{s.WinRate:F0}% win",
+                            GamesLink.ForScenario(s.ScenarioId, GameStatusTab.Defeats));
                     })
                     .ToList();
                 var hardSpirits = _stats.SpiritStatistics
@@ -413,14 +435,15 @@ else
                         return new LossLeaderboard.Row(
                             sp?.Name ?? s.SpiritId,
                             s.Losses,
-                            $"{s.WinRate:F0}% win");
+                            $"{s.WinRate:F0}% win",
+                            GamesLink.ForSpirit(s.SpiritId, GameStatusTab.Defeats));
                     })
                     .ToList();
             }
             <div>
                 <div class="section-head">
                     <h2 class="section-title">Hardest matchups</h2>
-                    <span class="section-note">Sorted by total losses</span>
+                    <span class="section-note">Sorted by total losses · tap a row for those defeats</span>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <LossLeaderboard Title="Adversaries" Subtitle="Most defeats by" Rows="hardAdversaries"/>
@@ -622,7 +645,7 @@ else
             <div class="surface">
                 <div class="surface-head">
                     <h2 class="text-base font-semibold">All spirits</h2>
-                    <span class="text-[11px] text-ink-500">Tap a row for the record sheet</span>
+                    <span class="text-[11px] text-ink-500">Tap a row for the record sheet, a count for those games</span>
                 </div>
                 <div class="table-wrap">
                     <table class="table table-hover">
@@ -665,7 +688,8 @@ else
                                         </div>
                                     </div>
                                 </td>
-                                <td class="text-right tabular-nums">@s.GamesPlayed</td>
+                                @GamesCountCell(s.GamesPlayed, GamesLink.ForSpirit(s.SpiritId),
+                                                $"Every game played as {spirit?.Name ?? s.SpiritId}")
                                 <td class="text-right text-accent-700 tabular-nums">@s.Wins</td>
                                 <td class="text-right text-red-600 tabular-nums">@s.Losses</td>
                                 <td>
@@ -769,51 +793,66 @@ else
                 @if (worstAdv is not null && worstAdv.AdversaryId != bestAdv?.AdversaryId) { @AdversaryInsight("Toughest", worstAdv, $"{worstAdv.WinRate:F0}%", WinTone.ForRate(worstAdv.WinRate)) }
             </div>
 
-            <div class="grid sm:grid-cols-2 gap-4">
-                @foreach (var a in _stats.AdversaryStatistics)
-                {
-                    var adv = GameLookups.AdversaryFor(a.AdversaryId);
-                    var allLevels = adv?.Modes.Select(m => m.Level).OrderBy(l => l).ToList() ?? a.Levels.Select(l => l.Level).ToList();
-                    @* A button like the catalogue cards — the whole card opens the foe's record sheet. *@
-                    <button type="button" @onclick="() => OpenAdversary(a.AdversaryId)"
-                            title="@($"{adv?.Name ?? a.AdversaryId} — details and full record")"
-                            class="surface px-5 py-4 text-left transition-all hover:-translate-y-px hover:shadow-sm
-                                   focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
-                        <div class="flex items-start justify-between gap-3 mb-3">
-                            <div class="min-w-0">
-                                <div class="text-base font-semibold text-ink-900 truncate" style="font-family: var(--font-serif);">@(adv?.Name ?? a.AdversaryId)</div>
-                                <div class="text-[11px] text-ink-500 mt-0.5 tabular-nums">
-                                    @a.GamesPlayed game@(a.GamesPlayed == 1 ? "" : "s") ·
-                                    <span class="text-accent-700 font-medium">@a.Wins W</span> ·
-                                    <span class="text-red-600 font-medium">@a.Losses L</span> ·
-                                    avg L@(a.AverageLevel.ToString("F1"))
-                                </div>
-                            </div>
-                            <WinRateRing Pct="a.WinRate" Size="56"/>
-                        </div>
-                        @* Same level strip the adversary reference sheet uses — one tile per
-                           level, tinted by the record at that level. *@
-                        <div class="grid grid-cols-4 gap-1.5 sm:grid-cols-7">
-                            @foreach (var level in allLevels)
-                            {
-                                var stat = a.Levels.FirstOrDefault(l => l.Level == level);
-                                var played = stat?.GamesPlayed ?? 0;
-                                var finished = stat is null ? 0 : stat.Wins + stat.Losses;
-                                var rate = finished > 0 ? 100.0 * stat!.Wins / finished : 0;
-                                var tone = finished == 0 ? "text-ink-400" : WinTone.ForRate(rate);
-                                <div class="rounded-md border px-1 py-1.5 text-center @(played > 0 ? "border-ink-300 bg-white" : "border-ink-200 bg-ink-50/60")"
-                                     title="@(played == 0
-                                               ? $"Level {level} — never played"
-                                               : $"Level {level} — played {played}×{(finished > 0 ? $", {stat!.Wins} won / {stat.Losses} lost" : "")}")">
-                                    <div class="text-[9px] uppercase tracking-wide text-ink-500">L@(level)</div>
-                                    <div class="mt-0.5 text-[11px] font-semibold leading-tight tabular-nums @tone">
-                                        @(played == 0 ? "—" : finished > 0 ? $"{played}× · {rate:F0}%" : $"{played}×")
+            <div>
+                <div class="section-head">
+                    <h2 class="section-title">Every foe faced</h2>
+                    <span class="section-note">Tap a card for its sheet, a level for those games</span>
+                </div>
+
+                <div class="grid sm:grid-cols-2 gap-4">
+                    @foreach (var a in _stats.AdversaryStatistics)
+                    {
+                        var adv = GameLookups.AdversaryFor(a.AdversaryId);
+                        var name = adv?.Name ?? a.AdversaryId;
+                        @* The card opens the foe's record sheet, as the catalogue cards do — but
+                           the counts on it are their own links into the games list, which is where
+                           "a lot of England games" turns into the games themselves. A button cannot
+                           contain a link, so the disclosure is a full-card overlay and the links
+                           are raised above it: the same arrangement FilterBar's header uses. *@
+                        <div class="surface relative px-5 py-4 transition-all hover:-translate-y-px hover:shadow-sm">
+                            <button type="button" @onclick="() => OpenAdversary(a.AdversaryId)"
+                                    title="@($"{name} — details and full record")"
+                                    class="absolute inset-0 w-full rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                                <span class="sr-only">@name — details and full record</span>
+                            </button>
+                            <div class="pointer-events-none relative">
+                                <div class="flex items-start justify-between gap-3 mb-3">
+                                    <div class="min-w-0">
+                                        <div class="text-base font-semibold text-ink-900 truncate" style="font-family: var(--font-serif);">@name</div>
+                                        <div class="text-[11px] text-ink-500 mt-0.5 tabular-nums">
+                                            @* The count is the way into those games, in the same
+                                               dotted-rule idiom the tables use — see LinkedCount,
+                                               which this cannot share because the tone differs on
+                                               the card's smaller, greyer line. *@
+                                            <a href="@GamesLink.ForAdversary(a.AdversaryId)"
+                                               title="@($"Every game against {name}")"
+                                               class="pointer-events-auto rounded font-medium text-ink-600 underline decoration-dotted
+                                                      decoration-ink-300 underline-offset-4 transition-colors
+                                                      hover:text-accent-800 hover:decoration-accent-500
+                                                      focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                                                @a.GamesPlayed game@(a.GamesPlayed == 1 ? "" : "s")
+                                            </a> ·
+                                            <span class="text-accent-700 font-medium">@a.Wins W</span> ·
+                                            <span class="text-red-600 font-medium">@a.Losses L</span> ·
+                                            avg L@(a.AverageLevel.ToString("F1"))
+                                        </div>
                                     </div>
+                                    <WinRateRing Pct="a.WinRate" Size="56"/>
                                 </div>
-                            }
+                                @* The same strip the reference card and the record sheet draw
+                                   (AdversaryLevelGrid): the level, what it adds to the difficulty,
+                                   and the record at it — with a link to those games where there are
+                                   any. Only for a foe still in the catalogue; one played from a box
+                                   since removed has levels but nothing to say about them. *@
+                                @if (adv is not null)
+                                {
+                                    <AdversaryLevelGrid Adversary="adv" Records="LevelRecords(a)"
+                                                        LinkGames="true" RaiseAboveOverlay="true"/>
+                                }
+                            </div>
                         </div>
-                    </button>
-                }
+                    }
+                </div>
             </div>
 
             <CoveragePanel Title="Adversary levels"
@@ -826,6 +865,15 @@ else
                                      ownedAdversaries.Select(a => a.Id.Value),
                                      "adversary")"/>
         </div>;
+
+    /// <summary>
+    /// The server's per-level tally in the shape the shared level strip reads — the same
+    /// projection AspectRecordsOf does for the aspect chips.
+    /// </summary>
+    private static IReadOnlyDictionary<int, SetupInsights.PlayRecord> LevelRecords(AdversaryStats a) =>
+        a.Levels.ToDictionary(
+            l => l.Level,
+            l => new SetupInsights.PlayRecord(l.GamesPlayed, l.Wins, l.Losses));
 
     private RenderFragment<object> AdversaryLevelGroupPill => o =>
         @<text>
@@ -891,7 +939,7 @@ else
                 <div class="surface">
                     <div class="surface-head">
                         <h2 class="text-base font-semibold">All scenarios played</h2>
-                        <span class="text-[11px] text-ink-500">Tap a row for the record sheet</span>
+                        <span class="text-[11px] text-ink-500">Tap a row for the record sheet, a count for those games</span>
                     </div>
                     <div class="table-wrap">
                         <table class="table table-hover">
@@ -911,7 +959,8 @@ else
                                             </button>
                                         </div>
                                     </td>
-                                    <td class="text-right tabular-nums">@s.GamesPlayed</td>
+                                    @GamesCountCell(s.GamesPlayed, GamesLink.ForScenario(s.ScenarioId),
+                                                    $"Every game in {sc?.Name ?? s.ScenarioId}")
                                     <td class="text-right text-accent-700 tabular-nums">@s.Wins</td>
                                     <td class="text-right text-red-600 tabular-nums">@s.Losses</td>
                                     <td>
@@ -987,7 +1036,7 @@ else
                 <div class="surface">
                     <div class="surface-head">
                         <h2 class="text-base font-semibold">All boards played</h2>
-                        <span class="text-[11px] text-ink-500">Tap a row for the record sheet</span>
+                        <span class="text-[11px] text-ink-500">Tap a row for the record sheet, a count for those games</span>
                     </div>
                     <div class="table-wrap">
                         <table class="table table-hover">
@@ -1013,7 +1062,8 @@ else
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="text-right tabular-nums">@b.GamesPlayed</td>
+                                    @GamesCountCell(b.GamesPlayed, GamesLink.ForBoard(b.BoardId),
+                                                    $"Every game with {board?.Name ?? b.BoardId} on the island")
                                     <td class="text-right text-accent-700 tabular-nums">@b.Wins</td>
                                     <td class="text-right text-red-600 tabular-nums">@b.Losses</td>
                                     <td>
@@ -1055,18 +1105,22 @@ else
                                               OnClick="() => _layoutModal.Show(saved)"/>
                         }
                         @* Not one island but a tally of every one-off, so it has no picture to
-                           show and no sheet to open — the tile shape without the tile. *@
+                           show and no sheet to open — the tile shape without the tile. It can
+                           still be opened as the games it counts, which is all it has to say. *@
                         @if (oneOffRecord.Played > 0)
                         {
-                            <div class="flex flex-col items-center rounded-xl border border-dashed border-ink-300 bg-white p-2 text-center"
-                                 title="Hand-built islands that weren't saved to your library">
+                            <a href="@GamesLink.ForOneOffIslands()"
+                               title="Hand-built islands that weren't saved to your library — see those games"
+                               class="flex flex-col items-center rounded-xl border border-dashed border-ink-300 bg-white p-2 text-center
+                                      transition-all hover:-translate-y-px hover:border-ink-400 hover:shadow-sm
+                                      focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
                                 <div class="flex h-20 w-full items-center justify-center text-ink-400">
                                     <Icon Name="map" Class="w-6 h-6"/>
                                 </div>
                                 <div class="mt-1.5 truncate w-full text-xs font-medium text-ink-900">One-off islands</div>
                                 <div class="w-full truncate text-[10px] text-ink-500">hand-built, not saved</div>
                                 <div class="mt-1"><RecordChip Record="oneOffRecord" Subject="One-off islands"/></div>
-                            </div>
+                            </a>
                         }
                     </div>
                 </div>
@@ -1109,21 +1163,58 @@ else
 }
 
 @code {
+    /// <summary>
+    /// A table row's play count, as the way into those games. The number itself is the link:
+    /// the row already opens the record sheet, and a second control per row would be one button
+    /// too many on a page made of tables.
+    /// </summary>
+    private RenderFragment GamesCountCell(int games, string href, string title) =>
+        @<td class="text-right tabular-nums">
+            @if (games > 0)
+            {
+                @* The row opens the sheet, so the link has to keep its click to itself.
+                   A dotted rule rather than the accent colour: in these tables green means won
+                   and red means lost, and a green count would join a conversation it isn't in. *@
+                <a href="@href" title="@title" @onclick:stopPropagation
+                   class="@LinkedCount">
+                    @games
+                </a>
+            }
+            else
+            {
+                @games
+            }
+        </td>;
+
+    /// <summary>
+    /// How a number that is also a link looks: the text tone it would have had, plus a dotted
+    /// rule that firms up into the accent colour on hover. Used wherever a count is the way into
+    /// the games behind it.
+    /// </summary>
+    private const string LinkedCount =
+        "rounded text-ink-900 underline decoration-dotted decoration-ink-300 underline-offset-4 transition-colors " +
+        "hover:text-accent-800 hover:decoration-accent-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40";
+}
+
+@code {
     [CascadingParameter(Name = "OwnedExpansions")]
     public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
 
-    /// <summary>Opens the page on a named tab, so elsewhere can link straight at a slice
-    /// (the dashboard's collection rows do). Ignored when it names no tab we have.</summary>
-    [SupplyParameterFromQuery(Name = "tab")]
+    // The URL holds which tab is open and whose games are counted, and the page writes it back on
+    // every change — so a tab can be linked at, shared, and returned to after following a game
+    // out of it. Read through StatsLink, the same names everything else links with.
+
+    /// <summary>Opens the page on a named tab. Ignored when it names no tab we have.</summary>
+    [SupplyParameterFromQuery(Name = StatsLink.TabKey)]
     public string? TabParam { get; set; }
 
     /// <summary>Opens the page already scoped to a friend — the People page links this way.
     /// Ignored when that account has never sat in one of your games.</summary>
-    [SupplyParameterFromQuery(Name = "user")]
+    [SupplyParameterFromQuery(Name = StatsLink.UserKey)]
     public Guid? ScopeUserParam { get; set; }
 
     /// <summary>The same, for a local player.</summary>
-    [SupplyParameterFromQuery(Name = "player")]
+    [SupplyParameterFromQuery(Name = StatsLink.PlayerKey)]
     public Guid? ScopePlayerParam { get; set; }
 
     private StatisticsResponse? _stats;
@@ -1131,7 +1222,7 @@ else
     private PlayerStats? _scoped;
     private bool _loading = true;
     private bool _scopeOpen;
-    private string _tab = "overview";
+    private string _tab = StatsLink.Overview;
 
     // The raw per-game history behind the record sheets and the layout tallies —
     // the same facts the setup screen and the catalogue pages load.
@@ -1179,39 +1270,58 @@ else
         _savedLayoutRecords = SetupInsights.SavedLayoutRecords(facts);
     }
 
-    private record TabDef(string Key, string Label);
-    private readonly TabDef[] _tabs =
-    [
-        new("overview", "Overview"),
-        new("players", "Players"),
-        new("spirits", "Spirits"),
-        new("adversaries", "Adversaries"),
-        new("scenarios", "Scenarios"),
-        new("boards", "Boards"),
-    ];
-
     /// <summary>Played-entity count shown on the tab pill; null for tabs that aren't a list.</summary>
     private int? TabCount(string key) => key switch
     {
-        "players"     => _unfilteredPlayers.Count > 1 ? _unfilteredPlayers.Count : null,
-        "spirits"     => _stats?.SpiritStatistics.Count,
-        "adversaries" => _stats?.AdversaryStatistics.Count,
-        "scenarios"   => _stats?.ScenarioStatistics.Count,
-        "boards"      => _stats?.BoardStatistics.Count,
-        _             => null,
+        StatsLink.Players     => _unfilteredPlayers.Count > 1 ? _unfilteredPlayers.Count : null,
+        StatsLink.Spirits     => _stats?.SpiritStatistics.Count,
+        StatsLink.Adversaries => _stats?.AdversaryStatistics.Count,
+        StatsLink.Scenarios   => _stats?.ScenarioStatistics.Count,
+        StatsLink.Boards      => _stats?.BoardStatistics.Count,
+        _                     => null,
     };
 
-    private void SetTab(string key) => _tab = key;
+    /// <summary>
+    /// Moves the page by writing the URL rather than by setting a field — the parameters coming
+    /// back are what actually moves it, so there is one path in whether the change came from
+    /// this page, a link elsewhere, or the browser's Back button. Replacing rather than pushing:
+    /// changing whose numbers these are is reading one page, and Back should leave it rather than
+    /// walk back through every pick made on the way. (The tabs are plain links and push, which
+    /// is what makes Back undo a tab.)
+    /// </summary>
+    private void Go(string tab, PlayerStats? scope) =>
+        Nav.NavigateTo(StatsLink.For(tab, scope?.UserId, scope?.PlayerId), forceLoad: false, replace: true);
 
-    // Only when the query itself changes, so clicking a pill isn't undone by the URL
-    // it arrived on still saying something else.
-    private string? _appliedTabParam;
+    /// Whether the one-off loads (the player tally, the raw facts) have happened — the scope
+    /// below is resolved against that tally, so it cannot be applied before it exists.
+    private bool _loaded;
 
-    protected override void OnParametersSet()
+    /// The scope the numbers currently on the page were loaded for.
+    private (Guid? User, Guid? Player)? _appliedScope;
+
+    protected override async Task OnParametersSetAsync()
     {
-        if (TabParam == _appliedTabParam) return;
-        _appliedTabParam = TabParam;
-        if (TabParam is { } key && _tabs.Any(t => t.Key == key)) _tab = key;
+        _tab = StatsLink.IsTab(TabParam) ? TabParam! : StatsLink.Overview;
+
+        if (!_loaded) return;
+
+        var wanted = (ScopeUserParam, ScopePlayerParam);
+        if (_appliedScope == wanted) return;
+        _appliedScope = wanted;
+
+        // A scope naming somebody who has never sat in one of your games resolves to nobody, and
+        // the page stays global rather than showing an empty record for a stranger.
+        var scoped = ScopeUserParam is { } user ? _unfilteredPlayers.FirstOrDefault(p => p.UserId == user)
+            : ScopePlayerParam is { } local ? _unfilteredPlayers.FirstOrDefault(p => p.PlayerId == local)
+            : null;
+        if (SameScope(scoped, _scoped)) return;
+
+        _scoped = scoped;
+        _loading = true;
+        StateHasChanged();
+        await LoadStats(scoped?.UserId, scoped?.PlayerId);
+        RecomputeLayoutRecords();
+        _loading = false;
     }
 
     /// The shared summary line, prefixed with whose it is when the page is scoped.
@@ -1245,22 +1355,16 @@ else
         await LoadStats(scopeUserId: null, scopePlayerId: null);
         _unfilteredPlayers = _stats?.PlayerStatistics ?? [];
 
-        // Arrived scoped at somebody (from a People card, say) — pick them out of the tally the
-        // dropdown reads from, so the whole page behaves as if that pick had been made here.
-        if (ScopeUserParam is { } scopeUser)
-            _scoped = _unfilteredPlayers.FirstOrDefault(p => p.UserId == scopeUser);
-        else if (ScopePlayerParam is { } scopePlayer)
-            _scoped = _unfilteredPlayers.FirstOrDefault(p => p.PlayerId == scopePlayer);
-
-        if (_scoped is not null)
-            await LoadStats(_scoped.UserId, _scoped.PlayerId);
-
         var facts = await Mediator.Send(new GetSetupFactsQuery(userId));
         if (facts.IsSuccess) _facts = facts.Value;
         var layouts = await Mediator.Send(new ListIslandLayoutsQuery(userId));
         if (layouts.IsSuccess) _savedLayouts = layouts.Value;
         RecomputeLayoutRecords();
 
+        // Arriving scoped at somebody (from a People card, say) is the URL's business, not this
+        // method's — OnParametersSetAsync applies it once the tally above exists to resolve it
+        // against, by the same path a pick from the dropdown takes.
+        _loaded = true;
         _loading = false;
     }
 
@@ -1274,17 +1378,17 @@ else
 
     private void ToggleScopePicker() => _scopeOpen = !_scopeOpen;
 
-    private async Task SetScope(PlayerStats? player)
+    /// <summary>
+    /// Picks whose games the page counts. Only writes the URL — the reload happens in
+    /// OnParametersSetAsync, so a pick here and a link in from the People page take one path.
+    /// The tab is carried over: changing whose numbers these are is not a reason to stop
+    /// reading about spirits.
+    /// </summary>
+    private void SetScope(PlayerStats? player)
     {
         _scopeOpen = false;
         if (SameScope(player, _scoped)) return;
-
-        _scoped = player;
-        _loading = true;
-        StateHasChanged();
-        await LoadStats(player?.UserId, player?.PlayerId);
-        RecomputeLayoutRecords();
-        _loading = false;
+        Go(_tab, player);
     }
 
     private static bool SameScope(

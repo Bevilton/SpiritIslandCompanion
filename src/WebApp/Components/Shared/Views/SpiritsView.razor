@@ -70,7 +70,8 @@ else
     <div class="surface mt-6 py-10 text-center text-ink-500">No spirits match the current filters.</div>
 }
 
-<SpiritDetailModal @ref="_modal" OwnedExpansions="@OwnedExpansions" Facts="Facts"/>
+@* LinkGames only where there is a record to link from — see AdversariesView. *@
+<SpiritDetailModal @ref="_modal" OwnedExpansions="@OwnedExpansions" Facts="Facts" LinkGames="@(Records is not null)"/>
 
 @code {
     /// <summary>

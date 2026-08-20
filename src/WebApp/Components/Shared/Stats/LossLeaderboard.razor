@@ -28,24 +28,21 @@
             {
                 var row = Rows[i];
                 var pct = maxLosses > 0 ? row.Losses / (double)maxLosses * 100 : 0;
-                <li class="flex items-center gap-3">
-                    <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-ink-100 text-ink-600 text-[11px] font-semibold tabular-nums shrink-0">
-                        @(i + 1)
-                    </span>
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-baseline justify-between gap-2">
-                            <span class="text-sm font-medium text-ink-900 truncate">@row.Name</span>
-                            <span class="text-sm font-semibold text-red-700 tabular-nums shrink-0" style="font-family: var(--font-serif);">
-                                @row.Losses<span class="text-[11px] text-red-500 ml-0.5">L</span>
-                            </span>
-                        </div>
-                        <div class="mt-1 flex items-center gap-2">
-                            <div class="flex-1 h-1.5 bg-ink-100 rounded-full overflow-hidden">
-                                <div class="h-full bg-red-400 rounded-full" style="width:@($"{pct:F0}")%"></div>
-                            </div>
-                            <span class="text-[10px] text-ink-500 tabular-nums shrink-0">@row.Detail</span>
-                        </div>
-                    </div>
+                @* Given an Href the whole row opens those defeats — the list is a question
+                   ("what keeps beating me?") and the answer is a set of games. *@
+                <li>
+                    @if (row.Href is { } href)
+                    {
+                        <a href="@href" title="@($"{row.Name} — see the {row.Losses} game{(row.Losses == 1 ? "" : "s")} lost")"
+                           class="-mx-1.5 flex items-center gap-3 rounded-lg px-1.5 py-1 transition-colors hover:bg-ink-50
+                                  focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                            @Line(i, row, pct)
+                        </a>
+                    }
+                    else
+                    {
+                        <div class="flex items-center gap-3">@Line(i, row, pct)</div>
+                    }
                 </li>
             }
         </ol>
@@ -53,9 +50,31 @@
 </div>
 
 @code {
+    private static RenderFragment Line(int index, Row row, double pct) =>
+        @<text>
+            <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-ink-100 text-ink-600 text-[11px] font-semibold tabular-nums shrink-0">
+                @(index + 1)
+            </span>
+            <div class="min-w-0 flex-1">
+                <div class="flex items-baseline justify-between gap-2">
+                    <span class="text-sm font-medium text-ink-900 truncate">@row.Name</span>
+                    <span class="text-sm font-semibold text-red-700 tabular-nums shrink-0" style="font-family: var(--font-serif);">
+                        @row.Losses<span class="text-[11px] text-red-500 ml-0.5">L</span>
+                    </span>
+                </div>
+                <div class="mt-1 flex items-center gap-2">
+                    <div class="flex-1 h-1.5 bg-ink-100 rounded-full overflow-hidden">
+                        <div class="h-full bg-red-400 rounded-full" style="width:@($"{pct:F0}")%"></div>
+                    </div>
+                    <span class="text-[10px] text-ink-500 tabular-nums shrink-0">@row.Detail</span>
+                </div>
+            </div>
+        </text>;
+
     [Parameter, EditorRequired] public string Title { get; set; } = "";
     [Parameter] public string? Subtitle { get; set; }
     [Parameter, EditorRequired] public IReadOnlyList<Row> Rows { get; set; } = [];
 
-    public sealed record Row(string Name, int Losses, string Detail);
+    /// <param name="Href">Where the row's defeats can be read — null for a passive list.</param>
+    public sealed record Row(string Name, int Losses, string Detail, string? Href = null);
 }

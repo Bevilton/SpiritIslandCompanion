@@ -41,7 +41,9 @@
                 @if (_profile is not null)
                 {
                     <SetupProfileSection Profile="_profile" Name="@_scenario.Name"
-                                         Title="Your record in this scenario"/>
+                                         Title="Your record in this scenario"
+                                         LinkGames="LinkGames"
+                                         AllGamesHref="@(LinkGames ? GamesLink.ForScenario(_scenario.Id.Value) : null)"/>
                 }
 
                 <div class="pt-2">
@@ -73,6 +75,9 @@
     /// with this scenario; empty or null hides the section (plain reference sheet).
     /// </summary>
     [Parameter] public IReadOnlyList<SetupGameFact>? Facts { get; set; }
+
+    /// <summary>Whether the record may link out to the games behind it — see AdversaryDetailModal.</summary>
+    [Parameter] public bool LinkGames { get; set; }
 
     /// <summary>When set, a footer action picks this scenario — used when opened from the picker.</summary>
     [Parameter] public EventCallback<Scenario> OnSelected { get; set; }

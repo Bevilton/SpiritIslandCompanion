@@ -1,0 +1,141 @@
+@* The escalation ladder of one adversary: a tile per level carrying what it adds to the
+   difficulty and, given a record, how the player has fared at it.
+
+   The one place this strip is drawn. It appears on the catalogue card, inside the record sheet
+   and on the statistics card, and those three were drifting apart — the reference showed only
+   the difficulty, the statistics card only the record, and neither agreed with the sheet. A
+   level means the same thing in all three places, so it looks the same in all three.
+
+   A tile is inert, a pick, or a link to that level's games — never more than one, because only
+   one host ever asks: the setup picker picks, the record surfaces link. *@
+
+@using Application.Features.Statistics
+
+<div class="grid gap-1.5 @Columns">
+    @foreach (var mode in Modes)
+    {
+        var record = Records?.GetValueOrDefault(mode.Level);
+        var played = record?.Played ?? 0;
+        var tile = TileClass(played > 0, Pickable || LinksFor(mode.Level) is not null, Current == mode.Level);
+
+        @if (LinksFor(mode.Level) is { } href)
+        {
+            <a @key="mode.Level" href="@href" title="@Tooltip(mode, record)"
+               class="@tile block focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                @Face(mode, record)
+            </a>
+        }
+        else if (Pickable)
+        {
+            <button @key="mode.Level" type="button" @onclick="() => OnPick.InvokeAsync(mode.Level)"
+                    title="@Tooltip(mode, record)" class="@tile">
+                @Face(mode, record)
+            </button>
+        }
+        else
+        {
+            <div @key="mode.Level" title="@Tooltip(mode, record)" class="@tile">
+                @Face(mode, record)
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private RenderFragment Face(Domain.Models.Static.Mode mode, SetupInsights.PlayRecord? record) =>
+        @<text>
+            <div class="text-[10px] uppercase tracking-wide text-ink-500">L@(mode.Level)</div>
+            <div class="text-sm font-semibold text-ink-900">+@mode.Difficulty</div>
+            @* The record line is drawn even when empty, so the tiles of one strip keep a common
+               height and the ladder reads as a row rather than a comb. *@
+            @if (Records is not null)
+            {
+                <div class="mt-0.5 text-[9px] leading-tight tabular-nums @WinTone.ForRecord(record)">
+                    @(record is { Played: > 0 }
+                        ? $"{record.Played}×{(record.Completed > 0 ? $" · {record.WinRate:F0}%" : "")}"
+                        : "—")
+                </div>
+            }
+        </text>;
+}
+
+@code {
+    /// <summary>
+    /// A foe faced at no level yet: hand this rather than null and the strip still draws its
+    /// record column, as dashes. Null is for the hosts with no reader to have a record at all.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<int, SetupInsights.PlayRecord> NoRecords =
+        new Dictionary<int, SetupInsights.PlayRecord>();
+
+    /// <summary>The adversary, for the per-level games links.</summary>
+    [Parameter, EditorRequired] public Adversary Adversary { get; set; } = default!;
+
+    /// <summary>
+    /// The player's record per level, when there is one. Null leaves the strip a plain
+    /// difficulty reference — which is all the public pages can honestly show.
+    /// </summary>
+    [Parameter] public IReadOnlyDictionary<int, SetupInsights.PlayRecord>? Records { get; set; }
+
+    /// <summary>Set to make each tile pick that level — the setup picker's use.</summary>
+    [Parameter] public EventCallback<int> OnPick { get; set; }
+
+    /// <summary>The level already chosen for this foe, ringed as the current pick.</summary>
+    [Parameter] public int? Current { get; set; }
+
+    /// <summary>
+    /// Whether a level that has been played links to those games. Ignored while the strip is a
+    /// picker: mid-setup a link out would abandon the game being built.
+    /// </summary>
+    [Parameter] public bool LinkGames { get; set; }
+
+    /// <summary>
+    /// Marks the strip as living inside a card whose own click is handled by an overlay button.
+    /// The wrapper is pointer-events-none there, so the links have to opt back in.
+    /// </summary>
+    [Parameter] public bool RaiseAboveOverlay { get; set; }
+
+    /// <summary>The grid's columns. Seven levels fit one row from `sm` up; four wrap below it.</summary>
+    [Parameter] public string Columns { get; set; } = "grid-cols-4 sm:grid-cols-7";
+
+    private IReadOnlyList<Domain.Models.Static.Mode> Modes =>
+        Adversary.Modes.OrderBy(m => m.Level).ToList();
+
+    private bool Pickable => OnPick.HasDelegate;
+
+    /// <summary>A level links only when it has games behind it — an empty list is not an answer.</summary>
+    private string? LinksFor(int level) =>
+        LinkGames && !Pickable && Records?.GetValueOrDefault(level) is { Played: > 0 }
+            ? GamesLink.ForAdversary(Adversary.Id.Value, level)
+            : null;
+
+    private string TileClass(bool played, bool interactive, bool current) =>
+        string.Join(' ', new[]
+        {
+            "rounded-md border px-1 py-1.5 text-center transition-colors",
+            // The current pick outranks the played tint — which level is chosen is the one thing
+            // a picker has to be able to see at a glance.
+            current ? "border-accent-500 bg-accent-50 ring-1 ring-accent-500/30"
+                : played ? "border-ink-300 bg-white"
+                : "border-ink-200 bg-ink-50/60",
+            interactive ? "hover:border-accent-400 hover:bg-accent-50" : null,
+            interactive && RaiseAboveOverlay ? "pointer-events-auto" : null,
+        }.Where(c => c is not null));
+
+    /// <summary>
+    /// What the tile says on hover: the rules it adds, the record at it, and what a click will do.
+    /// One sentence in every host, so the strip explains itself the same way everywhere.
+    /// </summary>
+    private string Tooltip(Domain.Models.Static.Mode mode, SetupInsights.PlayRecord? record)
+    {
+        var line = $"{Adversary.Name} level {mode.Level} · +{mode.Difficulty} difficulty";
+        if (Records is not null)
+        {
+            line += record is { Played: > 0 }
+                ? $" — played {record.Played}×{(record.Completed > 0 ? $", {record.Wins} won / {record.Losses} lost" : ", no results yet")}"
+                : " — never played at this level";
+        }
+        if (Current == mode.Level) return $"{line}. Already the level chosen for this game.";
+        if (Pickable) return $"{line}. Tap to play it.";
+        return LinksFor(mode.Level) is not null ? $"{line}. See those games." : line;
+    }
+}

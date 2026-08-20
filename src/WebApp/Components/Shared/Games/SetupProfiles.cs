@@ -41,7 +41,9 @@ public static class SetupProfiles
     public sealed record ProfileBreakdown(string Title, IReadOnlyList<ProfileRow> Rows, int Hidden);
 
     /// <summary>One game in the recent-games list; <see cref="Context"/> names the rest of the table.</summary>
+    /// <param name="GameId">So a line in a record sheet can be opened as the game it reports.</param>
     public sealed record ProfileGame(
+        Guid GameId,
         DateTimeOffset When,
         bool IsCompleted,
         bool? Win,
@@ -105,6 +107,7 @@ public static class SetupProfiles
                 .OrderByDescending(m => m.Game.StartedAt)
                 .Take(RecentGames)
                 .Select(m => new ProfileGame(
+                    m.Game.GameId,
                     m.Game.StartedAt,
                     m.Game.IsCompleted,
                     m.Game.Win,

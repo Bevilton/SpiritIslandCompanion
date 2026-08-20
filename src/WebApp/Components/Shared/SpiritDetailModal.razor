@@ -71,7 +71,9 @@
                        has nothing for the owner toggle to switch between. *@
                     <SetupProfileSection Profile="_profile" Name="@_spirit.Name" SubjectName="@SubjectName"
                                          Facts="@(SeatFilter is null ? Facts : null)" SubjectId="@_spirit.Id.Value"
-                                         Title="Your record with this spirit"/>
+                                         Title="Your record with this spirit"
+                                         LinkGames="LinkGames"
+                                         AllGamesHref="@(LinkGames ? GamesLink.ForSpirit(_spirit.Id.Value) : null)"/>
                 }
 
                 @if (_aspects.Count > 0)
@@ -126,10 +128,14 @@
                                     @if (_openAspectId == aspect.Id.Value && _aspectProfile is not null)
                                     {
                                         <div class="mt-3 border-t border-ink-100 pt-3">
+                                            @* No "all games" link on a variant: the list can be
+                                               narrowed to a spirit but not to the aspect it was
+                                               played as, so the link would quietly widen. *@
                                             <SetupProfileSection Profile="_aspectProfile" Name="@($"{_spirit.Name} · {aspect.Name}")"
                                                                  SubjectName="@SubjectName"
                                                                  Facts="@(SeatFilter is null ? Facts : null)" SubjectId="@aspect.Id.Value"
-                                                                 Title="@($"Your record as {aspect.Name}")"/>
+                                                                 Title="@($"Your record as {aspect.Name}")"
+                                                                 LinkGames="LinkGames"/>
                                         </div>
                                     }
                                 </li>
@@ -177,6 +183,9 @@
     /// with this spirit; empty or null hides the section entirely (plain reference sheet).
     /// </summary>
     [Parameter] public IReadOnlyList<SetupGameFact>? Facts { get; set; }
+
+    /// <summary>Whether the record may link out to the games behind it — see AdversaryDetailModal.</summary>
+    [Parameter] public bool LinkGames { get; set; }
 
     /// <summary>Scopes the record to one person's seats — a friend sitting in the seat being set up.</summary>
     [Parameter] public Func<SetupFactSeat, bool>? SeatFilter { get; set; }

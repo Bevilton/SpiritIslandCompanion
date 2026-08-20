@@ -48,7 +48,9 @@
                        has nothing for the owner toggle to switch between. *@
                     <SetupProfileSection Profile="_profile" Name="@_board.Name" SubjectName="@SubjectName"
                                          Facts="@(SeatFilter is null ? Facts : null)" SubjectId="@_board.Id.Value"
-                                         Title="Your record on this board"/>
+                                         Title="Your record on this board"
+                                         LinkGames="LinkGames"
+                                         AllGamesHref="@(LinkGames ? GamesLink.ForBoard(_board.Id.Value) : null)"/>
                 </div>
             }
             else if (!ReferenceOnly)
@@ -86,6 +88,9 @@
     /// page went and fetched.
     /// </summary>
     [Parameter] public bool ReferenceOnly { get; set; }
+
+    /// <summary>Whether the record may link out to the games behind it — see AdversaryDetailModal.</summary>
+    [Parameter] public bool LinkGames { get; set; }
 
     /// <summary>Scopes the record to one person's seats — a friend sitting in the seat being set up.</summary>
     [Parameter] public Func<SetupFactSeat, bool>? SeatFilter { get; set; }
