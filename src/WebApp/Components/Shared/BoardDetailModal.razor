@@ -11,8 +11,8 @@
     var color = detail?.ColorHex ?? GameLookups.NeutralColor;
     var letter = GameLookups.BoardLetter(_board);
 
-    <ModalShell OnClose="Close" ZIndex="z-[60]">
-            <div class="px-6 pt-6 pb-5 relative" style="background: linear-gradient(135deg, @(color)18 0%, @(color)08 100%); border-bottom: 1px solid @(color)33;">
+    <ModalShell OnClose="Close" ZIndex="z-[60]" MaxWidth="md:max-w-4xl">
+            <div class="px-6 md:px-8 pt-6 pb-5 relative" style="background: linear-gradient(135deg, @(color)18 0%, @(color)08 100%); border-bottom: 1px solid @(color)33;">
                 <button class="absolute top-4 right-4 inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-500 hover:bg-white/60 hover:text-ink-900 transition-colors" @onclick="Close" aria-label="Close">
                     <Icon Name="x" Class="w-5 h-5"/>
                 </button>
@@ -43,7 +43,7 @@
                don't either — so only a page that went looking for a record reports finding none. *@
             @if (_profile is not null)
             {
-                <div class="overflow-y-auto px-6 py-5">
+                <div class="overflow-y-auto px-6 md:px-8 py-5">
                     @* Facts only when unscoped — a sheet already scoped to one person
                        has nothing for the owner toggle to switch between. *@
                     <SetupProfileSection Profile="_profile" Name="@_board.Name" SubjectName="@SubjectName"
@@ -55,14 +55,14 @@
             }
             else if (!ReferenceOnly)
             {
-                <div class="px-6 py-5">
+                <div class="px-6 md:px-8 py-5">
                     <p class="text-sm text-ink-500 italic">No game history to show for this board yet.</p>
                 </div>
             }
 
             @if (OnSelected.HasDelegate)
             {
-                <div class="flex items-center justify-between gap-3 border-t border-ink-100 bg-ink-50/40 px-6 py-3.5 md:rounded-b-2xl">
+                <div class="flex items-center justify-between gap-3 border-t border-ink-100 bg-ink-50/40 px-6 md:px-8 py-3.5 md:rounded-b-2xl">
                     <button type="button" class="btn btn-ghost btn-sm" @onclick="Close">
                         <Icon Name="arrow-left" Class="w-3.5 h-3.5"/> Back to boards
                     </button>

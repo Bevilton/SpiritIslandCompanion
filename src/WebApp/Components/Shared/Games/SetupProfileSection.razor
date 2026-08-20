@@ -64,12 +64,12 @@
                     <span class="px-2 text-[9px] uppercase leading-tight tracking-wide text-ink-400">no results yet</span>
                 </div>
             }
-            <dl class="grid min-w-0 flex-1 grid-cols-2 gap-x-6 gap-y-1.5 text-xs sm:grid-cols-3">
+            <dl class="grid min-w-0 flex-1 grid-cols-2 gap-x-6 gap-y-1.5 sm:grid-cols-3">
                 @foreach (var stat in HeroStats)
                 {
                     <div class="min-w-0">
-                        <dt class="text-[10px] uppercase tracking-wide text-ink-500">@stat.Label</dt>
-                        <dd class="truncate font-semibold tabular-nums text-ink-900">@stat.Value</dd>
+                        <dt class="text-[11px] uppercase tracking-wide text-ink-500">@stat.Label</dt>
+                        <dd class="truncate text-sm font-semibold tabular-nums text-ink-900">@stat.Value</dd>
                     </div>
                 }
             </dl>
@@ -77,7 +77,7 @@
 
         @if (Timeline is { } timeline)
         {
-            <p class="text-[11px] text-ink-500">@timeline</p>
+            <p class="text-xs text-ink-500">@timeline</p>
         }
 
         @* --- what it was paired with --- *@
@@ -88,16 +88,16 @@
                 {
                     var most = breakdown.Rows.Max(r => r.Record.Played);
                     <div>
-                        <div class="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-ink-500">@breakdown.Title</div>
+                        <div class="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-ink-500">@breakdown.Title</div>
                         <div class="space-y-1">
                             @foreach (var row in breakdown.Rows)
                             {
-                                <div class="flex items-center gap-2 rounded-md px-1.5 py-1 text-[11px]"
+                                <div class="flex items-center gap-2 rounded-md px-1.5 py-1 text-xs"
                                      style="@ShareStyle(row, most)"
                                      title="@RowTooltip(row)">
                                     @if (row.Badge is { } badge)
                                     {
-                                        <span class="inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded px-1 text-[9px] font-bold text-white"
+                                        <span class="inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded px-1 text-[10px] font-bold text-white"
                                               style="background-color: @(row.ColorHex ?? "var(--color-ink-400)"); font-family: var(--font-serif);">@badge</span>
                                     }
                                     else if (row.ColorHex is { } dot)
@@ -108,18 +108,18 @@
                                     <span class="shrink-0 tabular-nums text-ink-500">@(row.Record.Played)×</span>
                                     @if (row.Record.Completed > 0)
                                     {
-                                        <span class="w-8 shrink-0 text-right tabular-nums font-semibold @WinTone.ForRate(row.Record.WinRate)">@($"{row.Record.WinRate:F0}")%</span>
+                                        <span class="w-9 shrink-0 text-right tabular-nums font-semibold @WinTone.ForRate(row.Record.WinRate)">@($"{row.Record.WinRate:F0}")%</span>
                                     }
                                     else
                                     {
-                                        <span class="w-8 shrink-0 text-right text-ink-300">—</span>
+                                        <span class="w-9 shrink-0 text-right text-ink-300">—</span>
                                     }
                                 </div>
                             }
                         </div>
                         @if (breakdown.Hidden > 0)
                         {
-                            <div class="mt-1 px-1.5 text-[10px] text-ink-400">+@breakdown.Hidden more</div>
+                            <div class="mt-1 px-1.5 text-[11px] text-ink-400">+@breakdown.Hidden more</div>
                         }
                     </div>
                 }
@@ -135,12 +135,12 @@
         {
             <div>
                 <div class="mb-1.5 flex items-baseline justify-between gap-2">
-                    <span class="text-[10px] font-medium uppercase tracking-wider text-ink-500">Recent games</span>
+                    <span class="text-[11px] font-medium uppercase tracking-wider text-ink-500">Recent games</span>
                     @* No count on it: the five lines below may be a person's seats or the whole
                        table's, and a number here could only be right for one of them. *@
                     @if (AllGamesHref is { } allHref)
                     {
-                        <a href="@allHref" class="text-[10px] font-medium text-accent-700 hover:text-accent-800 hover:underline"
+                        <a href="@allHref" class="text-[11px] font-medium text-accent-700 hover:text-accent-800 hover:underline"
                            title="@($"Open the games list, filtered to {Name}")">
                             See all games →
                         </a>
@@ -152,14 +152,14 @@
                         @if (LinkGames)
                         {
                             <a href="@GamesLink.Game(game.GameId, null)" title="Open this game"
-                               class="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-2.5 py-1.5 text-[11px] transition-colors
+                               class="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-2.5 py-1.5 text-xs transition-colors
                                       hover:bg-accent-50/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
                                 @GameLine(game)
                             </a>
                         }
                         else
                         {
-                            <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-2.5 py-1.5 text-[11px]">
+                            <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-2.5 py-1.5 text-xs">
                                 @GameLine(game)
                             </div>
                         }
@@ -256,7 +256,7 @@
             : Profile;
 
     private static string OwnerPillClass(bool active) =>
-        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors " +
+        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors " +
         (active
             ? "border-accent-300 bg-accent-100 text-accent-800"
             : "border-ink-200 bg-white text-ink-600 hover:border-ink-300 hover:text-ink-800");

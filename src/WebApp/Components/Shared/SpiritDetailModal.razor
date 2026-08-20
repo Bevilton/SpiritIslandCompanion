@@ -10,9 +10,9 @@
     var detail = _detail;
     var color = detail?.ColorHex ?? GameLookups.NeutralColor;
 
-    <ModalShell OnClose="Close" ZIndex="z-[60]">
+    <ModalShell OnClose="Close" ZIndex="z-[60]" MaxWidth="md:max-w-4xl">
             @* Header band coloured by the spirit *@
-            <div class="px-6 pt-6 pb-5 relative" style="background: linear-gradient(135deg, @(color)18 0%, @(color)08 100%); border-bottom: 1px solid @(color)33;">
+            <div class="px-6 md:px-8 pt-6 pb-5 relative" style="background: linear-gradient(135deg, @(color)18 0%, @(color)08 100%); border-bottom: 1px solid @(color)33;">
                 <button class="absolute top-4 right-4 inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-500 hover:bg-white/60 hover:text-ink-900 transition-colors" @onclick="Close" aria-label="Close">
                     <Icon Name="x" Class="w-5 h-5"/>
                 </button>
@@ -37,14 +37,14 @@
                                 @if (detail.Elements.Count > 0)
                                 {
                                     <div class="flex items-center gap-2">
-                                        <span class="text-[10px] uppercase tracking-wide text-ink-500">Elements</span>
+                                        <span class="text-[11px] uppercase tracking-wide text-ink-500">Elements</span>
                                         <ElementBadges Elements="detail.Elements" Size="md"/>
                                     </div>
                                 }
                                 @if (detail.Tokens.Count > 0)
                                 {
                                     <div class="flex items-center gap-2">
-                                        <span class="text-[10px] uppercase tracking-wide text-ink-500">Tokens</span>
+                                        <span class="text-[11px] uppercase tracking-wide text-ink-500">Tokens</span>
                                         <TokenBadges Tokens="detail.Tokens" Size="md"/>
                                     </div>
                                 }
@@ -55,10 +55,11 @@
             </div>
 
             @* Body *@
-            <div class="overflow-y-auto px-6 py-5 space-y-6">
+            <div class="overflow-y-auto px-6 md:px-8 py-5 space-y-6">
                 @if (detail is not null)
                 {
-                    <p class="text-ink-700 leading-relaxed">@detail.Summary</p>
+                    @* Capped at prose width: the panel is wide for the record tables, not the text. *@
+                    <p class="max-w-prose text-ink-700 leading-relaxed">@detail.Summary</p>
                 }
                 else
                 {
@@ -155,7 +156,7 @@
 
             @if (OnSelected.HasDelegate)
             {
-                <div class="flex items-center justify-between gap-3 border-t border-ink-100 bg-ink-50/40 px-6 py-3.5 md:rounded-b-2xl">
+                <div class="flex items-center justify-between gap-3 border-t border-ink-100 bg-ink-50/40 px-6 md:px-8 py-3.5 md:rounded-b-2xl">
                     <button type="button" class="btn btn-ghost btn-sm" @onclick="Close">
                         <Icon Name="arrow-left" Class="w-3.5 h-3.5"/> Back to spirits
                     </button>

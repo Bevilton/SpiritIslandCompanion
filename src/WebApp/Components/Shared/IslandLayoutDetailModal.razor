@@ -13,8 +13,8 @@
 
 @if (_open)
 {
-    <ModalShell OnClose="Close" ZIndex="z-[60]">
-            <div class="relative border-b px-6 pt-6 pb-5 @HeaderTint">
+    <ModalShell OnClose="Close" ZIndex="z-[60]" MaxWidth="md:max-w-4xl">
+            <div class="relative border-b px-6 md:px-8 pt-6 pb-5 @HeaderTint">
                 <button class="absolute top-4 right-4 inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-500 hover:bg-white/60 hover:text-ink-900 transition-colors" @onclick="Close" aria-label="Close">
                     <Icon Name="x" Class="w-5 h-5"/>
                 </button>
@@ -36,9 +36,9 @@
                 </div>
             </div>
 
-            <div class="overflow-y-auto px-6 py-5 space-y-6">
+            <div class="overflow-y-auto px-6 md:px-8 py-5 space-y-6">
                 @* The island itself, as big as the sheet allows. *@
-                <div class="flex h-44 items-center justify-center rounded-xl border border-ink-200 bg-sky-50/40 p-3 md:h-56">
+                <div class="flex h-44 items-center justify-center rounded-xl border border-ink-200 bg-sky-50/40 p-3 md:h-72">
                     <IslandSetupDiagram Setup="_setup" Geometry="@_geometry" BoardCount="_boardCount"
                                         Label="@_name" Class="max-h-full max-w-full"/>
                 </div>
