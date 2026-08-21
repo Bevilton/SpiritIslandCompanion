@@ -20,7 +20,7 @@ else if (_game is null)
 }
 else
 {
-    var isFreeplay = _game.Adversaries.Count == 0 && _game.ScenarioId is null;
+    var isStandardGame = _game.Adversaries.Count == 0 && _game.ScenarioId is null;
 
     <div class="page-head">
         <div class="min-w-0">
@@ -32,7 +32,7 @@ else
             </a>
             <span class="eyebrow">@(_game.IsCompleted ? "Recorded match" : "Draft in progress")</span>
             <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                <h1 class="page-title @(isFreeplay ? "italic" : "")">
+                <h1 class="page-title @(isStandardGame ? "italic" : "")">
                     @GameLookups.MatchTitle(_game.Adversaries, _game.ScenarioId)
                 </h1>
                 <GameStatusBadge IsCompleted="_game.IsCompleted" Win="_game.Result?.Win"/>

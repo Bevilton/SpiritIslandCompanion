@@ -68,7 +68,7 @@ else
                                 @* A match with neither foe nor scenario is named the same muted,
                                    italic way the games list and the recent strip name it. *@
                                 @{ var title = GameLookups.MatchTitle(g.Adversaries, g.ScenarioId); }
-                                <span class="block truncate text-sm @(title == GameLookups.FreeplayTitle
+                                <span class="block truncate text-sm @(title == GameLookups.StandardGameTitle
                                                                       ? "font-normal italic text-ink-500"
                                                                       : "font-semibold text-ink-900")">
                                     @title

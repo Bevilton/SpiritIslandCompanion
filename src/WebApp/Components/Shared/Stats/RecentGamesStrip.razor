@@ -11,7 +11,7 @@ else
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
         @foreach (var g in Games)
         {
-            var isFreeplay = g.AdversaryIds.Count == 0 && g.ScenarioId is null;
+            var isStandardGame = g.AdversaryIds.Count == 0 && g.ScenarioId is null;
             var border = !g.IsCompleted ? "border-ink-200" : g.Win == true ? "border-accent-300" : "border-red-200";
             var resultClass = !g.IsCompleted ? "text-ink-500" : g.Win == true ? "text-accent-700" : "text-red-700";
             <a href="@GamesLink.Game(g.Id, null)" class="block rounded-xl border @border bg-white hover:shadow-sm hover:border-ink-300 transition-all p-4">
@@ -20,9 +20,9 @@ else
                     <GameStatusBadge IsCompleted="g.IsCompleted" Win="g.Win"/>
                 </div>
                 <div class="text-sm font-semibold text-ink-900 truncate mb-1">
-                    @if (isFreeplay)
+                    @if (isStandardGame)
                     {
-                        <span class="text-ink-500 font-normal italic">@GameLookups.FreeplayTitle</span>
+                        <span class="text-ink-500 font-normal italic">@GameLookups.StandardGameTitle</span>
                     }
                     else
                     {

@@ -427,7 +427,7 @@ public sealed class DemoDataSeeder(IMediator mediator, IAppDbContext db) : IDemo
     /// Unfinished business: drafts sitting on the dashboard, started in the last week. Each one
     /// is named after an adversary or a scenario, because the dashboard titles a game by what it
     /// was fought against and these three cards are the first thing a visitor reads — a draft
-    /// with neither would sit at the top of the demo as "Tutorial / freeplay".
+    /// with neither would sit at the top of the demo as "Standard game".
     /// </summary>
     private List<GamePlan> PlanDrafts()
     {

@@ -276,7 +276,7 @@ else
 
     private RenderFragment GameRow(ListGamesResponse g) => __builder =>
     {
-        var isFreeplay = g.Adversaries.Count == 0 && g.ScenarioId is null;
+        var isStandardGame = g.Adversaries.Count == 0 && g.ScenarioId is null;
         var title = GameLookups.MatchTitle(g.Adversaries, g.ScenarioId);
         // The scenario gets its own chip only when the adversaries took the title.
         var scenarioChip = g.Adversaries.Count > 0 ? GameLookups.ScenarioFor(g.ScenarioId) : null;
@@ -304,7 +304,7 @@ else
                        and middle-click too. *@
                     <a href="@GameHref(g.Id)"
                        class="truncate rounded text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40
-                              @(isFreeplay ? "font-normal italic text-ink-500" : "font-semibold text-ink-900")">
+                              @(isStandardGame ? "font-normal italic text-ink-500" : "font-semibold text-ink-900")">
                         @title
                     </a>
                     @if (scenarioChip is not null)

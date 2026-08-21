@@ -42,11 +42,11 @@ public static class GameLookups
         BoardDetails.For(board.Id)?.Letter ?? board.Name[^1..];
 
     /// <summary>The fallback <see cref="MatchTitle"/>, for callers that style it differently.</summary>
-    public const string FreeplayTitle = "Tutorial / freeplay";
+    public const string StandardGameTitle = "Standard game";
 
     /// <summary>
     /// What a recorded game is called wherever one is listed: the adversaries fought, or the
-    /// scenario when there were none, or "Tutorial / freeplay" when there was neither. One
+    /// scenario when there were none, or "Standard game" when there was neither. One
     /// helper so the games list, the game detail and anything else that names a match agree.
     /// </summary>
     public static string MatchTitle(IReadOnlyList<string> adversaryIds, string? scenarioId)
@@ -56,7 +56,7 @@ public static class GameLookups
             .Where(n => n is not null)
             .ToList();
         if (adversaries.Count > 0) return string.Join(" + ", adversaries);
-        return ScenarioFor(scenarioId)?.Name ?? FreeplayTitle;
+        return ScenarioFor(scenarioId)?.Name ?? StandardGameTitle;
     }
 
     /// <summary>
@@ -64,7 +64,7 @@ public static class GameLookups
     /// callers whose data carries them: "England L3 + Russia L2".
     /// </summary>
     public static string MatchTitle(IReadOnlyList<GameAdversaryResponse> adversaries, string? scenarioId) =>
-        AdversaryLabel(adversaries) ?? ScenarioFor(scenarioId)?.Name ?? FreeplayTitle;
+        AdversaryLabel(adversaries) ?? ScenarioFor(scenarioId)?.Name ?? StandardGameTitle;
 
     /// <summary>The adversaries with their levels, "England L3 + Russia L2" — null when none.</summary>
     public static string? AdversaryLabel(IReadOnlyList<GameAdversaryResponse> adversaries)

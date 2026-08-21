@@ -9,7 +9,7 @@
         .Where(x => x.Adversary is not null)
         .ToList();
 
-    var isFreeplay = adversaries.Count == 0 && scenario is null && !ExtraBoard && !ThematicMaps && DifficultyModifier == 0;
+    var isStandardGame = adversaries.Count == 0 && scenario is null && !ExtraBoard && !ThematicMaps && DifficultyModifier == 0;
 }
 
 <section class="surface overflow-hidden">
@@ -20,9 +20,9 @@
             <div class="text-4xl font-bold text-accent-900 mt-1 leading-none" style="font-family: var(--font-serif);">@Difficulty</div>
         </div>
         <div class="text-xs text-accent-800/70 text-right space-y-0.5">
-            @if (isFreeplay)
+            @if (isStandardGame)
             {
-                <div>@GameLookups.FreeplayTitle</div>
+                <div>@GameLookups.StandardGameTitle</div>
             }
             else
             {
