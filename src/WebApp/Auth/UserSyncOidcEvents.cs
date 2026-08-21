@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Application.Abstractions;
 using Application.Features.Users;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -28,6 +29,10 @@ public sealed class UserSyncOidcEvents(IServiceProvider serviceProvider, IConfig
             return;
 
         using var scope = serviceProvider.CreateScope();
+        // Accounts live in the real database, unconditionally. A visitor signing in from the
+        // demo still carries the demo cookie on this callback request, and without the pin
+        // the sync would create their account inside that throwaway sandbox.
+        scope.ServiceProvider.GetRequiredService<IDemoSessionLocator>().PinToRealDatabase();
         var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
 
         var result = await mediator.Send(new SyncUserCommand(email));

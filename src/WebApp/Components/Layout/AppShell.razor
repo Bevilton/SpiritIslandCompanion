@@ -20,7 +20,12 @@
 @implements IDisposable
 
 <CascadingValue Value="@UserState.OwnedExpansions" Name="OwnedExpansions">
-<div class="h-screen flex bg-ink-50">
+<div class="h-screen flex flex-col bg-ink-50">
+
+@* Full-width, above the sidebar, because it is about the whole app and not any one page. *@
+<DemoRibbon/>
+
+<div class="flex-1 flex min-h-0">
     <aside class="deep hidden md:flex w-60 shrink-0 flex-col">
         <div class="px-5 h-16 flex items-center border-b on-deep-rule">
             <AuthorizeView>
@@ -37,7 +42,12 @@
             <AuthorizeView>
                 <Authorized>
                     @* The account's own name, not the identity provider's — see User.Nickname. *@
-                    @{ var displayName = UserState.DisplayName ?? context.User.Identity?.Name; }
+                    @{
+                        var displayName = UserState.DisplayName ?? context.User.Identity?.Name;
+                        // A demo session has no identity provider to sign out of — leaving it
+                        // goes through /demo/exit, which also discards the sandbox.
+                        var isDemo = DemoClaims.IsDemo(context.User);
+                    }
                     <div class="flex items-center gap-3 px-2 py-1.5">
                         <span class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold text-accent-900"
                               style="background-image: linear-gradient(160deg, var(--color-accent-300), var(--color-accent-500));">
@@ -47,8 +57,8 @@
                             <div class="text-sm font-medium text-ink-50 truncate" title="@displayName">
                                 @displayName
                             </div>
-                            <a href="/logout" class="text-xs on-deep-muted hover:text-ink-50 inline-flex items-center gap-1 transition-colors">
-                                <Icon Name="logout" Class="w-3.5 h-3.5"/> Sign out
+                            <a href="@(isDemo ? "/demo/exit" : "/logout")" class="text-xs on-deep-muted hover:text-ink-50 inline-flex items-center gap-1 transition-colors">
+                                <Icon Name="logout" Class="w-3.5 h-3.5"/> @(isDemo ? "Leave demo" : "Sign out")
                             </a>
                         </div>
                     </div>
@@ -76,6 +86,7 @@
             </div>
         </main>
     </div>
+</div>
 </div>
 
 @* Asked once, on the first authenticated page an unnamed account lands on. *@

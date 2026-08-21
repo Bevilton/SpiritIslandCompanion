@@ -1,10 +1,12 @@
 using ApexCharts;
+using Application.Abstractions;
 using Application.Extensions;
 using Infrastructure.Database;
 using Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
 using WebApp.Auth;
 using WebApp.Components;
+using WebApp.Demo;
 using WebApp.Dev;
 using WebApp.State;
 
@@ -22,6 +24,12 @@ builder.Services.AddApexCharts();
 builder.Services.AddOidcAuthentication(builder.Configuration, builder.Environment);
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<CurrentUserState>();
+
+// The demo sandbox: how a scope learns it belongs to a demo session (the locator reads the
+// sandbox claim), and the background build of the template every sandbox is copied from.
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IDemoSessionLocator, DemoSessionLocator>();
+builder.Services.AddHostedService<DemoTemplateWarmup>();
 
 var app = builder.Build();
 
@@ -49,6 +57,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapAuthEndpoints();
+app.MapDemoEndpoints();
 app.MapDevEndpoints();
 
 app.MapRazorComponents<App>()

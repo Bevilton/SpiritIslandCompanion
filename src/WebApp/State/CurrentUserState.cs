@@ -1,7 +1,9 @@
+using Application.Abstractions;
 using Application.Features.Users;
 using Domain.Models.Static;
 using MediatR;
 using Microsoft.AspNetCore.Components.Authorization;
+using WebApp.Demo;
 
 namespace WebApp.State;
 
@@ -53,43 +55,56 @@ public sealed class CurrentUserState(
     public Task EnsureLoadedAsync()
         => _loaded ? Task.CompletedTask : ReloadAsync();
 
+    /// <summary>
+    /// Joins a load that is still running, else starts a fresh one. Checked via
+    /// <c>IsCompleted</c> rather than nulling the field when the load finishes: a load can
+    /// complete synchronously (the demo sandbox is in-memory SQLite, where every EF await
+    /// finishes on the spot), and then a cleared-on-completion field is re-assigned the
+    /// already-completed task afterwards — leaving it permanently "in flight", so a save's
+    /// reload silently never ran and the page kept stale expansions until a full refresh.
+    /// </summary>
     public Task ReloadAsync()
-        => _inFlight ??= LoadAsync();
+    {
+        if (_inFlight is { IsCompleted: false } running)
+            return running;
+
+        var load = LoadAsync();
+        _inFlight = load;
+        return load;
+    }
 
     private async Task LoadAsync()
     {
-        try
+        var state = await authStateProvider.GetAuthenticationStateAsync();
+        var userId = GetUserId(state);
+        if (userId is null)
         {
-            var userId = await GetUserIdAsync();
-            if (userId is null)
+            OwnedExpansions = null;
+            User = null;
+        }
+        else
+        {
+            using var scope = scopeFactory.CreateScope();
+            // A manually created scope has no principal of its own, so a demo session's
+            // sandbox has to be carried over by hand — otherwise the query below would
+            // look for the demo account in the real database.
+            if (DemoClaims.GetSandboxId(state.User) is { } sandboxId)
+                scope.ServiceProvider.GetRequiredService<IDemoSessionLocator>().PinToSandbox(sandboxId);
+            var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+            var result = await mediator.Send(new GetUserQuery(userId.Value));
+            if (result.IsSuccess)
             {
-                OwnedExpansions = null;
-                User = null;
+                User = result.Value;
+                OwnedExpansions = result.Value.OwnedExpansionIds.Select(id => new ExpansionId(id)).ToList();
             }
-            else
-            {
-                using var scope = scopeFactory.CreateScope();
-                var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
-                var result = await mediator.Send(new GetUserQuery(userId.Value));
-                if (result.IsSuccess)
-                {
-                    User = result.Value;
-                    OwnedExpansions = result.Value.OwnedExpansionIds.Select(id => new ExpansionId(id)).ToList();
-                }
-            }
+        }
 
-            _loaded = true;
-            Changed?.Invoke();
-        }
-        finally
-        {
-            _inFlight = null;
-        }
+        _loaded = true;
+        Changed?.Invoke();
     }
 
-    private async Task<Guid?> GetUserIdAsync()
+    private static Guid? GetUserId(AuthenticationState state)
     {
-        var state = await authStateProvider.GetAuthenticationStateAsync();
         var claim = state.User.FindFirst("db_user_id")?.Value;
         return claim is not null && Guid.TryParse(claim, out var id) ? id : null;
     }

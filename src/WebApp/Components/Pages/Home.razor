@@ -47,10 +47,20 @@
                         @(_signedIn ? "Go to dashboard" : "Get started")
                         <Icon Name="arrow-right" Class="w-4 h-4"/>
                     </a>
-                    <a href="@(_signedIn ? "/app/games/new" : "/spirits")" class="btn btn-glass btn-lg">
-                        @(_signedIn ? "Record a game" : "Browse spirits")
+                    @* The demo, not the catalog: a visitor deciding whether to sign up wants to
+                       see the app full of games, and the reference pages have their own section
+                       further down. The demo signs them into a throwaway sandbox — see
+                       WebApp.Demo.DemoEndpoints. *@
+                    <a href="@(_signedIn ? "/app/games/new" : "/demo")" class="btn btn-glass btn-lg">
+                        @(_signedIn ? "Record a game" : "Try the live demo")
                     </a>
                 </div>
+                @if (!_signedIn)
+                {
+                    <p class="on-deep-muted mt-3 text-xs">
+                        No account needed — the demo is a full sandbox with over two years of sample games.
+                    </p>
+                }
             </div>
 
             @* The island, painted from the same board geometry the playground arranges — see

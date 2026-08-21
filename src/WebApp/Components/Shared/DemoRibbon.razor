@@ -1,0 +1,35 @@
+@* A demo session looks exactly like a signed-in one everywhere else, so this strip is the one
+   honest tell — whose data this is, where changes go, and the ways out of it. Rendered by both
+   shells: a demo visitor can wander onto the public pages too, and losing the ribbon there would
+   leave them signed into sample data with nothing saying so.
+
+   Renders nothing at all for anyone who is not in the demo, so both shells can include it
+   unconditionally. *@
+
+<AuthorizeView>
+    <Authorized>
+        @if (DemoClaims.IsDemo(context.User))
+        {
+            <div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-b border-ember-300
+                        bg-ember-100 px-4 py-2 text-sm text-ember-700">
+                <span>
+                    <span class="font-semibold">Demo island</span>
+                    @* The sentence is the point of the strip, but on a phone it wraps to three
+                       lines and eats the top of a 100vh shell — and the label plus the actions
+                       already say what this is. *@
+                    <span class="hidden sm:inline">
+                        — sample data. Change anything; it stays in your private sandbox.
+                    </span>
+                </span>
+                <span class="flex items-center gap-4">
+                    @* The point of the whole feature: the one place a convinced visitor can act
+                       on it. Signing in replaces the demo cookie, so the sandbox is left behind
+                       to idle out on its own. *@
+                    <a href="/login" class="btn btn-sm btn-primary">Create your account</a>
+                    <a href="/demo/reset" class="font-medium underline underline-offset-2 hover:text-ember-600">Reset data</a>
+                    <a href="/demo/exit" class="font-medium underline underline-offset-2 hover:text-ember-600">Exit demo</a>
+                </span>
+            </div>
+        }
+    </Authorized>
+</AuthorizeView>

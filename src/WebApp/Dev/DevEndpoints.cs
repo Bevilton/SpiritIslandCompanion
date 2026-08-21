@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Application.Abstractions;
 using Application.Features.Games;
 using Application.Features.Games.Dtos;
 using Application.Features.Players;
@@ -34,6 +35,9 @@ public static class DevEndpoints
 
         app.MapGet("/dev-login", async (HttpContext context, IMediator mediator, string email, string? name, string? returnUrl) =>
         {
+            // Same reason as UserSyncOidcEvents: the caller may still be wearing a demo
+            // cookie, and this sign-in must sync against the real database, not a sandbox.
+            context.RequestServices.GetRequiredService<IDemoSessionLocator>().PinToRealDatabase();
             var result = await mediator.Send(new SyncUserCommand(email));
             if (result.IsFailure)
                 return Results.BadRequest(result.Error.Message);
