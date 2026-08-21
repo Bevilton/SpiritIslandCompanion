@@ -26,7 +26,10 @@
     /// <summary>Plays per aspect id. Null means there is no history to report at all.</summary>
     [Parameter] public IReadOnlyDictionary<string, SetupInsights.PlayRecord>? Records { get; set; }
 
-    /// <summary>Marks the aspect currently chosen — null selects the "No aspect" chip.</summary>
+    /// <summary>
+    /// Marks the aspect currently chosen. <see cref="SetupInsights.BaseAspectKey"/> selects the
+    /// "No aspect" chip; null selects nothing.
+    /// </summary>
     [Parameter] public string? SelectedAspectId { get; set; }
 
     /// <summary>Whether "No aspect" leads the row as a chip of its own.</summary>
@@ -40,7 +43,7 @@
 
     private RenderFragment Chip(Aspect? aspect, string label, SetupInsights.PlayRecord? record) => __builder =>
     {
-        var selected = SelectedAspectId == aspect?.Id.Value;
+        var selected = SelectedAspectId == (aspect?.Id.Value ?? SetupInsights.BaseAspectKey);
         var played = record?.Played ?? 0;
         var never = Records is not null && played == 0;
         var css = ChipClass(selected, never);

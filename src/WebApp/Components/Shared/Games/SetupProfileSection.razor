@@ -130,7 +130,7 @@
                     {
                         <a href="@allHref" class="text-[11px] font-medium text-accent-700 hover:text-accent-800 hover:underline"
                            title="@AllGamesTitle">
-                            See all games →
+                            @AllGamesLabel →
                         </a>
                     }
                 </div>
@@ -205,18 +205,27 @@
     [Parameter] public bool LinkGames { get; set; }
 
     /// <summary>
-    /// The games list narrowed to this subject, when there is a filter that expresses it. Shown
-    /// beside the recent-games heading, since those five are rarely all of them. The host builds
-    /// it with the same scope it gave the numbers, so following it can't widen the slice.
+    /// The games list narrowed to this subject, or to the nearest slice the list can express.
+    /// Shown beside the recent-games heading, since those five are rarely all of them. The host
+    /// builds it with the same person-scope it gave the numbers, so following it can't widen
+    /// whose games they are — when it is wider in another way (the aspect-focused sheet links to
+    /// every game with the spirit), <see cref="AllGamesLabel"/> and <see cref="AllGamesSubject"/>
+    /// say so instead of letting the link quietly widen.
     /// </summary>
     [Parameter] public string? AllGamesHref { get; set; }
+
+    /// <summary>The link's visible words — overridden when the link is wider than the heading.</summary>
+    [Parameter] public string AllGamesLabel { get; set; } = "See all games";
+
+    /// <summary>What the link actually filters to, for its tooltip, when that isn't <see cref="Name"/>.</summary>
+    [Parameter] public string? AllGamesSubject { get; set; }
 
     /// The link carries the sheet's scope, so its tooltip says so rather than promising the
     /// whole history behind a link that won't deliver it.
     private string AllGamesTitle =>
-        SubjectName is { } name ? $"Open the games list, filtered to {Name} and {name}'s games"
-        : Scoped ? $"Open the games list, filtered to {Name} and your games"
-        : $"Open the games list, filtered to {Name}";
+        SubjectName is { } name ? $"Open the games list, filtered to {AllGamesSubject ?? Name} and {name}'s games"
+        : Scoped ? $"Open the games list, filtered to {AllGamesSubject ?? Name} and your games"
+        : $"Open the games list, filtered to {AllGamesSubject ?? Name}";
 
     /// Whether the subject sits in a seat, which is what decides how the scope narrowed the
     /// history — by dropping the other seats, or by dropping games the person was not at.

@@ -2,6 +2,12 @@
    — including per level inside the difficulty grid — and given OnSelected a level can
    be picked straight from here.
 
+   The levels double as the record's focus: outside the picker, tapping a level narrows
+   the profile below to the games at that level alone, and tapping it again widens back
+   to every level — the same switch the spirit sheet gives its aspects, because a level
+   is to a foe what an aspect is to a spirit. The way out to those games is the
+   profile's own "See all games" link, which follows the focus.
+
    A foe is the whole table's, so a host that scopes to one person scopes by the games
    they sat in (SeatFilter, applied through SetupProfiles.GamesWith) rather than by
    seats; SubjectName names them, and every heading and link here follows.
@@ -48,23 +54,26 @@
 
                 @* The one grid that carries both the rules and the record — the same strip the
                    catalogue card and the statistics card draw (see AdversaryLevelGrid), so a
-                   level reads the same wherever it is met. *@
+                   level reads the same wherever it is met. In the picker a tap takes the level;
+                   everywhere else it focuses the profile below on it. *@
                 <div>
                     <h3 class="text-sm font-medium uppercase tracking-wide text-ink-500 mb-3">
                         @LevelGridTitle
                     </h3>
                     <AdversaryLevelGrid Adversary="_adversary"
                                         Records="@(_profile is null ? null : _facing?.Levels ?? AdversaryLevelGrid.NoRecords)"
-                                        OnPick="PickLevel" LinkGames="LinkGames" ScopeWho="@ScopeWho"/>
+                                        OnPick="LevelTap" Current="_level"
+                                        TapHint="@(OnSelected.HasDelegate ? "Tap to play it." : "Tap to focus the record on this level.")"
+                                        CurrentHint="The record below is focused on this level — tap again for every level."/>
                     <p class="mt-2 text-xs text-ink-500">
                         Each level adds escalation rules.
                         @if (OnSelected.HasDelegate)
                         {
                             <text>Tap a level to play it.</text>
                         }
-                        else if (LinkGames && _profile is not null)
+                        else if (_profile is not null)
                         {
-                            <text>@LevelGridHint</text>
+                            <text>Tap a level to focus the record on it — tap again for every level.</text>
                         }
                         else
                         {
@@ -75,11 +84,11 @@
 
                 @if (_profile is not null)
                 {
-                    <SetupProfileSection Profile="_profile" Name="@_adversary.Name"
+                    <SetupProfileSection Profile="_profile" Name="@ProfileName"
                                          Scoped="@(SeatFilter is not null)" SubjectName="@SubjectName"
-                                         Title="record against this foe"
+                                         Title="@ProfileTitle"
                                          LinkGames="LinkGames"
-                                         AllGamesHref="@(LinkGames ? GamesLink.ForAdversary(_adversary.Id.Value, who: ScopeWho) : null)"/>
+                                         AllGamesHref="@(LinkGames ? GamesLink.ForAdversary(_adversary.Id.Value, _level, who: ScopeWho) : null)"/>
                 }
 
                 <div class="pt-2">
@@ -138,6 +147,14 @@
     private SetupProfiles.Profile? _profile;
     private SetupInsights.AdversaryFacing? _facing;
 
+    /// The history behind the sheet, already narrowed to the person it is about — kept so
+    /// focusing a level is a recount rather than a rebuild of the scope.
+    private IReadOnlyList<SetupGameFact>? _scopedFacts;
+
+    /// The level the profile is focused on; null profiles every level at once. Never set in
+    /// picker mode, where a tap is the pick and the profile stays every level's.
+    private int? _level;
+
     /// The level grid reports the same slice as the profile below it, so its heading names the
     /// same owner rather than calling the whole table's record the reader's.
     private string LevelGridTitle =>
@@ -146,25 +163,30 @@
         : SeatFilter is not null ? "Difficulty and your record by level"
         : "Difficulty and record by level";
 
-    private string LevelGridHint =>
-        SubjectName is { } name ? $"Tap a level {name} has played to see those games."
-        : SeatFilter is not null ? "Tap a level you've played to see those games."
-        : "Tap a level with games behind it to see them.";
+    /// What the profile is of follows the focus, so its heading and empty state name the level
+    /// they are actually counting — "Your record at level 3", "never faced England at level 3".
+    private string ProfileTitle =>
+        _level is { } l ? $"record at level {l}" : "record against this foe";
 
-    public void Show(Adversary adversary)
+    private string ProfileName =>
+        _level is { } l ? $"{_adversary!.Name} at level {l}" : _adversary!.Name;
+
+    /// <param name="level">Opens with the profile already focused on this level — how a level
+    /// tile on a catalogue or statistics card lands here. Ignored in picker mode, where a tap
+    /// is the pick rather than the focus switch.</param>
+    public void Show(Adversary adversary, int? level = null)
     {
         _adversary = adversary;
         _detail = AdversaryDetails.For(adversary.Id);
         // Scoped by dropping the games the person was not at. Built even when that leaves
         // nothing, so the sheet can report an empty record as theirs rather than vanishing.
-        var facts = Facts is { Count: > 0 } ? SetupProfiles.GamesWith(Facts, SeatFilter) : null;
-        _profile = facts is not null
-            ? SetupProfiles.Build(SetupSubjectKind.Adversary, adversary.Id.Value, facts)
-            : null;
+        _scopedFacts = Facts is { Count: > 0 } ? SetupProfiles.GamesWith(Facts, SeatFilter) : null;
         // Null once the foe has never been faced — the grid then shows "—" per level.
-        _facing = facts is not null
-            ? SetupInsights.AdversaryRecords(facts).GetValueOrDefault(adversary.Id.Value)
+        _facing = _scopedFacts is not null
+            ? SetupInsights.AdversaryRecords(_scopedFacts).GetValueOrDefault(adversary.Id.Value)
             : null;
+        _level = OnSelected.HasDelegate || _scopedFacts is null ? null : level;
+        RebuildProfile();
         StateHasChanged();
     }
 
@@ -174,16 +196,42 @@
         _detail = null;
         _profile = null;
         _facing = null;
+        _scopedFacts = null;
+        _level = null;
     }
 
     /// <summary>
-    /// The level tiles are only a pick where somebody is listening for one. Handed <see cref="Select"/>
-    /// unconditionally, the grid took every host for a picker: on the statistics and reference
-    /// pages the tiles became buttons that swallowed the click and did nothing, hiding the links
-    /// to those levels' games behind them.
+    /// The level tiles are a pick where somebody is listening for one, and the record's focus
+    /// switch where there is a record — never both, so mid-setup a tap can only ever mean the
+    /// choice being made. With neither (the public reference sheet) they are inert.
     /// </summary>
-    private EventCallback<int> PickLevel =>
-        OnSelected.HasDelegate ? EventCallback.Factory.Create<int>(this, Select) : default;
+    private EventCallback<int> LevelTap =>
+        OnSelected.HasDelegate ? EventCallback.Factory.Create<int>(this, Select)
+        : _profile is not null ? EventCallback.Factory.Create<int>(this, ToggleLevel)
+        : default;
+
+    private void ToggleLevel(int level)
+    {
+        _level = _level == level ? null : level;
+        RebuildProfile();
+    }
+
+    /// The profile counts what the focus says: every game against the foe, or only those with
+    /// it at the focused level. The grid keeps the full per-level map either way — it is the
+    /// switch, so it has to keep showing everything there is to switch to.
+    private void RebuildProfile()
+    {
+        if (_adversary is null || _scopedFacts is null)
+        {
+            _profile = null;
+            return;
+        }
+        var id = _adversary.Id.Value;
+        var facts = _level is { } l
+            ? _scopedFacts.Where(g => g.Adversaries.Any(a => a.AdversaryId == id && a.Level == l)).ToList()
+            : _scopedFacts;
+        _profile = SetupProfiles.Build(SetupSubjectKind.Adversary, id, facts);
+    }
 
     private async Task Select(int level)
     {

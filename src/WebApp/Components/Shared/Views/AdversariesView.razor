@@ -31,9 +31,10 @@
         var detail = AdversaryDetails.For(a.Id);
         var levels = _facing?.GetValueOrDefault(a.Id.Value)?.Levels
                      ?? (Records is null ? null : AdversaryLevelGrid.NoRecords);
-        @* A card whose numbers link has to stop being a button — a link inside one is not
-           something the browser will render. The disclosure becomes a full-card overlay and the
-           level tiles are raised above it, the same arrangement the statistics cards use. *@
+        @* A card holding tappable level tiles has to stop being one big button — a button inside
+           one is not something the browser will render. The disclosure becomes a full-card
+           overlay and the level tiles are raised above it, the same arrangement the statistics
+           cards use. *@
         <div @key="a.Id.Value"
              class="surface relative p-5 transition-all hover:shadow-sm hover:-translate-y-px md:p-6">
             <button type="button" @onclick="() => OpenDetail(a)"
@@ -70,13 +71,16 @@
 
                 @* The same strip the record sheet and the statistics card draw — which is why a
                    signed-in reader sees their record per level here too, rather than having to
-                   open the sheet to find out that this page was showing them half the picture. *@
+                   open the sheet to find out that this page was showing them half the picture.
+                   A tap opens the sheet already focused on that level, the same thing a tap on
+                   a level means inside the sheet itself. *@
                 <div class="mt-5">
                     <div class="text-xs uppercase tracking-wide text-ink-500 mb-2">
                         @(Records is null ? "Difficulty by level" : "Difficulty and record by level")
                     </div>
                     <AdversaryLevelGrid Adversary="a" Records="levels" Columns="grid-cols-7"
-                                        LinkGames="@(Records is not null)" RaiseAboveOverlay="true"/>
+                                        OnPick="LevelTap(a)" TapHint="Opens the record sheet focused on this level."
+                                        RaiseAboveOverlay="true"/>
                 </div>
             </div>
         </div>
@@ -129,4 +133,11 @@
     private IReadOnlyList<Adversary> _visible => _filter.Apply(_inScope);
 
     private void OpenDetail(Adversary a) => _modal.Show(a);
+
+    /// <summary>
+    /// A level tile opens the sheet focused on that level — but only where there is a record to
+    /// focus: on the public route the tiles stay inert and the card's overlay is the one door.
+    /// </summary>
+    private EventCallback<int> LevelTap(Adversary a) =>
+        Records is null ? default : EventCallback.Factory.Create<int>(this, (int level) => _modal.Show(a, level));
 }

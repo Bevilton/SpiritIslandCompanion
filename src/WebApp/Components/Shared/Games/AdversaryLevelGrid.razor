@@ -6,8 +6,10 @@
    the difficulty, the statistics card only the record, and neither agreed with the sheet. A
    level means the same thing in all three places, so it looks the same in all three.
 
-   A tile is inert, a pick, or a link to that level's games — never more than one, because only
-   one host ever asks: the setup picker picks, the record surfaces link. *@
+   A tile is inert or a tap, never a link: the setup picker's tap picks the level, a card's tap
+   opens the record sheet at it, and the sheet's own tap focuses its record on it. What a tap
+   does belongs to the host — TapHint puts the host's answer in the tooltip. The way from a
+   level to its games is the sheet's "See all games" link, never a tile. *@
 
 @using Application.Features.Statistics
 
@@ -16,19 +18,13 @@
     {
         var record = Records?.GetValueOrDefault(mode.Level);
         var played = record?.Played ?? 0;
-        var tile = TileClass(played > 0, Pickable || LinksFor(mode.Level) is not null, Current == mode.Level);
+        var tile = TileClass(played > 0, Pickable, Current == mode.Level);
 
-        @if (LinksFor(mode.Level) is { } href)
-        {
-            <a @key="mode.Level" href="@href" title="@Tooltip(mode, record)"
-               class="@tile block focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
-                @Face(mode, record)
-            </a>
-        }
-        else if (Pickable)
+        @if (Pickable)
         {
             <button @key="mode.Level" type="button" @onclick="() => OnPick.InvokeAsync(mode.Level)"
-                    title="@Tooltip(mode, record)" class="@tile">
+                    title="@Tooltip(mode, record)"
+                    class="@tile focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
                 @Face(mode, record)
             </button>
         }
@@ -67,7 +63,6 @@
     public static readonly IReadOnlyDictionary<int, SetupInsights.PlayRecord> NoRecords =
         new Dictionary<int, SetupInsights.PlayRecord>();
 
-    /// <summary>The adversary, for the per-level games links.</summary>
     [Parameter, EditorRequired] public Adversary Adversary { get; set; } = default!;
 
     /// <summary>
@@ -76,50 +71,42 @@
     /// </summary>
     [Parameter] public IReadOnlyDictionary<int, SetupInsights.PlayRecord>? Records { get; set; }
 
-    /// <summary>Set to make each tile pick that level — the setup picker's use.</summary>
+    /// <summary>Set to make each tile tappable; what the tap does is the host's — see TapHint.</summary>
     [Parameter] public EventCallback<int> OnPick { get; set; }
 
-    /// <summary>The level already chosen for this foe, ringed as the current pick.</summary>
+    /// <summary>The level the host has singled out — the picker's chosen level, the sheet's focus.</summary>
     [Parameter] public int? Current { get; set; }
 
     /// <summary>
-    /// Whether a level that has been played links to those games. Ignored while the strip is a
-    /// picker: mid-setup a link out would abandon the game being built.
+    /// What a tap does, for the tooltip. The default is the setup picker's; the cards and the
+    /// record sheet say what a tap means where they are ("Opens the record sheet focused on
+    /// this level.", "Tap to focus the record on this level.").
     /// </summary>
-    [Parameter] public bool LinkGames { get; set; }
+    [Parameter] public string TapHint { get; set; } = "Tap to play it.";
+
+    /// <summary>What the ring on <see cref="Current"/> means, for its tooltip.</summary>
+    [Parameter] public string CurrentHint { get; set; } = "Already the level chosen for this game.";
 
     /// <summary>
     /// Marks the strip as living inside a card whose own click is handled by an overlay button.
-    /// The wrapper is pointer-events-none there, so the links have to opt back in.
+    /// The wrapper is pointer-events-none there, so the tiles have to opt back in.
     /// </summary>
     [Parameter] public bool RaiseAboveOverlay { get; set; }
 
     /// <summary>The grid's columns. Seven levels fit one row from `sm` up; four wrap below it.</summary>
     [Parameter] public string Columns { get; set; } = "grid-cols-4 sm:grid-cols-7";
 
-    /// <summary>
-    /// The person the host's numbers are scoped to, as a games-list <c>who</c> key — so a level's
-    /// link opens the same games its count counted. Null where the host counts the whole account.
-    /// </summary>
-    [Parameter] public string? ScopeWho { get; set; }
-
     private IReadOnlyList<Domain.Models.Static.Mode> Modes =>
         Adversary.Modes.OrderBy(m => m.Level).ToList();
 
     private bool Pickable => OnPick.HasDelegate;
 
-    /// <summary>A level links only when it has games behind it — an empty list is not an answer.</summary>
-    private string? LinksFor(int level) =>
-        LinkGames && !Pickable && Records?.GetValueOrDefault(level) is { Played: > 0 }
-            ? GamesLink.ForAdversary(Adversary.Id.Value, level, who: ScopeWho)
-            : null;
-
     private string TileClass(bool played, bool interactive, bool current) =>
         string.Join(' ', new[]
         {
             "rounded-md border px-1 py-1.5 text-center transition-colors",
-            // The current pick outranks the played tint — which level is chosen is the one thing
-            // a picker has to be able to see at a glance.
+            // The current level outranks the played tint — which level is chosen, or focused,
+            // is the one thing the host has to be able to see at a glance.
             current ? "border-accent-500 bg-accent-50 ring-1 ring-accent-500/30"
                 : played ? "border-ink-300 bg-white"
                 : "border-ink-200 bg-ink-50/60",
@@ -128,7 +115,7 @@
         }.Where(c => c is not null));
 
     /// <summary>
-    /// What the tile says on hover: the rules it adds, the record at it, and what a click will do.
+    /// What the tile says on hover: the rules it adds, the record at it, and what a tap will do.
     /// One sentence in every host, so the strip explains itself the same way everywhere.
     /// </summary>
     private string Tooltip(Domain.Models.Static.Mode mode, SetupInsights.PlayRecord? record)
@@ -140,8 +127,7 @@
                 ? $" — played {record.Played}×{(record.Completed > 0 ? $", {record.Wins} won / {record.Losses} lost" : ", no results yet")}"
                 : " — never played at this level";
         }
-        if (Current == mode.Level) return $"{line}. Already the level chosen for this game.";
-        if (Pickable) return $"{line}. Tap to play it.";
-        return LinksFor(mode.Level) is not null ? $"{line}. See those games." : line;
+        if (Current == mode.Level) return $"{line}. {CurrentHint}";
+        return Pickable ? $"{line}. {TapHint}" : line;
     }
 }

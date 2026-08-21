@@ -2,6 +2,12 @@
    and given OnSelected it can be chosen straight from here — that is how the setup
    screen lets you explore before committing to a pick.
 
+   The aspects are one strip of tiles, each carrying the variant's blurb and record —
+   the way the adversary sheet's level tiles carry the difficulty and record, because
+   an aspect is to a spirit what a level is to a foe. Outside the picker a tap focuses
+   the profile below on that variant and a second tap widens back; in the picker a tap
+   plays it, "No aspect" tile included, mirroring how a level is picked.
+
    Whose history that is belongs to the host, not to this sheet: SeatFilter narrows it
    to one person's seats and SubjectName names them. The catalogue pages pass neither,
    so a sheet there is the whole account's; the statistics page passes its selector and
@@ -72,80 +78,44 @@
                     <p class="text-ink-500 italic">No additional information available.</p>
                 }
 
-                @if (_profile is not null)
-                {
-                    <SetupProfileSection Profile="_profile" Name="@_spirit.Name"
-                                         Scoped="@(SeatFilter is not null)" SubjectName="@SubjectName"
-                                         Title="record with this spirit"
-                                         LinkGames="LinkGames"
-                                         AllGamesHref="@(LinkGames ? GamesLink.ForSpirit(_spirit.Id.Value, who: ScopeWho) : null)"/>
-                }
-
+                @* The variant strip: reference and switch in one, the spirit as printed leading
+                   it. There used to be a chips row up here and a card list at the bottom saying
+                   the same things twice — one strip in one shape, shared with nothing but styled
+                   exactly like the adversary sheet's level tiles, replaces both. *@
                 @if (_aspects.Count > 0)
                 {
                     <div>
-                        <h3 class="text-sm font-medium uppercase tracking-wide text-ink-500 mb-3">Aspects</h3>
-                        <ul class="space-y-3">
+                        <h3 class="text-sm font-medium uppercase tracking-wide text-ink-500 mb-3">@AspectGridTitle</h3>
+                        <div class="grid gap-1.5 sm:grid-cols-2">
+                            @AspectTile(null)
                             @foreach (var aspect in _aspects)
                             {
-                                var aspectDetail = AspectDetails.For(aspect.Id);
-                                var record = _aspectRecords?.GetValueOrDefault(aspect.Id.Value);
-                                <li class="rounded-lg border border-ink-200 p-4">
-                                    <div class="flex items-center gap-2">
-                                        <span class="h-2 w-2 rounded-full shrink-0" style="background-color: @color;"></span>
-                                        <span class="font-medium text-ink-900">@aspect.Name</span>
-                                        @if (!Owns(aspect))
-                                        {
-                                            <span class="badge badge-neutral" title="Played at a table where someone else brought this expansion">
-                                                not in your collection
-                                            </span>
-                                        }
-                                        <span class="ml-auto text-[11px] uppercase tracking-wide text-ink-400">@GameLookups.ExpansionName(aspect.ExpansionId)</span>
-                                    </div>
-                                    @if (aspectDetail is not null)
-                                    {
-                                        <p class="mt-2 text-sm text-ink-600 leading-relaxed">@aspectDetail.Summary</p>
-                                    }
-                                    @* An aspect's own record, and the door to playing it: the sheet is
-                                       where you compare the variants, so it is where you commit to one. *@
-                                    @if (_aspectRecords is not null || OnSelected.HasDelegate)
-                                    {
-                                        <div class="mt-3 flex flex-wrap items-center gap-2">
-                                            @if (_aspectRecords is not null)
-                                            {
-                                                <RecordChip Record="record" Subject="@($"{_spirit.Name} · {aspect.Name}")"
-                                                            NeverLabel="@(SubjectName is null ? "Never played" : $"{SubjectName}: never played")"
-                                                            OnClick="() => ShowAspectProfile(aspect)"/>
-                                            }
-                                            @* No action for a variant you don't own: the collection decides what you
-                                               can set up, even though it never decides what you can read. *@
-                                            @if (OnSelected.HasDelegate && Owns(aspect))
-                                            {
-                                                <button type="button" class="btn btn-secondary btn-sm"
-                                                        @onclick="() => Select(aspect)">
-                                                    <Icon Name="check" Class="w-3.5 h-3.5"/> Play as @aspect.Name
-                                                </button>
-                                            }
-                                        </div>
-                                    }
-                                    @* The variant's full profile, in place — the same section the spirit
-                                       itself gets, so the two are read the same way. *@
-                                    @if (_openAspectId == aspect.Id.Value && _aspectProfile is not null)
-                                    {
-                                        <div class="mt-3 border-t border-ink-100 pt-3">
-                                            @* No "all games" link on a variant: the list can be
-                                               narrowed to a spirit but not to the aspect it was
-                                               played as, so the link would quietly widen. *@
-                                            <SetupProfileSection Profile="_aspectProfile" Name="@($"{_spirit.Name} · {aspect.Name}")"
-                                                                 Scoped="@(SeatFilter is not null)" SubjectName="@SubjectName"
-                                                                 Title="@($"record as {aspect.Name}")"
-                                                                 LinkGames="LinkGames"/>
-                                        </div>
-                                    }
-                                </li>
+                                @AspectTile(aspect)
                             }
-                        </ul>
+                        </div>
+                        <p class="mt-2 text-xs text-ink-500">
+                            An aspect rewrites how the spirit plays.
+                            @if (OnSelected.HasDelegate)
+                            {
+                                <text>Tap a variant to play it.</text>
+                            }
+                            else if (_profile is not null)
+                            {
+                                <text>Tap one to focus the record on it — tap again for every variant.</text>
+                            }
+                        </p>
                     </div>
+                }
+
+                @if (_profile is not null)
+                {
+                    <SetupProfileSection Profile="_profile" Name="@ProfileName"
+                                         Scoped="@(SeatFilter is not null)" SubjectName="@SubjectName"
+                                         Title="@ProfileTitle"
+                                         LinkGames="LinkGames"
+                                         AllGamesHref="@(LinkGames ? GamesLink.ForSpirit(_spirit.Id.Value, who: ScopeWho) : null)"
+                                         AllGamesLabel="@(_scope is null ? "See all games" : "All games with this spirit")"
+                                         AllGamesSubject="@(_scope is null ? null : $"{_spirit.Name} (every variant)")"/>
                 }
 
                 <div class="pt-2">
@@ -159,19 +129,85 @@
 
             @if (OnSelected.HasDelegate)
             {
-                <div class="flex items-center justify-between gap-3 border-t border-ink-100 bg-ink-50/40 px-6 md:px-8 py-3.5 md:rounded-b-2xl">
+                <div class="flex items-center gap-3 border-t border-ink-100 bg-ink-50/40 px-6 md:px-8 py-3.5 md:rounded-b-2xl">
                     <button type="button" class="btn btn-ghost btn-sm" @onclick="Close">
                         <Icon Name="arrow-left" Class="w-3.5 h-3.5"/> Back to spirits
                     </button>
-                    @* Each aspect has its own action above, so this one has to say it takes the
-                       spirit plain rather than whichever variant was last read. *@
-                    <button type="button" class="btn btn-primary" @onclick="() => Select(null)">
-                        <Icon Name="check" Class="w-4 h-4"/>
-                        Play @_spirit.Name@(_aspects.Count > 0 ? " · no aspect" : "")
-                    </button>
+                    @* The variants above are the pick, exactly like the adversary sheet's levels
+                       — except a spirit without any still needs a way to be taken. *@
+                    @if (_aspects.Count > 0)
+                    {
+                        <span class="ml-auto text-xs text-ink-500">Pick a variant above to play this spirit.</span>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-primary ml-auto" @onclick="() => Select(null)">
+                            <Icon Name="check" Class="w-4 h-4"/> Play @_spirit.Name
+                        </button>
+                    }
                 </div>
             }
     </ModalShell>
+}
+
+@code {
+    /// One variant tile: the spirit as printed (null), or one of its aspects — the blurb, the
+    /// record, and the tap the mode gives it. In the picker an unowned variant is inert: the
+    /// collection decides what you can set up, even though it never decides what you can read.
+    private RenderFragment AspectTile(Aspect? aspect) => __builder =>
+    {
+        var key = aspect?.Id.Value ?? SetupInsights.BaseAspectKey;
+        var record = _aspectRecords?.GetValueOrDefault(key);
+        var owned = aspect is null || Owns(aspect);
+        var tappable = OnSelected.HasDelegate ? owned : _profile is not null;
+        var ringed = (OnSelected.HasDelegate ? _current : _scope) == key;
+        var tile = TileClass(record is { Played: > 0 }, tappable, ringed);
+        var tooltip = AspectTooltip(aspect, record, ringed, tappable);
+
+        @if (tappable)
+        {
+            <button @key="key" type="button" @onclick="() => AspectTap(aspect)" title="@tooltip"
+                    class="@tile focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                @AspectFace(aspect, record, owned)
+            </button>
+        }
+        else
+        {
+            <div @key="key" title="@tooltip" class="@tile">
+                @AspectFace(aspect, record, owned)
+            </div>
+        }
+    };
+
+    private RenderFragment AspectFace(Aspect? aspect, SetupInsights.PlayRecord? record, bool owned) => __builder =>
+    {
+        <div class="flex items-baseline gap-2">
+            <span class="text-sm font-medium text-ink-900">@(aspect?.Name ?? "No aspect")</span>
+            @if (!owned)
+            {
+                <span class="badge badge-neutral shrink-0" title="Played at a table where someone else brought this expansion">
+                    not in your collection
+                </span>
+            }
+            @if (aspect is not null)
+            {
+                <span class="ml-auto shrink-0 text-[10px] uppercase tracking-wide text-ink-400">@GameLookups.ExpansionName(aspect.ExpansionId)</span>
+            }
+        </div>
+        <p class="mt-1 text-xs leading-relaxed text-ink-600">
+            @(aspect is null ? "The spirit as printed, without a variant." : AspectDetails.For(aspect.Id)?.Summary)
+        </p>
+        @* The record line is drawn even when empty, so the tiles keep a common shape — the
+           same rule the level tiles follow, worded rather than dashed on this wider face. *@
+        @if (_aspectRecords is not null)
+        {
+            <div class="mt-1.5 text-[10px] tabular-nums @WinTone.ForRecord(record)">
+                @(record is { Played: > 0 }
+                    ? $"{record.Played}×{(record.Completed > 0 ? $" · {record.WinRate:F0}%" : "")}"
+                    : "never played")
+            </div>
+        }
+    };
 }
 
 @code {
@@ -205,8 +241,8 @@
     /// <summary>The same scope as a games-list <c>who</c> key, so the links out stay narrowed.</summary>
     [Parameter] public string? ScopeWho { get; set; }
 
-    /// <summary>When set, a footer action picks this spirit — used when opened from the picker.
-    /// Each aspect gets an action of its own, so a variant can be chosen straight from here.</summary>
+    /// <summary>When set, the variant tiles pick this spirit as that variant — used when opened
+    /// from the picker. A spirit without variants gets a footer action instead.</summary>
     [Parameter] public EventCallback<SpiritPick> OnSelected { get; set; }
 
     /// <summary>Whether the aspect is in the reader's collection — see the note in Show.</summary>
@@ -221,18 +257,47 @@
     /// Per-aspect plays for this spirit; null when there is no history to report.
     private Dictionary<string, SetupInsights.PlayRecord>? _aspectRecords;
 
-    /// The aspect whose full profile is expanded in place, and that profile.
-    private string? _openAspectId;
-    private SetupProfiles.Profile? _aspectProfile;
+    /// The variant the profile is focused on: an aspect id, <see cref="SetupInsights.BaseAspectKey"/>
+    /// for the spirit as printed, or null for every variant at once. Never set in picker mode,
+    /// where a tap is the pick and the profile stays the whole spirit's.
+    private string? _scope;
 
-    /// <param name="aspectId">The aspect already chosen for the seat, if any — its row opens expanded.</param>
+    /// The variant already chosen for the seat being edited — ringed in picker mode, the way
+    /// the adversary picker rings its current level.
+    private string? _current;
+
+    private Aspect? ScopeAspect => _aspects.FirstOrDefault(a => a.Id.Value == _scope);
+
+    /// The variant strip reports the same slice as the profile below it, so its heading names
+    /// the same owner — the way the adversary sheet's level grid does.
+    private string AspectGridTitle =>
+        _profile is null ? "Aspects"
+        : SubjectName is { } name ? $"Aspects and {name}'s record"
+        : SeatFilter is not null ? "Aspects and your record"
+        : "Aspects and record";
+
+    /// What the profile is of follows the focus, so its heading and empty state name the
+    /// variant they are actually counting.
+    private string ProfileTitle => _scope switch
+    {
+        null => "record with this spirit",
+        SetupInsights.BaseAspectKey => "record with no aspect",
+        _ => $"record as {ScopeAspect?.Name}"
+    };
+
+    private string ProfileName => _scope switch
+    {
+        null => _spirit!.Name,
+        SetupInsights.BaseAspectKey => $"{_spirit!.Name} with no aspect",
+        _ => $"{_spirit!.Name} · {ScopeAspect?.Name}"
+    };
+
+    /// <param name="aspectId">The aspect already chosen for the seat, if any — ringed in the
+    /// picker, opened focused everywhere else.</param>
     public void Show(Spirit spirit, string? aspectId = null)
     {
         _spirit = spirit;
         _detail = SpiritDetails.For(spirit.Id);
-        _profile = Facts is { Count: > 0 }
-            ? SetupProfiles.Build(SetupSubjectKind.Spirit, spirit.Id.Value, Facts, SeatFilter)
-            : null;
         _aspectRecords = Facts is { Count: > 0 }
             ? SetupInsights.AspectRecords(Facts, spirit.Id.Value, SeatFilter)
             : null;
@@ -240,7 +305,7 @@
         // Owned aspects, plus any that were actually played. A friend can bring an expansion
         // to the table that you don't have a copy of — the game happened, so the record sheet
         // has to be able to show it. What the collection governs is what you can pick, not
-        // what you can read back (see the "Play as" action below).
+        // what you can read back (see AspectTile).
         var played = _aspectRecords?
             .Where(r => r.Value.Played > 0)
             .Select(r => r.Key)
@@ -249,9 +314,12 @@
         _aspects = GameData.GetAspectsForSpirit(spirit.Id)
             .Where(a => Owns(a) || played.Contains(a.Id.Value))
             .ToList();
-        _openAspectId = null;
-        _aspectProfile = null;
-        if (!string.IsNullOrEmpty(aspectId) && _aspects.Any(a => a.Id.Value == aspectId)) OpenAspectProfile(aspectId);
+        var known = !string.IsNullOrEmpty(aspectId) && _aspects.Any(a => a.Id.Value == aspectId)
+            ? aspectId
+            : null;
+        _current = OnSelected.HasDelegate ? known : null;
+        _scope = OnSelected.HasDelegate || _aspectRecords is null ? null : known;
+        RebuildProfile();
         StateHasChanged();
     }
 
@@ -262,29 +330,72 @@
         _aspects = [];
         _profile = null;
         _aspectRecords = null;
-        _openAspectId = null;
-        _aspectProfile = null;
+        _scope = null;
+        _current = null;
     }
 
-    /// Toggles the aspect's profile open in place rather than opening a sheet on top of this
-    /// one — the point is comparing the variants against each other and against the spirit.
-    private void ShowAspectProfile(Aspect aspect)
+    /// A tile is a pick where somebody is listening for one, and the record's focus switch
+    /// where there is a record — never both, so mid-setup a tap can only ever mean the choice
+    /// being made. The same rule the adversary sheet's level tiles follow.
+    private async Task AspectTap(Aspect? aspect)
     {
-        if (_openAspectId == aspect.Id.Value)
+        if (OnSelected.HasDelegate)
         {
-            _openAspectId = null;
-            _aspectProfile = null;
+            await Select(aspect);
             return;
         }
-        OpenAspectProfile(aspect.Id.Value);
+        var key = aspect?.Id.Value ?? SetupInsights.BaseAspectKey;
+        _scope = _scope == key ? null : key;
+        RebuildProfile();
     }
 
-    private void OpenAspectProfile(string aspectId)
+    /// The profile counts what the focus says. An aspect is its own subject kind; the spirit as
+    /// printed has none, so "no aspect" is the spirit's own profile over the aspect-less seats —
+    /// the seat filter narrowed once more, since an aspect belongs to a seat.
+    private void RebuildProfile()
     {
-        _openAspectId = aspectId;
-        _aspectProfile = Facts is { Count: > 0 }
-            ? SetupProfiles.Build(SetupSubjectKind.Aspect, aspectId, Facts, SeatFilter)
-            : null;
+        if (_spirit is null || Facts is not { Count: > 0 })
+        {
+            _profile = null;
+            return;
+        }
+        _profile = _scope switch
+        {
+            null => SetupProfiles.Build(SetupSubjectKind.Spirit, _spirit.Id.Value, Facts, SeatFilter),
+            SetupInsights.BaseAspectKey => SetupProfiles.Build(
+                SetupSubjectKind.Spirit, _spirit.Id.Value, Facts,
+                s => s.AspectId is null && (SeatFilter?.Invoke(s) ?? true)),
+            _ => SetupProfiles.Build(SetupSubjectKind.Aspect, _scope, Facts, SeatFilter)
+        };
+    }
+
+    /// <summary>Same shape the level tiles wear (AdversaryLevelGrid.TileClass), on a wider face.</summary>
+    private static string TileClass(bool played, bool interactive, bool ringed) =>
+        string.Join(' ', new[]
+        {
+            "rounded-lg border p-3 text-left transition-colors",
+            ringed ? "border-accent-500 bg-accent-50 ring-1 ring-accent-500/30"
+                : played ? "border-ink-300 bg-white"
+                : "border-ink-200 bg-ink-50/60",
+            interactive ? "hover:border-accent-400 hover:bg-accent-50" : null,
+        }.Where(c => c is not null));
+
+    /// What the tile says on hover: the variant, the record with it, and what a tap will do —
+    /// the same sentence shape the level tiles use.
+    private string AspectTooltip(Aspect? aspect, SetupInsights.PlayRecord? record, bool ringed, bool tappable)
+    {
+        var label = aspect is null ? $"{_spirit!.Name} with no aspect" : $"{_spirit!.Name} · {aspect.Name}";
+        var line = SetupInsights.RecordTooltip(label, record, SubjectName, _aspectRecords is not null);
+        if (ringed)
+        {
+            return OnSelected.HasDelegate
+                ? $"{line}. Already the variant chosen for this seat."
+                : $"{line}. The record below is focused on this variant — tap again for every variant.";
+        }
+        if (!tappable) return line;
+        return OnSelected.HasDelegate
+            ? $"{line}. Tap to play it."
+            : $"{line}. Tap to focus the record on this variant.";
     }
 
     private async Task Select(Aspect? aspect = null)

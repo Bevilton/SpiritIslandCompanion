@@ -788,7 +788,7 @@ else
                                     <span class="mr-0.5 text-[10px] uppercase tracking-wide text-ink-500">Aspect</span>
                                     <AspectChips Aspects="aspects" ShowBase="true"
                                                  Records="@(_facts.Count > 0 ? SeatAspectRecords(p) : null)"
-                                                 SelectedAspectId="@(string.IsNullOrEmpty(p.AspectId) ? null : p.AspectId)"
+                                                 SelectedAspectId="@(string.IsNullOrEmpty(p.AspectId) ? SetupInsights.BaseAspectKey : p.AspectId)"
                                                  SubjectName="@SeatContext(p).SubjectName"
                                                  OnPick="a => SelectAspect(idx, a?.Id.Value)"/>
                                 </div>

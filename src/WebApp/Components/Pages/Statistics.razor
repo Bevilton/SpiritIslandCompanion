@@ -809,7 +809,7 @@ else
             <div>
                 <div class="section-head">
                     <h2 class="section-title">Every foe faced</h2>
-                    <span class="section-note">Tap a card for its sheet, a level for those games</span>
+                    <span class="section-note">Tap a card for its sheet, a level to open it focused on that level</span>
                 </div>
 
                 <div class="grid sm:grid-cols-2 gap-4">
@@ -854,14 +854,16 @@ else
                                 </div>
                                 @* The same strip the reference card and the record sheet draw
                                    (AdversaryLevelGrid): the level, what it adds to the difficulty,
-                                   and the record at it — with a link to those games where there are
-                                   any. Only for a foe still in the catalogue; one played from a box
+                                   and the record at it — a tap opens the sheet focused on that
+                                   level, where the way to those games is the profile's own link.
+                                   Only for a foe still in the catalogue; one played from a box
                                    since removed has levels but nothing to say about them. *@
                                 @if (adv is not null)
                                 {
                                     <AdversaryLevelGrid Adversary="adv" Records="LevelRecords(a)"
-                                                        LinkGames="true" RaiseAboveOverlay="true"
-                                                        ScopeWho="@ScopeWho"/>
+                                                        OnPick="level => OpenAdversary(a.AdversaryId, level)"
+                                                        TapHint="Opens the record sheet focused on this level."
+                                                        RaiseAboveOverlay="true"/>
                                 }
                             </div>
                         </div>
@@ -1252,7 +1254,7 @@ else
     private IslandLayoutDetailModal _layoutModal = default!;
 
     private void OpenSpirit(string id) { if (GameLookups.SpiritFor(id) is { } s) _spiritModal.Show(s); }
-    private void OpenAdversary(string id) { if (GameLookups.AdversaryFor(id) is { } a) _adversaryModal.Show(a); }
+    private void OpenAdversary(string id, int? level = null) { if (GameLookups.AdversaryFor(id) is { } a) _adversaryModal.Show(a, level); }
     private void OpenScenario(string? id) { if (GameLookups.ScenarioFor(id) is { } s) _scenarioModal.Show(s); }
     private void OpenBoard(string id) { if (GameLookups.BoardFor(id) is { } b) _boardModal.Show(b); }
 
