@@ -1,5 +1,6 @@
-@* Overlapping row of small colored dots, one per spirit. Shows up to <c>Max</c>
-   and a "+N" overflow badge for the rest. Used in compact game listings. *@
+@* Overlapping row of small colored dots, one per spirit, each wearing the spirit's two-letter
+   monogram — the same abbreviation the landscape chart uses, from GameLookups.SpiritMonogram.
+   Shows up to <c>Max</c> and a "+N" overflow badge for the rest. Used in compact game listings. *@
 
 @{
     var visible = SpiritIds.Take(Max).ToList();
@@ -11,12 +12,12 @@
     {
         var spirit = GameLookups.SpiritFor(visible[i]);
         var color = (spirit is null ? null : SpiritDetails.For(spirit.Id))?.ColorHex ?? GameLookups.NeutralColor;
-        var letter = spirit?.Name.Substring(0, 1).ToUpperInvariant() ?? "?";
+        var monogram = spirit is null ? "?" : GameLookups.SpiritMonogram(spirit);
 
-        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full ring-2 ring-white text-[10px] font-semibold text-white shrink-0 @(i > 0 ? "-ml-1.5" : "")"
-              style="background-color: @color;"
+        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full ring-2 ring-white text-[9px] font-bold tracking-tight shrink-0 @(i > 0 ? "-ml-1.5" : "")"
+              style="background-color: @color; color: @GameLookups.InkOn(color);"
               title="@(spirit?.Name ?? "Unknown spirit")">
-            @letter
+            @monogram
         </span>
     }
     @if (overflow > 0)

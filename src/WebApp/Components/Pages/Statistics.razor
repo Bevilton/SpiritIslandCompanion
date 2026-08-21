@@ -299,8 +299,8 @@ else
         @<div class="space-y-6">
             @{
                 var topSpirit = _stats!.SpiritStatistics.OrderByDescending(s => s.GamesPlayed).FirstOrDefault();
-                var bestSpirit = _stats.SpiritStatistics.Where(s => s.GamesPlayed >= 3).OrderByDescending(s => s.WinRate).FirstOrDefault();
-                var toughAdv = _stats.AdversaryStatistics.Where(a => a.GamesPlayed >= 3).OrderBy(a => a.WinRate).FirstOrDefault();
+                var bestSpirit = _stats.SpiritStatistics.Where(s => s.Wins + s.Losses >= StatsFormat.MinRatedGames).OrderByDescending(s => s.WinRate).FirstOrDefault();
+                var toughAdv = _stats.AdversaryStatistics.Where(a => a.Wins + a.Losses >= StatsFormat.MinRatedGames).OrderBy(a => a.WinRate).FirstOrDefault();
                 var favAdv = _stats.AdversaryStatistics.OrderByDescending(a => a.GamesPlayed).FirstOrDefault();
             }
 
@@ -551,7 +551,7 @@ else
                 var ranked = _unfilteredPlayers.OrderByDescending(p => p.GamesPlayed).ToList();
                 var mostPlayed = ranked.FirstOrDefault(p => p.Kind != PlayerKind.Me);
                 var bestPartner = ranked
-                    .Where(p => p.Kind != PlayerKind.Me && p.Wins + p.Losses >= 3)
+                    .Where(p => p.Kind != PlayerKind.Me && p.Wins + p.Losses >= StatsFormat.MinRatedGames)
                     .OrderByDescending(p => p.WinRate)
                     .FirstOrDefault();
             }
@@ -627,58 +627,96 @@ else
     private RenderFragment SpiritsTab() =>
         @<div class="space-y-6">
             @{
-                var topSpirit = _stats!.SpiritStatistics.OrderByDescending(s => s.GamesPlayed).FirstOrDefault();
-                var bestScoreSpirit = _stats.SpiritStatistics.Where(s => s.BestScore.HasValue).OrderByDescending(s => s.BestScore!.Value).FirstOrDefault();
-                var bestRateSpirit = _stats.SpiritStatistics.Where(s => s.GamesPlayed >= 3).OrderByDescending(s => s.WinRate).FirstOrDefault();
-                var playedSpiritIds = _stats.SpiritStatistics.Select(s => s.SpiritId).ToHashSet();
+                var spiritRows = FilteredSpiritStats();
+                var tableRows = SortedSpiritRows(spiritRows);
+                var byPlayed = spiritRows.OrderByDescending(s => s.GamesPlayed).ToList();
+                var heatmapIds = byPlayed.Select(s => s.SpiritId).ToList();
+                var topSpirit = byPlayed.FirstOrDefault();
+                var bestScoreSpirit = spiritRows.Where(s => s.BestScore.HasValue).OrderByDescending(s => s.BestScore!.Value).FirstOrDefault();
+                // Rated over finished games, not seats taken: two drafts and a win is not an 88%.
+                var bestRateSpirit = spiritRows.Where(s => s.Wins + s.Losses >= StatsFormat.MinRatedGames).OrderByDescending(s => s.WinRate).FirstOrDefault();
+                var playedSpiritIds = _stats!.SpiritStatistics.Select(s => s.SpiritId).ToHashSet();
+                var playedSpirits = _stats.SpiritStatistics
+                    .Select(s => GameLookups.SpiritFor(s.SpiritId)).OfType<Spirit>().ToList();
                 var ownedSpirits = OwnedSpiritsList();
                 var missingSpirits = ownedSpirits.Where(s => !playedSpiritIds.Contains(s.Id.Value)).Cast<object>().ToList();
-                var missingAspects = MissingAspects(ownedSpirits);
+                var ownedAspects = ownedSpirits.Select(s => (Spirit: s, Aspects: OwnedAspectsFor(s))).ToList();
+                var missingAspects = MissingAspects(ownedAspects);
                 var missingAspectGroups = missingAspects
                     .GroupBy(m => (m.SpiritId, m.SpiritName))
                     .OrderBy(g => g.Key.SpiritName)
                     .Select(g => new MissingAspectGroup(g.Key.SpiritId, g.Key.SpiritName, g.Select(m => m.AspectName).ToList()))
                     .Cast<object>().ToList();
-                var totalAspects = ownedSpirits.Sum(s => OwnedAspectsFor(s).Count);
+                var totalAspects = ownedAspects.Sum(x => x.Aspects.Count);
             }
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                @if (topSpirit is not null) { @SpiritInsight("Most played", topSpirit, $"{topSpirit.GamesPlayed} games") }
-                @if (bestRateSpirit is not null) { @SpiritInsight("Highest win rate", bestRateSpirit, $"{bestRateSpirit.WinRate:F0}%", WinTone.ForRate(bestRateSpirit.WinRate)) }
-                @if (bestScoreSpirit is not null) { @SpiritInsight("Highest score", bestScoreSpirit, $"{bestScoreSpirit.BestScore} pts") }
+            @* The same filter stack every catalogue page carries — search, expansion, complexity,
+               elements, tokens, ordering — put in charge of the whole tab: the cards, the
+               landscape, the table and the matchup grid below all recompute from what it keeps. *@
+            <div class="space-y-3">
+                <input type="search" class="input sm:w-72" placeholder="Find a spirit…" aria-label="Find a spirit"
+                       @bind="_spiritFilter.Query" @bind:event="oninput"/>
+                <FilterBar @ref="_spiritBar" Filter="_spiritFilter" OwnedExpansions="OwnedExpansions"
+                           PresentExpansions="_spiritFilter.ExpansionsIn(playedSpirits)"
+                           ShowingCount="spiritRows.Count" TotalCount="_stats.SpiritStatistics.Count"
+                           UntestedLabel="Never played"
+                           UntestedHint="Only spirits nobody at your table has taken — this tab counts the played, so the coverage panel below is where they are named"
+                           Changed="OnSpiritFilterChanged">
+                    <Facets>
+                        @if (_spiritBar is not null)
+                        {
+                            <SpiritFacets Filter="_spiritFilter" Bar="_spiritBar"/>
+                        }
+                    </Facets>
+                </FilterBar>
             </div>
+
+            @if (spiritRows.Count > 0)
+            {
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    @if (topSpirit is not null) { @SpiritInsight("Most played", topSpirit, $"{topSpirit.GamesPlayed} games") }
+                    @if (bestRateSpirit is not null) { @SpiritInsight("Highest win rate", bestRateSpirit, $"{bestRateSpirit.WinRate:F0}%", WinTone.ForRate(bestRateSpirit.WinRate)) }
+                    @if (bestScoreSpirit is not null) { @SpiritInsight("Highest score", bestScoreSpirit, $"{bestScoreSpirit.BestScore} pts") }
+                </div>
+            }
 
             <div class="surface px-5 pt-5 pb-3">
                 <div class="section-head">
-                    <h2 class="section-title">Games played by spirit</h2>
+                    <h2 class="section-title">The spirit landscape</h2>
+                    <span class="section-note">played (→) × win rate (↑) · initials on every dot, full name on hover · hollow = fewer than 3 finished games · tap a dot for its sheet</span>
                 </div>
-                <SpiritGamesChart Spirits="_stats.SpiritStatistics"/>
+                <SpiritLandscapeChart Spirits="spiritRows" OnPick="OpenSpirit"/>
             </div>
 
             <div class="surface">
                 <div class="surface-head">
                     <h2 class="text-base font-semibold">All spirits</h2>
-                    <span class="text-[11px] text-ink-500">Tap a row for the record sheet, a count for those games</span>
+                    <span class="text-[11px] text-ink-500">Click a column to sort · tap a row for the record sheet, a count for those games</span>
                 </div>
-                <div class="table-wrap">
+                @* The list scrolls inside the card with the headings pinned, so "where am I" always
+                   has an answer — thirty-seven spirits used to be twenty-eight hundred pixels of it. *@
+                <div class="table-wrap max-h-[560px] overflow-y-auto">
                     <table class="table table-hover">
                         <thead><tr>
-                            <th>Spirit</th>
-                            <th class="text-right">Games</th>
-                            <th class="text-right">W</th>
-                            <th class="text-right">L</th>
-                            <th>Win rate</th>
-                            <th class="text-right">Avg score</th>
-                            <th class="text-right">Best</th>
-                            <th>Terror reached</th>
+                            @SpiritTh("name", "Spirit")
+                            @SpiritTh("games", "Games", right: true)
+                            @SpiritTh("wins", "W", right: true)
+                            @SpiritTh("losses", "L", right: true)
+                            @SpiritTh("winrate", "Win rate")
+                            @SpiritTh("avg", "Avg score", right: true)
+                            @SpiritTh("best", "Best", right: true)
+                            <th class="sticky top-0 z-10 bg-ink-50">Aspects</th>
+                            <th class="sticky top-0 z-10 bg-ink-50">Terror reached</th>
                         </tr></thead>
                         <tbody>
-                        @foreach (var s in _stats.SpiritStatistics)
+                        @foreach (var s in tableRows)
                         {
                             var spirit = GameLookups.SpiritFor(s.SpiritId);
                             var detail = spirit is null ? null : SpiritDetails.For(spirit.Id);
                             var color = detail?.ColorHex ?? GameLookups.NeutralColor;
-                            <tr @onclick="() => OpenSpirit(s.SpiritId)">
+                            var playedAspects = PlayedAspects(s);
+                            var aspectsOpen = _openAspectRows.Contains(s.SpiritId);
+                            <tr @key="s.SpiritId" @onclick="() => OpenSpirit(s.SpiritId)">
                                 <td>
                                     <div class="flex items-center gap-3 min-w-0">
                                         <span class="inline-block h-8 w-1.5 rounded-full shrink-0" style="background-color: @color;"></span>
@@ -690,14 +728,6 @@ else
                                                 @(spirit?.Name ?? s.SpiritId)
                                             </button>
                                             @if (detail is not null) { <div class="text-[11px] text-ink-500 truncate">@detail.PlayStyle</div> }
-                                            @* Which variants the plays were: the row's own numbers pool
-                                               them, and an aspect is a different spirit to play. *@
-                                            @if (PlayedAspects(s) is { Count: > 0 } playedAspects)
-                                            {
-                                                <div class="mt-1">
-                                                    <AspectChips Aspects="playedAspects" Records="AspectRecordsOf(s)"/>
-                                                </div>
-                                            }
                                         </div>
                                     </div>
                                 </td>
@@ -711,13 +741,63 @@ else
                                 </td>
                                 <td class="text-right tabular-nums">@(s.Wins + s.Losses > 0 ? $"{s.AverageScore:F0}" : "—")</td>
                                 <td class="text-right tabular-nums">@(s.BestScore?.ToString() ?? "—")</td>
+                                <td>
+                                    @* Which variants the plays were, folded behind a count: the chips
+                                       were what stretched rows to double height, and an aspect is a
+                                       question you ask about one spirit, not all thirty-seven at once. *@
+                                    @if (playedAspects.Count > 0)
+                                    {
+                                        <button type="button" @onclick="() => ToggleAspectRow(s.SpiritId)" @onclick:stopPropagation
+                                                aria-expanded="@(aspectsOpen ? "true" : "false")"
+                                                title="@($"{(aspectsOpen ? "Hide" : "Show")} the record per variant")"
+                                                class="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-ink-200 bg-white px-2 py-0.5 text-[11px] text-ink-600 transition-colors
+                                                       hover:border-accent-300 hover:text-ink-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                                            @playedAspects.Count aspect@(playedAspects.Count == 1 ? "" : "s")
+                                            <Icon Name="chevron-down" Class="@($"w-3 h-3 transition-transform {(aspectsOpen ? "rotate-180" : "")}")"/>
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-xs text-ink-400">—</span>
+                                    }
+                                </td>
                                 <td><TerrorBar Counts="s.TerrorCounts" WidthClass="w-28"/></td>
                             </tr>
+                            @if (aspectsOpen && playedAspects.Count > 0)
+                            {
+                                <tr @key="@($"{s.SpiritId}:aspects")" class="!cursor-default">
+                                    <td colspan="9" class="bg-accent-50/40">
+                                        <div class="flex flex-wrap items-center gap-2 pl-7">
+                                            <span class="shrink-0 text-[10px] font-medium uppercase tracking-wide text-ink-500">Variants played</span>
+                                            <AspectChips Aspects="playedAspects" Records="AspectRecordsOf(s)"/>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        @if (tableRows.Count == 0)
+                        {
+                            <tr><td colspan="9" class="py-8 text-center text-ink-500">
+                                No played spirits match — clear a filter, or see the coverage panel below for the never-played.
+                            </td></tr>
                         }
                         </tbody>
                     </table>
                 </div>
             </div>
+
+            @if (ScopedFacts.Count > 0)
+            {
+                <div class="surface">
+                    <div class="surface-head">
+                        <h2 class="text-base font-semibold">Matchups</h2>
+                        <span class="text-[11px] text-ink-500">Win rate against each adversary · follows the filter above</span>
+                    </div>
+                    <MatchupHeatmap Facts="ScopedFacts" SpiritIds="heatmapIds"
+                                    SeatFilter="ScopeSeatFilter" ScopeWho="@ScopeWho"
+                                    OnPickSpirit="OpenSpirit"/>
+                </div>
+            }
 
             <CoveragePanel Title="Spirits" Total="ownedSpirits.Count" Missing="missingSpirits" ItemTemplate="SpiritPill"
                            Note="@OutsideCollectionNote(playedSpiritIds, ownedSpirits.Select(s => s.Id.Value), "spirit")"/>
@@ -733,6 +813,136 @@ else
                                ItemTemplate="AspectGroupPill"/>
             }
         </div>;
+
+    // --- The tab's filter, and the table's own orderings on top of it. ---
+
+    /// Opens ordered by play count, the order the old fixed table had.
+    private readonly SpiritFilter _spiritFilter = new("played");
+    private FilterBar? _spiritBar;
+
+    /// The stats-only column the table is sorted by, when a header click has taken over
+    /// from the filter's ordering; null while the filter's own order stands.
+    private string? _spiritSortKey;
+    private bool _spiritSortDesc;
+
+    /// The filter order the local sort was layered over — epoch included, so re-picking the
+    /// very same order in the panel still reads as a new ask. Null until anything is layered.
+    private (string Key, bool Desc, int Epoch)? _lastSpiritSort;
+
+    private (string Key, bool Desc, int Epoch) CurrentFilterSort =>
+        (_spiritFilter.SortKey, _spiritFilter.Descending, _spiritFilter.SortEpoch);
+
+    /// Spirits whose per-variant records are unfolded under their row.
+    private readonly HashSet<string> _openAspectRows = [];
+
+    private void ToggleAspectRow(string spiritId)
+    {
+        if (!_openAspectRows.Add(spiritId)) _openAspectRows.Remove(spiritId);
+    }
+
+    /// <summary>The played spirits the filter keeps, in the filter's order.</summary>
+    private List<SpiritStats> FilteredSpiritStats()
+    {
+        var stats = _stats?.SpiritStatistics ?? [];
+        var known = stats.Select(s => GameLookups.SpiritFor(s.SpiritId)).OfType<Spirit>();
+        return NarrowStats(stats, s => s.SpiritId, _spiritFilter.Apply(known), sp => sp.Id.Value,
+            narrowed: FilterNarrows(_spiritFilter));
+    }
+
+    /// <summary>
+    /// The table's own orderings — the columns the shared filter has no word for. Rows with
+    /// nothing to compare (no finished game, no score) sit at the end whichever way round the
+    /// rest is, the same rule the filter's win-rate ordering follows.
+    /// </summary>
+    private List<SpiritStats> SortedSpiritRows(List<SpiritStats> rows)
+    {
+        if (_spiritSortKey is null) return rows;
+        Func<SpiritStats, double> key = _spiritSortKey switch
+        {
+            "wins" => s => s.Wins,
+            "losses" => s => s.Losses,
+            "avg" => s => s.AverageScore,
+            _ => s => s.BestScore ?? 0,
+        };
+        Func<SpiritStats, bool> blank = _spiritSortKey switch
+        {
+            "avg" => s => s.Wins + s.Losses == 0,
+            "best" => s => s.BestScore is null,
+            _ => _ => false,
+        };
+        var ordered = rows.OrderBy(blank);
+        return (_spiritSortDesc ? ordered.ThenByDescending(key) : ordered.ThenBy(key))
+            .ThenByDescending(s => s.GamesPlayed)
+            .ToList();
+    }
+
+    /// <summary>
+    /// A header click. Three of the columns are orderings the shared filter already owns —
+    /// those clicks move the filter itself, so its "sorted by" badge and the header arrow can
+    /// never disagree; the stats-only columns sort locally on top.
+    /// </summary>
+    private void SortSpiritTable(string key)
+    {
+        var filterKey = key switch { "games" => "played", "name" => "name", "winrate" => "winrate", _ => null };
+        if (filterKey is not null)
+        {
+            // Toggle only when this column's order is the one actually on show. While a local
+            // sort has taken over, the filter's direction is stale — the click is asking for
+            // this ordering afresh, from its natural end.
+            if (_spiritSortKey is null && _spiritFilter.SortKey == filterKey)
+                _spiritFilter.Descending = !_spiritFilter.Descending;
+            else
+                _spiritFilter.SetSort(filterKey);
+            _spiritSortKey = null;
+        }
+        else if (_spiritSortKey == key)
+        {
+            _spiritSortDesc = !_spiritSortDesc;
+        }
+        else
+        {
+            _spiritSortKey = key;
+            _spiritSortDesc = true;
+        }
+        _lastSpiritSort = CurrentFilterSort;
+    }
+
+    /// A sort picked in the filter panel takes back over from any header click — even the
+    /// order already on the pills, which the epoch tells apart from a facet or query change.
+    private void OnSpiritFilterChanged()
+    {
+        var now = CurrentFilterSort;
+        if (now == _lastSpiritSort) return;
+        _spiritSortKey = null;
+        _lastSpiritSort = now;
+    }
+
+    /// Which header wears the arrow — the local override when set, else the filter's own order.
+    private (bool Active, bool Desc) SpiritSortState(string key)
+    {
+        if (_spiritSortKey is not null) return (key == _spiritSortKey, _spiritSortDesc);
+        var filterKey = key switch { "games" => "played", "name" => "name", "winrate" => "winrate", _ => null };
+        return (filterKey == _spiritFilter.SortKey, _spiritFilter.Descending);
+    }
+
+    /// <summary>A sortable column heading. Sticky like its unsortable neighbours, so the header
+    /// row survives the card's own scroll.</summary>
+    private RenderFragment SpiritTh(string key, string label, bool right = false) =>
+        @<text>
+            @{ var (active, desc) = SpiritSortState(key); }
+            <th class="sticky top-0 z-10 bg-ink-50 @(right ? "text-right" : null)"
+                aria-sort="@(active ? (desc ? "descending" : "ascending") : "none")">
+                <button type="button" @onclick="() => SortSpiritTable(key)" title="@($"Sort by {label.ToLowerInvariant()}")"
+                        class="inline-flex items-center gap-1 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40
+                               @(right ? "w-full justify-end" : null) @(active ? "text-accent-700" : "hover:text-ink-700")">
+                    @label
+                    @if (active)
+                    {
+                        <span aria-hidden="true" class="text-[9px]">@(desc ? "▼" : "▲")</span>
+                    }
+                </button>
+            </th>
+        </text>;
 
     private RenderFragment<object> AspectGroupPill => o =>
         @<text>
@@ -787,9 +997,12 @@ else
     private RenderFragment AdversariesTab() =>
         @<div class="space-y-6">
             @{
-                var topAdv = _stats!.AdversaryStatistics.OrderByDescending(a => a.GamesPlayed).FirstOrDefault();
-                var bestAdv = _stats.AdversaryStatistics.Where(a => a.GamesPlayed >= 3).OrderByDescending(a => a.WinRate).FirstOrDefault();
-                var worstAdv = _stats.AdversaryStatistics.Where(a => a.GamesPlayed >= 3).OrderBy(a => a.WinRate).FirstOrDefault();
+                var advRows = FilteredAdversaryStats();
+                var playedAdversaries = _stats!.AdversaryStatistics
+                    .Select(a => GameLookups.AdversaryFor(a.AdversaryId)).OfType<Adversary>().ToList();
+                var topAdv = advRows.OrderByDescending(a => a.GamesPlayed).FirstOrDefault();
+                var bestAdv = advRows.Where(a => a.Wins + a.Losses >= StatsFormat.MinRatedGames).OrderByDescending(a => a.WinRate).FirstOrDefault();
+                var worstAdv = advRows.Where(a => a.Wins + a.Losses >= StatsFormat.MinRatedGames).OrderBy(a => a.WinRate).FirstOrDefault();
                 var ownedAdversaries = OwnedAdversariesList();
                 var missingLevels = MissingAdversaryLevels(_stats.AdversaryStatistics, ownedAdversaries);
                 var missingGroups = missingLevels
@@ -800,11 +1013,23 @@ else
                 var totalLevels = ownedAdversaries.Sum(a => a.Modes.Count());
             }
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                @if (topAdv is not null) { @AdversaryInsight("Most played", topAdv, $"{topAdv.GamesPlayed} games", null) }
-                @if (bestAdv is not null) { @AdversaryInsight("Highest win rate", bestAdv, $"{bestAdv.WinRate:F0}%", WinTone.ForRate(bestAdv.WinRate)) }
-                @if (worstAdv is not null && worstAdv.AdversaryId != bestAdv?.AdversaryId) { @AdversaryInsight("Toughest", worstAdv, $"{worstAdv.WinRate:F0}%", WinTone.ForRate(worstAdv.WinRate)) }
-            </div>
+            @* The same bar the spirits tab carries, asking only what a foe can answer —
+               expansion, recorded play, ordering. Everything below follows it. *@
+            <FilterBar Filter="_advFilter" OwnedExpansions="OwnedExpansions"
+                       PresentExpansions="_advFilter.ExpansionsIn(playedAdversaries)"
+                       ShowingCount="advRows.Count" TotalCount="_stats.AdversaryStatistics.Count"
+                       UntestedLabel="Never faced"
+                       UntestedHint="Only foes nobody at your table has met — this tab counts the faced, so the coverage panel below is where they are named"
+                       Changed="StateHasChanged"/>
+
+            @if (advRows.Count > 0)
+            {
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    @if (topAdv is not null) { @AdversaryInsight("Most played", topAdv, $"{topAdv.GamesPlayed} games", null) }
+                    @if (bestAdv is not null) { @AdversaryInsight("Highest win rate", bestAdv, $"{bestAdv.WinRate:F0}%", WinTone.ForRate(bestAdv.WinRate)) }
+                    @if (worstAdv is not null && worstAdv.AdversaryId != bestAdv?.AdversaryId) { @AdversaryInsight("Toughest", worstAdv, $"{worstAdv.WinRate:F0}%", WinTone.ForRate(worstAdv.WinRate)) }
+                </div>
+            }
 
             <div>
                 <div class="section-head">
@@ -812,8 +1037,14 @@ else
                     <span class="section-note">Tap a card for its sheet, a level to open it focused on that level</span>
                 </div>
 
+                @if (advRows.Count == 0)
+                {
+                    <div class="surface py-8 text-center text-sm text-ink-500">
+                        No faced adversaries match — clear a filter, or see the coverage panel below for the never-faced.
+                    </div>
+                }
                 <div class="grid sm:grid-cols-2 gap-4">
-                    @foreach (var a in _stats.AdversaryStatistics)
+                    @foreach (var a in advRows)
                     {
                         var adv = GameLookups.AdversaryFor(a.AdversaryId);
                         var name = adv?.Name ?? a.AdversaryId;
@@ -882,6 +1113,19 @@ else
                                      "adversary")"/>
         </div>;
 
+    /// Foes have no facets of their own — expansion, recorded play and ordering is the whole ask.
+    private readonly CatalogueFilter<Adversary> _advFilter =
+        new(a => a.Id.Value, a => a.Name, a => a.ExpansionId, defaultSortKey: "played");
+
+    /// <summary>The faced adversaries the filter keeps, in the filter's order.</summary>
+    private List<AdversaryStats> FilteredAdversaryStats()
+    {
+        var stats = _stats?.AdversaryStatistics ?? [];
+        var known = stats.Select(a => GameLookups.AdversaryFor(a.AdversaryId)).OfType<Adversary>();
+        return NarrowStats(stats, a => a.AdversaryId, _advFilter.Apply(known), a => a.Id.Value,
+            narrowed: FilterNarrows(_advFilter));
+    }
+
     /// <summary>
     /// The server's per-level tally in the shape the shared level strip reads — the same
     /// projection AspectRecordsOf does for the aspect chips.
@@ -924,31 +1168,49 @@ else
     private RenderFragment ScenariosTab() =>
         @<div class="space-y-6">
             @{
-                var topScen = _stats!.ScenarioStatistics.OrderByDescending(s => s.GamesPlayed).FirstOrDefault();
-                var bestScen = _stats.ScenarioStatistics.Where(s => s.GamesPlayed >= 3).OrderByDescending(s => s.WinRate).FirstOrDefault();
+                var scenRows = FilteredScenarioStats();
+                var playedScenarios = _stats!.ScenarioStatistics
+                    .Select(s => GameLookups.ScenarioFor(s.ScenarioId)).OfType<Scenario>().ToList();
+                var topScen = scenRows.OrderByDescending(s => s.GamesPlayed).FirstOrDefault();
+                var bestScen = scenRows.Where(s => s.Wins + s.Losses >= StatsFormat.MinRatedGames).OrderByDescending(s => s.WinRate).FirstOrDefault();
                 var playedIds = _stats.ScenarioStatistics.Select(s => s.ScenarioId).ToHashSet();
                 var ownedScenarios = OwnedScenariosList();
                 var missing = ownedScenarios.Where(s => !playedIds.Contains(s.Id.Value)).Cast<object>().ToList();
             }
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                @if (topScen is not null)
-                {
-                    var s = GameLookups.ScenarioFor(topScen.ScenarioId);
-                    <InsightCard Title="Most played scenario" Subject="@(s?.Name ?? topScen.ScenarioId)"
-                                 Secondary="@($"{topScen.WinRate:F0}% win · {topScen.AverageScore:F0} avg")"
-                                 Metric="@topScen.GamesPlayed.ToString()" MetricLabel="games"
-                                 OnClick="() => OpenScenario(topScen.ScenarioId)"/>
-                }
-                @if (bestScen is not null && bestScen.ScenarioId != topScen?.ScenarioId)
-                {
-                    var s = GameLookups.ScenarioFor(bestScen.ScenarioId);
-                    <InsightCard Title="Highest win rate" Subject="@(s?.Name ?? bestScen.ScenarioId)"
-                                 Secondary="@($"{bestScen.GamesPlayed} games")"
-                                 Metric="@($"{bestScen.WinRate:F0}%")" MetricColorClass="@WinTone.ForRate(bestScen.WinRate)"
-                                 OnClick="() => OpenScenario(bestScen.ScenarioId)"/>
-                }
+            @* The same bar as the other tabs; scenarios add nothing beyond the shared questions. *@
+            <div class="space-y-3">
+                <input type="search" class="input sm:w-72" placeholder="Find a scenario…" aria-label="Find a scenario"
+                       @bind="_scenarioFilter.Query" @bind:event="oninput"/>
+                <FilterBar Filter="_scenarioFilter" OwnedExpansions="OwnedExpansions"
+                           PresentExpansions="_scenarioFilter.ExpansionsIn(playedScenarios)"
+                           ShowingCount="scenRows.Count" TotalCount="_stats.ScenarioStatistics.Count"
+                           UntestedLabel="Never played"
+                           UntestedHint="Only scenarios nobody at your table has tried — this tab counts the played, so the coverage panel below is where they are named"
+                           Changed="StateHasChanged"/>
             </div>
+
+            @if (scenRows.Count > 0)
+            {
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    @if (topScen is not null)
+                    {
+                        var s = GameLookups.ScenarioFor(topScen.ScenarioId);
+                        <InsightCard Title="Most played scenario" Subject="@(s?.Name ?? topScen.ScenarioId)"
+                                     Secondary="@($"{topScen.WinRate:F0}% win · {topScen.AverageScore:F0} avg")"
+                                     Metric="@topScen.GamesPlayed.ToString()" MetricLabel="games"
+                                     OnClick="() => OpenScenario(topScen.ScenarioId)"/>
+                    }
+                    @if (bestScen is not null && bestScen.ScenarioId != topScen?.ScenarioId)
+                    {
+                        var s = GameLookups.ScenarioFor(bestScen.ScenarioId);
+                        <InsightCard Title="Highest win rate" Subject="@(s?.Name ?? bestScen.ScenarioId)"
+                                     Secondary="@($"{bestScen.GamesPlayed} games")"
+                                     Metric="@($"{bestScen.WinRate:F0}%")" MetricColorClass="@WinTone.ForRate(bestScen.WinRate)"
+                                     OnClick="() => OpenScenario(bestScen.ScenarioId)"/>
+                    }
+                </div>
+            }
 
             @if (_stats.ScenarioStatistics.Count > 0)
             {
@@ -961,7 +1223,13 @@ else
                         <table class="table table-hover">
                             <thead><tr><th>Scenario</th><th class="text-right">Games</th><th class="text-right">W</th><th class="text-right">L</th><th>Win rate</th><th class="text-right">Avg score</th></tr></thead>
                             <tbody>
-                            @foreach (var s in _stats.ScenarioStatistics)
+                            @if (scenRows.Count == 0)
+                            {
+                                <tr><td colspan="6" class="py-8 text-center text-ink-500">
+                                    No played scenarios match — clear a filter, or see the coverage panel below for the never-played.
+                                </td></tr>
+                            }
+                            @foreach (var s in scenRows)
                             {
                                 var sc = GameLookups.ScenarioFor(s.ScenarioId);
                                 <tr @onclick="() => OpenScenario(s.ScenarioId)">
@@ -996,6 +1264,20 @@ else
                            Note="@OutsideCollectionNote(playedIds, ownedScenarios.Select(s => s.Id.Value), "scenario")"/>
         </div>;
 
+    /// Scenarios sift by the shared questions plus their one number, the difficulty bump.
+    private readonly CatalogueFilter<Scenario> _scenarioFilter =
+        new(s => s.Id.Value, s => s.Name, s => s.ExpansionId,
+            numeric: (FilterState.ByDifficulty, s => s.Difficulty), defaultSortKey: "played");
+
+    /// <summary>The played scenarios the filter keeps, in the filter's order.</summary>
+    private List<ScenarioStats> FilteredScenarioStats()
+    {
+        var stats = _stats?.ScenarioStatistics ?? [];
+        var known = stats.Select(s => GameLookups.ScenarioFor(s.ScenarioId)).OfType<Scenario>();
+        return NarrowStats(stats, s => s.ScenarioId, _scenarioFilter.Apply(known), s => s.Id.Value,
+            narrowed: FilterNarrows(_scenarioFilter));
+    }
+
     private RenderFragment<object> ScenarioPill => o =>
         @<text>
             @{ var s = (Scenario)o; }
@@ -1014,8 +1296,11 @@ else
     private RenderFragment BoardsTab() =>
         @<div class="space-y-6">
             @{
-                var topBoard = _stats!.BoardStatistics.OrderByDescending(b => b.GamesPlayed).FirstOrDefault();
-                var bestBoard = _stats.BoardStatistics.Where(b => b.GamesPlayed >= 3).OrderByDescending(b => b.WinRate).FirstOrDefault();
+                var boardRows = FilteredBoardStats();
+                var playedBoards = _stats!.BoardStatistics
+                    .Select(b => GameLookups.BoardFor(b.BoardId)).OfType<Board>().ToList();
+                var topBoard = boardRows.OrderByDescending(b => b.GamesPlayed).FirstOrDefault();
+                var bestBoard = boardRows.Where(b => b.Wins + b.Losses >= StatsFormat.MinRatedGames).OrderByDescending(b => b.WinRate).FirstOrDefault();
                 var playedIds = _stats.BoardStatistics.Select(b => b.BoardId).ToHashSet();
                 var ownedBoards = OwnedBoardsList();
                 var missing = ownedBoards.Where(b => !playedIds.Contains(b.Id.Value)).Cast<object>().ToList();
@@ -1042,10 +1327,21 @@ else
                     oneOffFacts.Count(g => g.IsCompleted && g.Win == false));
             }
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                @if (topBoard is not null) { @BoardInsight("Most played board", topBoard, $"{topBoard.GamesPlayed} games", null) }
-                @if (bestBoard is not null && bestBoard.BoardId != topBoard?.BoardId) { @BoardInsight("Highest win rate", bestBoard, $"{bestBoard.WinRate:F0}%", WinTone.ForRate(bestBoard.WinRate)) }
-            </div>
+            @* The same bar as the other tabs — a board answers only the shared questions. *@
+            <FilterBar Filter="_boardFilter" OwnedExpansions="OwnedExpansions"
+                       PresentExpansions="_boardFilter.ExpansionsIn(playedBoards)"
+                       ShowingCount="boardRows.Count" TotalCount="_stats.BoardStatistics.Count"
+                       UntestedLabel="Never played"
+                       UntestedHint="Only boards nobody at your table has set out — this tab counts the played, so the coverage panel below is where they are named"
+                       Changed="StateHasChanged"/>
+
+            @if (boardRows.Count > 0)
+            {
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    @if (topBoard is not null) { @BoardInsight("Most played board", topBoard, $"{topBoard.GamesPlayed} games", null) }
+                    @if (bestBoard is not null && bestBoard.BoardId != topBoard?.BoardId) { @BoardInsight("Highest win rate", bestBoard, $"{bestBoard.WinRate:F0}%", WinTone.ForRate(bestBoard.WinRate)) }
+                </div>
+            }
 
             @if (_stats.BoardStatistics.Count > 0)
             {
@@ -1058,7 +1354,13 @@ else
                         <table class="table table-hover">
                             <thead><tr><th>Board</th><th class="text-right">Games</th><th class="text-right">W</th><th class="text-right">L</th><th>Win rate</th></tr></thead>
                             <tbody>
-                            @foreach (var b in _stats.BoardStatistics)
+                            @if (boardRows.Count == 0)
+                            {
+                                <tr><td colspan="5" class="py-8 text-center text-ink-500">
+                                    No played boards match — clear a filter, or see the coverage panel below for the never-played.
+                                </td></tr>
+                            }
+                            @foreach (var b in boardRows)
                             {
                                 var board = GameLookups.BoardFor(b.BoardId);
                                 var detail = board is null ? null : BoardDetails.For(board.Id);
@@ -1146,6 +1448,19 @@ else
                            Note="@OutsideCollectionNote(playedIds, ownedBoards.Select(b => b.Id.Value), "board")"/>
         </div>;
 
+    /// A board answers only the shared questions — name, expansion, recorded play, ordering.
+    private readonly CatalogueFilter<Board> _boardFilter =
+        new(b => b.Id.Value, b => b.Name, b => b.ExpansionId, defaultSortKey: "played");
+
+    /// <summary>The played boards the filter keeps, in the filter's order.</summary>
+    private List<BoardStats> FilteredBoardStats()
+    {
+        var stats = _stats?.BoardStatistics ?? [];
+        var known = stats.Select(b => GameLookups.BoardFor(b.BoardId)).OfType<Board>();
+        return NarrowStats(stats, b => b.BoardId, _boardFilter.Apply(known), b => b.Id.Value,
+            narrowed: FilterNarrows(_boardFilter));
+    }
+
     private RenderFragment<object> BoardPill => o =>
         @<text>
             @{
@@ -1212,6 +1527,60 @@ else
         "hover:text-accent-800 hover:decoration-accent-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40";
 }
 
+@* ============================== TAB FILTERS, SHARED PLUMBING ==============================
+   Each catalogue tab runs the same FilterBar the browse pages and pickers use, pointed at the
+   played list its stats describe. The filter thinks in catalogue items; the tabs think in stats
+   rows — these two are the seam between them. *@
+@code {
+    /// <summary>Whether anything is narrowing — a facet, the untested pill, or a typed query.</summary>
+    private static bool FilterNarrows(FilterState filter) =>
+        filter.ActiveCount > 0 || !string.IsNullOrWhiteSpace(filter.Query);
+
+    /// <summary>
+    /// Maps a filtered, ordered catalogue back onto the stats rows it narrows. Rows whose id the
+    /// catalogue no longer lists (a spirit played from a box since removed) can't answer the
+    /// filter's questions, so they stay visible only while nothing is narrowing — the same rule
+    /// <see cref="SpiritFilter"/> applies to a spirit without a catalogue entry.
+    /// </summary>
+    private static List<TStats> NarrowStats<TStats, TItem>(
+        IReadOnlyList<TStats> stats,
+        Func<TStats, string> statId,
+        IReadOnlyList<TItem> ordered,
+        Func<TItem, string> itemId,
+        bool narrowed) where TStats : class
+    {
+        var byId = stats.ToDictionary(statId);
+        var rows = ordered
+            .Select(item => byId.GetValueOrDefault(itemId(item)))
+            .Where(row => row is not null)
+            .Select(row => row!)
+            .ToList();
+        if (!narrowed)
+        {
+            var seen = rows.Select(statId).ToHashSet();
+            rows.AddRange(stats.Where(s => !seen.Contains(statId(s))));
+        }
+        return rows;
+    }
+
+    /// <summary>
+    /// Hands each tab's filter the record it orders and sifts by, re-pointed whenever the
+    /// numbers change hands — the same reload that moves the page onto another player's games.
+    /// </summary>
+    private void WireCatalogueFilters()
+    {
+        if (_stats is null) return;
+        _spiritFilter.UseHistory(_stats.SpiritStatistics.ToDictionary(
+            s => s.SpiritId, s => new SetupInsights.PlayRecord(s.GamesPlayed, s.Wins, s.Losses)));
+        _advFilter.UseHistory(_stats.AdversaryStatistics.ToDictionary(
+            a => a.AdversaryId, a => new SetupInsights.PlayRecord(a.GamesPlayed, a.Wins, a.Losses)));
+        _scenarioFilter.UseHistory(_stats.ScenarioStatistics.ToDictionary(
+            s => s.ScenarioId, s => new SetupInsights.PlayRecord(s.GamesPlayed, s.Wins, s.Losses)));
+        _boardFilter.UseHistory(_stats.BoardStatistics.ToDictionary(
+            b => b.BoardId, b => new SetupInsights.PlayRecord(b.GamesPlayed, b.Wins, b.Losses)));
+    }
+}
+
 @code {
     [CascadingParameter(Name = "OwnedExpansions")]
     public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
@@ -1258,15 +1627,11 @@ else
     private void OpenScenario(string? id) { if (GameLookups.ScenarioFor(id) is { } s) _scenarioModal.Show(s); }
     private void OpenBoard(string id) { if (GameLookups.BoardFor(id) is { } b) _boardModal.Show(b); }
 
-    /// <summary>Seat predicate for the picked player, so the spirit/board sheets profile their seats.</summary>
-    private Func<SetupFactSeat, bool>? ScopeSeatFilter =>
-        _scoped switch
-        {
-            null => null,
-            { UserId: { } u } => s => s.UserId == u,
-            { PlayerId: { } p } => s => s.PlayerId == p,
-            _ => null,
-        };
+    /// <summary>Seat predicate for the picked player, so the spirit/board sheets profile their
+    /// seats. Rebuilt only when the scope moves (<see cref="ApplyScope"/>), so the components it
+    /// is handed can tell "same scope" by reference and keep their own derived work.</summary>
+    private Func<SetupFactSeat, bool>? ScopeSeatFilter => _scopeSeatFilter;
+    private Func<SetupFactSeat, bool>? _scopeSeatFilter;
 
     /// <summary>Whose record the sheets are labelled with — null for "you".</summary>
     private string? ScopeSubjectName =>
@@ -1286,18 +1651,31 @@ else
     private string ScopedTitle(string title) =>
         _scoped is null ? title : $"{title} — {_scoped.Name}'s games only";
 
-    /// <summary>The history narrowed to the page scope: games the picked player sat in.</summary>
-    private IReadOnlyList<SetupGameFact> ScopedFacts =>
-        _facts is null ? []
-        : ScopeSeatFilter is { } filter ? _facts.Where(g => g.Seats.Any(filter)).ToList()
-        : _facts;
+    /// <summary>The history narrowed to the page scope: games the picked player sat in. A field,
+    /// not a per-access filter — the tab fragments read it on every render, and its stable
+    /// reference is what lets the matchup grid skip re-tallying an unchanged history.</summary>
+    private IReadOnlyList<SetupGameFact> ScopedFacts => _scopedFacts;
+    private IReadOnlyList<SetupGameFact> _scopedFacts = [];
 
-    /// Layout tallies follow the page scope the way the server-side stats do.
-    private void RecomputeLayoutRecords()
+    /// <summary>
+    /// Everything derived from "whose games": the seat predicate, the narrowed history, and the
+    /// layout tallies that follow the page scope the way the server-side stats do. Runs when the
+    /// scope or the facts move — never per render.
+    /// </summary>
+    private void ApplyScope()
     {
-        var facts = ScopedFacts;
-        _layoutRecords = SetupInsights.LayoutRecords(facts);
-        _savedLayoutRecords = SetupInsights.SavedLayoutRecords(facts);
+        _scopeSeatFilter = _scoped switch
+        {
+            null => null,
+            { UserId: { } u } => s => s.UserId == u,
+            { PlayerId: { } p } => s => s.PlayerId == p,
+            _ => null,
+        };
+        _scopedFacts = _facts is null ? []
+            : _scopeSeatFilter is { } filter ? _facts.Where(g => g.Seats.Any(filter)).ToList()
+            : _facts;
+        _layoutRecords = SetupInsights.LayoutRecords(_scopedFacts);
+        _savedLayoutRecords = SetupInsights.SavedLayoutRecords(_scopedFacts);
     }
 
     /// <summary>Played-entity count shown on the tab pill; null for tabs that aren't a list.</summary>
@@ -1350,7 +1728,7 @@ else
         _loading = true;
         StateHasChanged();
         await LoadStats(scoped?.UserId, scoped?.PlayerId);
-        RecomputeLayoutRecords();
+        ApplyScope();
         _loading = false;
     }
 
@@ -1389,7 +1767,7 @@ else
         if (facts.IsSuccess) _facts = facts.Value;
         var layouts = await Mediator.Send(new ListIslandLayoutsQuery(userId));
         if (layouts.IsSuccess) _savedLayouts = layouts.Value;
-        RecomputeLayoutRecords();
+        ApplyScope();
 
         // Arriving scoped at somebody (from a People card, say) is the URL's business, not this
         // method's — OnParametersSetAsync applies it once the tally above exists to resolve it
@@ -1403,7 +1781,11 @@ else
         if (CurrentUser.UserId is not { } userId) return;
         var query = new GetStatisticsQuery(userId, scopeUserId, scopePlayerId);
         var result = await Mediator.Send(query);
-        if (result.IsSuccess) _stats = result.Value;
+        if (result.IsSuccess)
+        {
+            _stats = result.Value;
+            WireCatalogueFilters();
+        }
     }
 
     private void ToggleScopePicker() => _scopeOpen = !_scopeOpen;
@@ -1461,19 +1843,21 @@ else
 
     /// <summary>
     /// Every owned aspect never played, flattened. Counted per variant rather than per spirit —
-    /// the same way adversary coverage counts levels, and for the same reason.
+    /// the same way adversary coverage counts levels, and for the same reason. Takes the owned
+    /// aspects already looked up, so the coverage total can count the same lists.
     /// </summary>
-    private List<MissingAspect> MissingAspects(IReadOnlyList<Spirit> ownedSpirits)
+    private List<MissingAspect> MissingAspects(
+        IReadOnlyList<(Spirit Spirit, IReadOnlyList<Aspect> Aspects)> ownedAspects)
     {
         var played = _stats!.SpiritStatistics
             .SelectMany(s => s.Aspects)
             .Select(a => a.AspectId)
             .OfType<string>()
             .ToHashSet();
-        return ownedSpirits
-            .SelectMany(s => OwnedAspectsFor(s)
+        return ownedAspects
+            .SelectMany(x => x.Aspects
                 .Where(a => !played.Contains(a.Id.Value))
-                .Select(a => new MissingAspect(s.Id.Value, s.Name, a.Name)))
+                .Select(a => new MissingAspect(x.Spirit.Id.Value, x.Spirit.Name, a.Name)))
             .ToList();
     }
 

@@ -9,6 +9,14 @@ namespace WebApp.Components.Shared.Stats;
 /// </summary>
 public static class StatsFormat
 {
+    /// <summary>
+    /// Finished games before a win rate is worth repeating — two drafts and a win is not an
+    /// 88%. Every "highest win rate" / "toughest" pick and the landscape chart's hollow
+    /// small-sample dots gate on this one number, always counted over wins + losses rather
+    /// than games played: an in-progress game says nothing about the rate yet.
+    /// </summary>
+    public const int MinRatedGames = 3;
+
     /// <summary>A play time at a glance: "45m", "6h", "4d 3h".</summary>
     public static string Hours(TimeSpan span)
     {

@@ -67,6 +67,15 @@ public abstract class FilterState
     public bool Descending { get; set; }
 
     /// <summary>
+    /// Counts the times an order has been picked through <see cref="SetSort"/>, including
+    /// re-picking the one already active. A host layering its own sorts on top (the statistics
+    /// table) watches this to tell "the filter's order was asked for again" apart from an
+    /// unrelated change — the key/direction pair alone can't say, since re-picking reproduces
+    /// it exactly.
+    /// </summary>
+    public int SortEpoch { get; private set; }
+
+    /// <summary>
     /// Whether an item counts as already tried, for <see cref="UntestedOnly"/>. Supplied by the
     /// host because it is not always the same question as <see cref="Records"/> answers: a picker
     /// opened against a chosen adversary asks "tried against this foe", while the ordering below
@@ -110,6 +119,7 @@ public abstract class FilterState
     {
         SortKey = key;
         Descending = SortOptions.FirstOrDefault(o => o.Key == key)?.StartsDescending ?? false;
+        SortEpoch++;
     }
 
     /// <summary>Whether the current order still follows the expansions, so a host can group by them.</summary>

@@ -1,0 +1,211 @@
+@* Spirit × adversary, as a grid of win rates — the question the flat lists can't answer: not
+   "how does Lightning do" but "how does Lightning do against England". Computed from the raw
+   per-game facts the page already loads, by the same per-seat counting rule every other tally
+   uses (SetupInsights.MatchupRecords), narrowed by the page's player scope so a friend's grid
+   is their seats only.
+
+   Colour is a diverging ramp — ember for losing records, jade for winning ones, parchment at the
+   50% midpoint — because a win rate's story is which side of even it sits on. Every coloured cell
+   also says its number: colour ranks, text testifies. A cell is the way into the games it counts;
+   a row's name opens the spirit's record sheet.
+
+   Games without an adversary aren't in this grid — it is a grid of matchups, and those games had
+   nobody across the table. For the same reason a spirit played only in such games gets no row:
+   it has nothing to say here, and must not spend one of the capped rows saying it. *@
+
+@if (_rows.Count == 0)
+{
+    <div class="py-8 text-center text-sm text-ink-500">
+        @(SpiritIds.Count == 0 ? "No spirits match the current filters." : "No games against an adversary yet.")
+    </div>
+}
+else
+{
+    <div class="overflow-x-auto px-4 pb-2">
+        <table class="border-separate" style="border-spacing: 2px;">
+            <thead>
+            <tr>
+                <th></th>
+                @foreach (var c in _columns)
+                {
+                    <th scope="col" class="max-w-[5.5rem] px-1 pb-1 text-center align-bottom text-[10.5px] font-medium leading-tight text-ink-500">
+                        @c.Name
+                    </th>
+                }
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var r in _rows)
+            {
+                <tr>
+                    <th scope="row" class="max-w-[11rem] pr-2 text-right align-middle">
+                        <button type="button" @onclick="() => OnPickSpirit.InvokeAsync(r.Id)"
+                                title="@($"{r.Name} — details and full record")"
+                                class="inline-flex max-w-full items-center gap-1.5 rounded text-[11.5px] font-medium text-ink-700
+                                       hover:text-accent-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                            <span class="truncate">@r.Name</span>
+                            <span class="h-2 w-2 shrink-0 rounded-full" style="background-color: @r.Color;"></span>
+                        </button>
+                    </th>
+                    @foreach (var c in _columns)
+                    {
+                        if (!_cells.TryGetValue((r.Id, c.Id), out var cell))
+                        {
+                            <td class="h-9 w-14 rounded-md border border-dashed border-ink-200 text-center text-ink-300"
+                                title="@($"{r.Name} never faced {c.Name}")">·</td>
+                            continue;
+                        }
+                        var tip = SetupInsights.RecordTooltip($"{r.Name} vs {c.Name}", cell, null) + " · open those games";
+                        if (cell.Completed == 0)
+                        {
+                            <td class="h-9 w-14 rounded-md bg-ink-100 text-center">
+                                <a href="@GamesLink.ForMatchup(r.Id, c.Id, ScopeWho)" title="@tip"
+                                   class="flex h-full w-full items-center justify-center rounded-md text-[11px] text-ink-500
+                                          focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">×@cell.Played</a>
+                            </td>
+                            continue;
+                        }
+                        var bg = DivergingColor(cell.WinRate);
+                        <td class="h-9 w-14 rounded-md text-center" style="background-color: @bg;">
+                            <a href="@GamesLink.ForMatchup(r.Id, c.Id, ScopeWho)" title="@tip"
+                               class="flex h-full w-full flex-col items-center justify-center rounded-md leading-none
+                                      focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40"
+                               style="color: @GameLookups.InkOn(bg);">
+                                <span class="text-[11.5px] font-semibold tabular-nums">@($"{cell.WinRate:F0}%")</span>
+                                <span class="mt-0.5 text-[9px] tabular-nums" style="opacity: 0.8;">×@cell.Played</span>
+                            </a>
+                        </td>
+                    }
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    <div class="flex flex-wrap items-center gap-2.5 px-5 pb-4 pt-1 text-[11px] text-ink-500">
+        <span>win rate</span>
+        <span class="tabular-nums">0%</span>
+        <span class="h-2 w-36 rounded-full"
+              style="background: linear-gradient(90deg, @string.Join(", ", StatsTheme.WinRateRamp));"></span>
+        <span class="tabular-nums">100%</span>
+        <span class="ml-2">· ×n = games played · dashed = never faced · tap a cell for those games</span>
+    </div>
+    @if (_hiddenSpirits > 0)
+    {
+        <p class="px-5 pb-4 -mt-2 text-[11px] text-ink-500">
+            Showing the @_rows.Count most-played spirits with matchups — narrow the filter above to bring the other @_hiddenSpirits into the grid.
+        </p>
+    }
+}
+
+@code {
+    /// <summary>The per-game history, already narrowed to the page's player scope.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<Application.Features.Statistics.SetupGameFact> Facts { get; set; } = [];
+
+    /// <summary>The spirits in view, most-played first — the filter's answer, so the grid follows it.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<string> SpiritIds { get; set; } = [];
+
+    /// <summary>Seat predicate for the picked player, so a friend's grid counts their seats only.</summary>
+    [Parameter] public Func<Application.Features.Statistics.SetupFactSeat, bool>? SeatFilter { get; set; }
+
+    /// <summary>The page scope as a games-list who key, carried on every cell's link.</summary>
+    [Parameter] public string? ScopeWho { get; set; }
+
+    /// <summary>Opens the spirit's record sheet — the same handler the page's rows use.</summary>
+    [Parameter] public EventCallback<string> OnPickSpirit { get; set; }
+
+    /// <summary>Rows are capped so twenty filtered spirits don't rebuild the wall this grid replaced.</summary>
+    [Parameter] public int MaxRows { get; set; } = 12;
+
+    private sealed record Head(string Id, string Name, string Color = "");
+
+    private Dictionary<(string SpiritId, string AdversaryId), SetupInsights.PlayRecord> _matchups = [];
+    private IReadOnlyList<Application.Features.Statistics.SetupGameFact>? _tallied;
+    private Func<Application.Features.Statistics.SetupFactSeat, bool>? _talliedFilter;
+    private List<string> _shownIds = [];
+    private int _shownMax;
+
+    private List<Head> _rows = [];
+    private List<Head> _columns = [];
+    private Dictionary<(string SpiritId, string AdversaryId), SetupInsights.PlayRecord> _cells = [];
+    private int _hiddenSpirits;
+
+    protected override void OnParametersSet()
+    {
+        // The tally covers every spirit, so it depends only on the history and the scope — and
+        // the page hands both over by reference, unchanged until a reload or a scope change.
+        // Everything else about a render (a keystroke in the search box, a sort click) must not
+        // re-walk the whole game history.
+        if (!ReferenceEquals(Facts, _tallied) || !ReferenceEquals(SeatFilter, _talliedFilter))
+        {
+            _matchups = SetupInsights.MatchupRecords(Facts, SeatFilter);
+            _tallied = Facts;
+            _talliedFilter = SeatFilter;
+        }
+        else if (MaxRows == _shownMax && _shownIds.SequenceEqual(SpiritIds))
+        {
+            return; // Same history, same scope, same spirits in view — the grid stands.
+        }
+        _shownIds = SpiritIds.ToList();
+        _shownMax = MaxRows;
+
+        var hasMatchup = _matchups.Keys.Select(k => k.SpiritId).ToHashSet();
+        var candidates = SpiritIds.Where(hasMatchup.Contains).ToList();
+        var wanted = candidates.Take(MaxRows).ToList();
+        _hiddenSpirits = candidates.Count - wanted.Count;
+        var wantedSet = wanted.ToHashSet();
+
+        _cells = _matchups
+            .Where(kv => wantedSet.Contains(kv.Key.SpiritId))
+            .ToDictionary(kv => kv.Key, kv => kv.Value);
+
+        _rows = wanted
+            .Select(id =>
+            {
+                var spirit = GameLookups.SpiritFor(id);
+                var color = (spirit is null ? null : SpiritDetails.For(spirit.Id))?.ColorHex ?? GameLookups.NeutralColor;
+                return new Head(id, spirit?.Name ?? id, color);
+            })
+            .ToList();
+
+        // Columns in play order (most-faced first), named without the parenthetical subtitle —
+        // "France (Plantation Colony)" is a row in a reference table, not a 56px column header.
+        _columns = _cells
+            .GroupBy(kv => kv.Key.AdversaryId)
+            .OrderByDescending(g => g.Sum(kv => kv.Value.Played))
+            .Select(g =>
+            {
+                var name = GameLookups.AdversaryFor(g.Key)?.Name ?? g.Key;
+                var cut = name.IndexOf(" (", StringComparison.Ordinal);
+                return new Head(g.Key, cut > 0 ? name[..cut] : name);
+            })
+            .ToList();
+    }
+
+    /// <summary>
+    /// The ramp's stops, parsed once from the shared <see cref="StatsTheme.WinRateRamp"/> the
+    /// legend is drawn from — one definition, so the legend can never advertise colours the
+    /// cells don't use. Equidistant, so index maps straight to a rate.
+    /// </summary>
+    private static readonly (double At, int R, int G, int B)[] RampStops =
+        StatsTheme.WinRateRamp
+            .Select((hex, i) => (
+                At: 100.0 * i / (StatsTheme.WinRateRamp.Count - 1),
+                R: Convert.ToInt32(hex.Substring(1, 2), 16),
+                G: Convert.ToInt32(hex.Substring(3, 2), 16),
+                B: Convert.ToInt32(hex.Substring(5, 2), 16)))
+            .ToArray();
+
+    /// <summary>
+    /// The diverging ramp: ember (losing) → parchment (even) → jade (winning). The anchors darken
+    /// monotonically away from the light midpoint, so depth of colour reads as distance from 50%.
+    /// </summary>
+    private static string DivergingColor(double rate)
+    {
+        rate = Math.Clamp(rate, 0, 100);
+        var hi = Array.FindIndex(RampStops, s => s.At >= rate);
+        if (hi <= 0) return $"#{RampStops[0].R:X2}{RampStops[0].G:X2}{RampStops[0].B:X2}";
+        var (a, b) = (RampStops[hi - 1], RampStops[hi]);
+        var t = (rate - a.At) / (b.At - a.At);
+        return $"#{(int)(a.R + (b.R - a.R) * t):X2}{(int)(a.G + (b.G - a.G) * t):X2}{(int)(a.B + (b.B - a.B) * t):X2}";
+    }
+}

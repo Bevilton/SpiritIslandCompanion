@@ -1,0 +1,237 @@
+@using System.Globalization
+@* The spirit landscape: every played spirit as one dot — how much it was played (x) against how
+   often it won (y), in the spirit's signature colour. It replaces the one-bar-per-spirit chart,
+   which grew 28px per spirit to restate the table's Games column; this stays one screen tall at
+   any count, and the four corners are the reading — comfort picks, hidden gems, grinders, rough
+   starts. A dot opens the spirit's record sheet, the same tap the table rows answer.
+
+   Every dot wears its spirit's initials, so they are all named the same way rather than a chosen
+   few carrying a label and the rest going nameless; the full name and record are one hover away.
+   Spirits that landed on exactly the same spot — five spirits at three games and 67% is a real
+   evening's worth of demo data — fan out in a small ring around it, or the top dot would be the
+   only one that exists to the pointer.
+
+   Dots with fewer than three finished games are drawn hollow: two games is not a win rate, and a
+   100% that means "won once" must not outshine a 71% earned over thirty-four. The same threshold
+   the insight cards apply before crowning anything "highest win rate". Spirits with no finished
+   game at all have no rate to plot and are counted in the footnote instead of faked onto the
+   floor of the chart. *@
+
+@if (_dots.Count == 0)
+{
+    <div class="py-8 text-center text-sm text-ink-500">
+        @(Spirits.Count == 0 ? "No spirits match the current filters." : "No finished games to place yet.")
+    </div>
+}
+else
+{
+    <div class="overflow-x-auto">
+        <svg viewBox="0 0 @W @H" style="min-width: 640px; width: 100%; display: block;"
+             role="img" aria-label="Each played spirit plotted by games played and win rate">
+            @* Grid: recessive rules, with the 50% line dashed — it is the one that divides the
+               story. The labels go through SvgLabel because Razor reserves the <text> tag. *@
+            @foreach (var p in new[] { 0, 25, 50, 75, 100 })
+            {
+                var y = Y(p);
+                <line x1="@L" y1="@S(y)" x2="@(W - R)" y2="@S(y)" stroke="@StatsTheme.Ink200"
+                      stroke-width="1" stroke-opacity="@(p == 50 ? "0.9" : "0.5")"
+                      stroke-dasharray="@(p == 50 ? "5 4" : null)"/>
+                @SvgLabel(L - 8, y + 4, $"{p}%", StatsTheme.Ink400, anchor: "end")
+            }
+            @for (var g = 0; g <= _maxGames; g += _step)
+            {
+                // The caption owns the right end of the axis; a tick that would run
+                // under it (the last one, when _maxGames divides evenly) is dropped
+                // rather than printed through it.
+                if (X(g) > W - R - 64) { continue; }
+                @SvgLabel(X(g), H - 12, g.ToString(), StatsTheme.Ink400, anchor: "middle")
+            }
+            @SvgLabel(W - R, H - 12, "games →", StatsTheme.Ink500, anchor: "end", weight: "600")
+
+            @if (_dots.Count >= 4)
+            {
+                @* The captions sit in the strips above the 100% line and below the 0% line —
+                   ground the dots can never reach (their centres clamp to the lines), so a
+                   spirit at 100% no longer parks on top of "hidden gems". *@
+                @SvgLabel(W - R - 6, DataTop - 14, "comfort picks", StatsTheme.Ink300, anchor: "end", italic: true)
+                @SvgLabel(L + 6, DataTop - 14, "hidden gems", StatsTheme.Ink300, italic: true)
+                @SvgLabel(W - R - 6, DataBottom + 22, "grinders", StatsTheme.Ink300, anchor: "end", italic: true)
+                @SvgLabel(L + 6, DataBottom + 22, "rough starts", StatsTheme.Ink300, italic: true)
+            }
+
+            @foreach (var d in _dots)
+            {
+                <g @key="d.Id" class="cursor-pointer focus:outline-none focus-visible:opacity-70"
+                   tabindex="0" role="button" aria-label="@($"{d.Name} — details and full record")"
+                   @onclick="() => OnPick.InvokeAsync(d.Id)"
+                   @onkeydown="e => OnDotKey(e, d.Id)">
+                    <title>@d.Tooltip</title>
+                    @* An invisible halo widens the hit target past the mark itself. *@
+                    <circle cx="@S(d.Cx)" cy="@S(d.Cy)" r="14" fill="transparent"/>
+                    @if (d.SmallSample)
+                    {
+                        <circle cx="@S(d.Cx)" cy="@S(d.Cy)" r="@S(DotR - 1.1)" fill="@StatsTheme.Paper" stroke="@d.Color" stroke-width="2.2"/>
+                        @SvgLabel(d.Cx, d.Cy + 3, d.Monogram, StatsTheme.Ink700,
+                            anchor: "middle", size: "8", weight: "700", noPointer: true)
+                    }
+                    else
+                    {
+                        <circle cx="@S(d.Cx)" cy="@S(d.Cy)" r="@DotR" fill="@d.Color" stroke="@StatsTheme.Paper" stroke-width="1.5"/>
+                        @SvgLabel(d.Cx, d.Cy + 3, d.Monogram, d.InkOnColor,
+                            anchor: "middle", size: "8", weight: "700", noPointer: true)
+                    }
+                </g>
+            }
+        </svg>
+    </div>
+    @if (_unplotted > 0)
+    {
+        <p class="mt-1 px-1 text-[11px] text-ink-500">
+            @_unplotted spirit@(_unplotted == 1 ? "" : "s") with no finished game @(_unplotted == 1 ? "is" : "are") not plotted — the table below still lists @(_unplotted == 1 ? "it" : "them").
+        </p>
+    }
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<Application.Features.Statistics.SpiritStats> Spirits { get; set; } = [];
+
+    /// <summary>Opens the spirit's record sheet — the page passes the same handler its rows use.</summary>
+    [Parameter] public EventCallback<string> OnPick { get; set; }
+
+    private const int W = 920, H = 360, L = 46, R = 18, T = 22, B = 34;
+
+    /// <summary>Big enough to seat two initials; the halo keeps the hit target wider still.</summary>
+    private const double DotR = 10;
+
+    /// The vertical band dots may occupy. Inset from the margins so the quadrant captions get
+    /// strips of their own above 100% and below 0% — a dot fanned to the very top otherwise
+    /// sat right on the caption and neither could be read.
+    private const double CapInset = 28;
+    private const double DataTop = T + CapInset;
+    private const double DataBottom = H - B - CapInset;
+
+    private sealed record Dot(
+        string Id, string Name, string Monogram, string Color, string InkOnColor,
+        double Cx, double Cy, bool SmallSample, string Tooltip);
+
+    private List<Dot> _dots = [];
+    private int _maxGames = 6;
+    private int _step = 5;
+    private int _unplotted;
+
+    private double X(double games) => L + games / _maxGames * (W - L - R);
+    private static double Y(double rate) => DataTop + (1 - rate / 100) * (DataBottom - DataTop);
+
+    /// SVG coordinates must be spelled with a decimal point whatever the server culture says.
+    private static string S(double v) => v.ToString("F1", CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// An SVG text element, as raw markup — Razor keeps the &lt;text&gt; tag for itself, so the
+    /// labels cannot be written as markup the way the shapes are. Content is encoded; nothing
+    /// else here comes from outside the component.
+    /// </summary>
+    private static MarkupString SvgLabel(
+        double x, double y, string text, string fill,
+        string anchor = "start", string size = "11", string weight = "400",
+        bool italic = false, bool noPointer = false) =>
+        (MarkupString)(
+            $"<text x=\"{S(x)}\" y=\"{S(y)}\" text-anchor=\"{anchor}\" font-size=\"{size}\" font-weight=\"{weight}\" fill=\"{fill}\""
+            + (italic ? " font-style=\"italic\"" : "")
+            + (noPointer ? " pointer-events=\"none\"" : "")
+            + $">{System.Net.WebUtility.HtmlEncode(text)}</text>");
+
+    private Task OnDotKey(KeyboardEventArgs e, string id) =>
+        e.Key is "Enter" or " " ? OnPick.InvokeAsync(id) : Task.CompletedTask;
+
+    /// The rows last drawn. The page rebuilds its filtered list every render but the rows in it
+    /// are the same stat objects — an equal list means the picture already drawn is the right
+    /// one, and the placement pass below is not free.
+    private List<Application.Features.Statistics.SpiritStats> _shown = [];
+
+    protected override void OnParametersSet()
+    {
+        if (_shown.SequenceEqual(Spirits)) return;
+        _shown = Spirits.ToList();
+
+        _unplotted = Spirits.Count(s => s.Wins + s.Losses == 0);
+        var plottable = Spirits.Where(s => s.Wins + s.Losses > 0).ToList();
+
+        _maxGames = Math.Max(6, plottable.Count == 0 ? 0 : plottable.Max(s => s.GamesPlayed));
+        _step = _maxGames > 25 ? 10 : 5;
+
+        var placed = Place(plottable);
+        _dots = [];
+        for (var i = 0; i < plottable.Count; i++)
+        {
+            var s = plottable[i];
+            var spirit = GameLookups.SpiritFor(s.SpiritId);
+            var name = spirit?.Name ?? s.SpiritId;
+            var detail = spirit is null ? null : SpiritDetails.For(spirit.Id);
+            var color = detail?.ColorHex ?? GameLookups.NeutralColor;
+            var completed = s.Wins + s.Losses;
+            _dots.Add(new Dot(
+                s.SpiritId, name, spirit is null ? "?" : GameLookups.SpiritMonogram(spirit),
+                color, GameLookups.InkOn(color),
+                placed[i].X, placed[i].Y,
+                SmallSample: completed < StatsFormat.MinRatedGames,
+                Tooltip: $"{name} — {s.GamesPlayed} game{(s.GamesPlayed == 1 ? "" : "s")}, "
+                         + $"{s.Wins} W · {s.Losses} L ({s.WinRate:F0}%), avg score {s.AverageScore:F0}"
+                         + (s.BestScore is { } best ? $", best {best}" : "")
+                         + (completed < 3 ? " — small sample" : "")));
+        }
+    }
+
+    /// <summary>
+    /// Where each dot actually sits. Spirits sharing an exact spot first fan out in a ring just
+    /// wide enough that none covers another; a relaxation pass then separates the near-misses the
+    /// ring can't know about — dots from different spots still landing within a diameter of each
+    /// other. Every nudge is cosmetic and small; the tooltip keeps the exact numbers.
+    /// </summary>
+    private (double X, double Y)[] Place(List<Application.Features.Statistics.SpiritStats> spirits)
+    {
+        var pos = new (double X, double Y)[spirits.Count];
+        foreach (var group in spirits
+                     .Select((s, index) => (Stats: s, Index: index))
+                     .GroupBy(e => (e.Stats.GamesPlayed, Rate: Math.Round(e.Stats.WinRate))))
+        {
+            var members = group.ToList();
+            var baseX = X(group.Key.GamesPlayed);
+            var baseY = Y(group.Key.Rate);
+            var ring = members.Count == 1 ? 0 : (2 * DotR + 1) / (2 * Math.Sin(Math.PI / members.Count));
+            for (var i = 0; i < members.Count; i++)
+            {
+                var angle = 2 * Math.PI * i / members.Count - Math.PI / 2;
+                pos[members[i].Index] = ClampToPlot(baseX + ring * Math.Cos(angle), baseY + ring * Math.Sin(angle));
+            }
+        }
+
+        var minSep = 2 * DotR + 1;
+        for (var pass = 0; pass < 16; pass++)
+        {
+            var moved = false;
+            for (var i = 0; i < pos.Length; i++)
+            for (var j = i + 1; j < pos.Length; j++)
+            {
+                var dx = pos[j].X - pos[i].X;
+                var dy = pos[j].Y - pos[i].Y;
+                var dist = Math.Sqrt(dx * dx + dy * dy);
+                if (dist >= minSep) continue;
+                moved = true;
+                // A deterministic direction when two dots coincide exactly — no randomness,
+                // so the same data always draws the same picture.
+                var (ux, uy) = dist < 0.001
+                    ? (Math.Cos(2 * Math.PI * (i * 7 + j) / 11), Math.Sin(2 * Math.PI * (i * 7 + j) / 11))
+                    : (dx / dist, dy / dist);
+                var push = (minSep - dist) / 2;
+                pos[i] = ClampToPlot(pos[i].X - ux * push, pos[i].Y - uy * push);
+                pos[j] = ClampToPlot(pos[j].X + ux * push, pos[j].Y + uy * push);
+            }
+            if (!moved) break;
+        }
+        return pos;
+    }
+
+    /// Centres stay on or inside the 0%/100% gridlines, keeping the caption strips clear.
+    private static (double X, double Y) ClampToPlot(double x, double y) =>
+        (Math.Clamp(x, L + DotR, W - R - DotR), Math.Clamp(y, DataTop, DataBottom));
+}

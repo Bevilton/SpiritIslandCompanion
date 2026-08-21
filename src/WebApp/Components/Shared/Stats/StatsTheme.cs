@@ -39,5 +39,18 @@ public static class StatsTheme
     public const string Sun500 = "#D4AC1E";
     public const string Sun600 = "#A8850F";
 
+    /// <summary>The app's paper white (--color-white in site.css) — light text and dot
+    /// strokes on coloured chart fills.</summary>
+    public const string Paper = "#FDFBF6";
+
+    /// <summary>
+    /// The diverging win-rate ramp: ember for losing records (red-700, red-400) through
+    /// parchment at even to jade for winning ones. Equidistant stops — a cell colour is an
+    /// interpolation along it and the legend swatch is a gradient built from it, so the two
+    /// can never disagree.
+    /// </summary>
+    public static readonly IReadOnlyList<string> WinRateRamp =
+        ["#B8412A", "#EE8560", "#D8CFC0", Accent300, Accent700];
+
     public const string FontFamily = "Inter, system-ui, sans-serif";
 }

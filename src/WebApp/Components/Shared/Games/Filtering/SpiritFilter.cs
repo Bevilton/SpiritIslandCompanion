@@ -74,6 +74,12 @@ public sealed class SpiritFilter : FilterState
             && MatchesGroup(Tokens, detail.Tokens, TokenMode);
     }
 
+    /// <summary>The expansions the spirits actually come from, for the pills to offer — the same
+    /// question <see cref="CatalogueFilter{T}.ExpansionsIn"/> answers, for hosts listing a subset
+    /// (the statistics page offers only the played).</summary>
+    public IReadOnlyList<ExpansionId> ExpansionsIn(IEnumerable<Spirit> spirits) =>
+        spirits.Select(s => s.ExpansionId).Distinct().ToList();
+
     /// <summary>The spirits that match, in the chosen order. Ties break by name, so the order is
     /// stable rather than incidental.</summary>
     public IReadOnlyList<Spirit> Apply(IEnumerable<Spirit> spirits)

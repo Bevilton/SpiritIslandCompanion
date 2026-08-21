@@ -322,6 +322,30 @@ public static class SetupInsights
                 byLevel.GetValueOrDefault(id) ?? _noLevels));
     }
 
+    /// <summary>
+    /// Per-(spirit, adversary) record — the matchup grid's cells. One count per recorded seat
+    /// per adversary at the table, the same per-seat rule <see cref="SpiritRecords"/> counts by;
+    /// a game without an adversary contributes nothing, being no matchup at all. Pass
+    /// <paramref name="seatFilter"/> to scope to one person's seats.
+    /// </summary>
+    public static Dictionary<(string SpiritId, string AdversaryId), PlayRecord> MatchupRecords(
+        IEnumerable<SetupGameFact> facts,
+        Func<SetupFactSeat, bool>? seatFilter = null)
+    {
+        return facts
+            .SelectMany(g => g.Seats
+                .Where(s => seatFilter is null || seatFilter(s))
+                .SelectMany(s => g.Adversaries
+                    .Select(a => (s.SpiritId, a.AdversaryId, g.IsCompleted, g.Win))))
+            .GroupBy(x => (x.SpiritId, x.AdversaryId))
+            .ToDictionary(
+                g => g.Key,
+                g => new PlayRecord(
+                    g.Count(),
+                    g.Count(x => x.IsCompleted && x.Win == true),
+                    g.Count(x => x.IsCompleted && x.Win == false)));
+    }
+
     public static Dictionary<string, AdversaryFacing> AdversaryRecords(IReadOnlyList<SetupGameFact> facts)
     {
         return facts

@@ -1,6 +1,7 @@
 using Application.Features.Games.Dtos;
 using Domain.Models.Static;
 using Domain.Models.Static.Data;
+using WebApp.Components.Shared.Stats;
 
 namespace WebApp.Components.Shared.Games;
 
@@ -40,6 +41,44 @@ public static class GameLookups
     /// for a board that has no detail entry.</summary>
     public static string BoardLetter(Board board) =>
         BoardDetails.For(board.Id)?.Letter ?? board.Name[^1..];
+
+    /// <summary>
+    /// The two letters a spirit wears wherever it shrinks to a badge — the catalogue entry's
+    /// hand-picked code, unique across all spirits. Only a spirit without a detail entry (played
+    /// from outside the catalogue) falls back to deriving one from its name: first letters of
+    /// the first two significant words, or the first two letters of a one-word name.
+    /// </summary>
+    public static string SpiritMonogram(Spirit spirit) =>
+        SpiritDetails.For(spirit.Id)?.Monogram ?? DeriveMonogram(spirit.Name);
+
+    private static string DeriveMonogram(string name)
+    {
+        var words = name.Split([' ', '-'], StringSplitOptions.RemoveEmptyEntries)
+            .Where(w => !MonogramSkipWords.Contains(w))
+            .ToList();
+        return words.Count switch
+        {
+            0 => "?",
+            1 => words[0][..Math.Min(2, words[0].Length)],
+            _ => $"{char.ToUpperInvariant(words[0][0])}{char.ToUpperInvariant(words[1][0])}",
+        };
+    }
+
+    private static readonly HashSet<string> MonogramSkipWords =
+        new(StringComparer.OrdinalIgnoreCase) { "a", "an", "as", "and", "in", "its", "of", "the", "up", "your" };
+
+    /// <summary>
+    /// The text colour a label needs on a coloured fill: dark ink on a light colour
+    /// (Lightning's yellow drowns white text), paper on a dark one.
+    /// </summary>
+    public static string InkOn(string hexColor)
+    {
+        var r = Convert.ToInt32(hexColor.Substring(1, 2), 16);
+        var g = Convert.ToInt32(hexColor.Substring(3, 2), 16);
+        var b = Convert.ToInt32(hexColor.Substring(5, 2), 16);
+        var brightness = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+        return brightness > 0.62 ? StatsTheme.Ink900 : StatsTheme.Paper;
+    }
 
     /// <summary>The fallback <see cref="MatchTitle"/>, for callers that style it differently.</summary>
     public const string StandardGameTitle = "Standard game";

@@ -184,6 +184,19 @@ public static class GamesLink
     public static string ForSpirit(string spiritId, GameStatusTab? status = null, string? who = null) =>
         One(SpiritKey, spiritId, status, who);
 
+    /// <summary>
+    /// One spirit against one adversary — the games behind a matchup-grid cell. The list already
+    /// reads both keys at once; this only spells the pair the one fixed way.
+    /// </summary>
+    public static string ForMatchup(string spiritId, string adversaryId, string? who = null)
+    {
+        var q = new QueryBuilder();
+        q.Add(AdversaryKey, adversaryId);
+        q.Add(SpiritKey, spiritId);
+        AddWho(q, who);
+        return WithQuery(q.ToString());
+    }
+
     public static string ForScenario(string scenarioId, GameStatusTab? status = null, string? who = null) =>
         One(ScenarioKey, scenarioId, status, who);
 
