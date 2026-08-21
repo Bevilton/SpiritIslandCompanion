@@ -7,7 +7,6 @@ using Microsoft.EntityFrameworkCore;
 using WebApp.Auth;
 using WebApp.Components;
 using WebApp.Demo;
-using WebApp.Dev;
 using WebApp.State;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -58,7 +57,6 @@ app.UseAuthorization();
 
 app.MapAuthEndpoints();
 app.MapDemoEndpoints();
-app.MapDevEndpoints();
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
