@@ -1,6 +1,12 @@
-@* Adversary reference sheet. Given Facts it also profiles the player's own record
+@* Adversary reference sheet. Given Facts it also profiles the record against this foe
    — including per level inside the difficulty grid — and given OnSelected a level can
-   be picked straight from here. z-60 keeps it above the picker modals (z-50). *@
+   be picked straight from here.
+
+   A foe is the whole table's, so a host that scopes to one person scopes by the games
+   they sat in (SeatFilter, applied through SetupProfiles.GamesWith) rather than by
+   seats; SubjectName names them, and every heading and link here follows.
+
+   z-60 keeps it above the picker modals (z-50). *@
 
 @using Application.Features.Statistics
 
@@ -45,11 +51,11 @@
                    level reads the same wherever it is met. *@
                 <div>
                     <h3 class="text-sm font-medium uppercase tracking-wide text-ink-500 mb-3">
-                        @(_profile is null ? "Difficulty by level" : "Difficulty and your record by level")
+                        @LevelGridTitle
                     </h3>
                     <AdversaryLevelGrid Adversary="_adversary"
                                         Records="@(_profile is null ? null : _facing?.Levels ?? AdversaryLevelGrid.NoRecords)"
-                                        OnPick="PickLevel" LinkGames="LinkGames"/>
+                                        OnPick="PickLevel" LinkGames="LinkGames" ScopeWho="@ScopeWho"/>
                     <p class="mt-2 text-xs text-ink-500">
                         Each level adds escalation rules.
                         @if (OnSelected.HasDelegate)
@@ -58,7 +64,7 @@
                         }
                         else if (LinkGames && _profile is not null)
                         {
-                            <text>Tap a level you've played to see those games.</text>
+                            <text>@LevelGridHint</text>
                         }
                         else
                         {
@@ -70,9 +76,10 @@
                 @if (_profile is not null)
                 {
                     <SetupProfileSection Profile="_profile" Name="@_adversary.Name"
-                                         Title="Your record against this foe"
+                                         Scoped="@(SeatFilter is not null)" SubjectName="@SubjectName"
+                                         Title="record against this foe"
                                          LinkGames="LinkGames"
-                                         AllGamesHref="@(LinkGames ? GamesLink.ForAdversary(_adversary.Id.Value) : null)"/>
+                                         AllGamesHref="@(LinkGames ? GamesLink.ForAdversary(_adversary.Id.Value, who: ScopeWho) : null)"/>
                 }
 
                 <div class="pt-2">
@@ -109,6 +116,20 @@
     /// </summary>
     [Parameter] public bool LinkGames { get; set; }
 
+    /// <summary>
+    /// Narrows the record to the games one person sat in. An adversary is the whole table's foe,
+    /// so there are no seats of its own to filter — a scope drops the games that person was not
+    /// at, which is how the statistics page's own adversary numbers are scoped. Left null by the
+    /// reference pages, where a sheet is always the whole account's history.
+    /// </summary>
+    [Parameter] public Func<SetupFactSeat, bool>? SeatFilter { get; set; }
+
+    /// <summary>Whose record it is when it isn't the reader's own, e.g. "Anna".</summary>
+    [Parameter] public string? SubjectName { get; set; }
+
+    /// <summary>The same scope as a games-list <c>who</c> key, so the links out stay narrowed.</summary>
+    [Parameter] public string? ScopeWho { get; set; }
+
     /// <summary>When set, tapping a level picks this adversary at that level.</summary>
     [Parameter] public EventCallback<(Adversary Adversary, int Level)> OnSelected { get; set; }
 
@@ -117,16 +138,32 @@
     private SetupProfiles.Profile? _profile;
     private SetupInsights.AdversaryFacing? _facing;
 
+    /// The level grid reports the same slice as the profile below it, so its heading names the
+    /// same owner rather than calling the whole table's record the reader's.
+    private string LevelGridTitle =>
+        _profile is null ? "Difficulty by level"
+        : SubjectName is { } name ? $"Difficulty and {name}'s record by level"
+        : SeatFilter is not null ? "Difficulty and your record by level"
+        : "Difficulty and record by level";
+
+    private string LevelGridHint =>
+        SubjectName is { } name ? $"Tap a level {name} has played to see those games."
+        : SeatFilter is not null ? "Tap a level you've played to see those games."
+        : "Tap a level with games behind it to see them.";
+
     public void Show(Adversary adversary)
     {
         _adversary = adversary;
         _detail = AdversaryDetails.For(adversary.Id);
-        _profile = Facts is { Count: > 0 }
-            ? SetupProfiles.Build(SetupSubjectKind.Adversary, adversary.Id.Value, Facts)
+        // Scoped by dropping the games the person was not at. Built even when that leaves
+        // nothing, so the sheet can report an empty record as theirs rather than vanishing.
+        var facts = Facts is { Count: > 0 } ? SetupProfiles.GamesWith(Facts, SeatFilter) : null;
+        _profile = facts is not null
+            ? SetupProfiles.Build(SetupSubjectKind.Adversary, adversary.Id.Value, facts)
             : null;
         // Null once the foe has never been faced — the grid then shows "—" per level.
-        _facing = Facts is { Count: > 0 }
-            ? SetupInsights.AdversaryRecords(Facts).GetValueOrDefault(adversary.Id.Value)
+        _facing = facts is not null
+            ? SetupInsights.AdversaryRecords(facts).GetValueOrDefault(adversary.Id.Value)
             : null;
         StateHasChanged();
     }

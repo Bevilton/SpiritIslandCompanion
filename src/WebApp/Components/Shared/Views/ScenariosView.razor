@@ -1,9 +1,10 @@
 @* Reference content for scenarios. Used from /scenarios (public) and /app/scenarios.
    Pass OwnedExpansions to filter; null (default) shows every scenario.
-   Pass Records for the signed-in view to sort and filter by the player's own history.
+   Pass Records for the signed-in view to sort and filter by the account's recorded history — a
+   reference page counts every game on the account and never narrows to one player.
 
    The filter is FilterBar, shared with every other catalogue and picker. Scenarios have no facets
-   of their own — expansion, difficulty and your own record is the whole of what there is to ask. *@
+   of their own — expansion, difficulty and the record so far is the whole of what there is to ask. *@
 
 <div class="page-head">
     <div>
@@ -19,7 +20,7 @@
     <FilterBar Filter="_filter" OwnedExpansions="@OwnedExpansions"
                PresentExpansions="_filter.ExpansionsIn(_inScope)"
                ShowingCount="_visible.Count" TotalCount="_inScope.Count"
-               UntestedLabel="Never played" UntestedHint="Scenarios you have never played"
+               UntestedLabel="Never played" UntestedHint="Scenarios nobody at your table has played"
                Changed="StateHasChanged"/>
 </div>
 
@@ -32,7 +33,7 @@
                 <th>Expansion</th>
                 @if (Records is not null)
                 {
-                    <th>Your record</th>
+                    <th>Record</th>
                 }
                 <th class="text-right">Difficulty</th>
             </tr>
@@ -82,8 +83,9 @@
     [Parameter] public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
 
     /// <summary>
-    /// The visitor's record per scenario, when there is one. Unlocks ordering by play count and
-    /// win rate, the never-played filter, and the column of figures. Null on the public route.
+    /// The account's record per scenario — every game the visitor has recorded, whoever sat at the
+    /// table. Unlocks ordering by play count and win rate, the never-played filter, and the column
+    /// of figures. Null on the public route.
     /// </summary>
     [Parameter] public IReadOnlyDictionary<string, SetupInsights.PlayRecord>? Records { get; set; }
 

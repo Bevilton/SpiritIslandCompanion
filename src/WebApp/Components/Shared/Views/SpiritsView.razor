@@ -21,7 +21,7 @@
 <div class="mt-4">
     <FilterBar @ref="_bar" Filter="_filter" OwnedExpansions="@OwnedExpansions"
                ShowingCount="_visible.Count" TotalCount="_inScope.Count"
-               UntestedLabel="Never played" UntestedHint="Spirits you have never played"
+               UntestedLabel="Never played" UntestedHint="Spirits nobody at your table has played"
                Changed="StateHasChanged">
         <Facets>
             @if (_bar is not null)
@@ -82,10 +82,14 @@ else
     [Parameter] public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
 
     /// <summary>
-    /// The visitor's own record per spirit, when there is one. Unlocks ordering by play count and
-    /// win rate and the never-played filter, and puts the numbers on the cards — sorting by a
-    /// figure the cards don't show would leave the order looking arbitrary. Null on the public
-    /// route, which has nobody to have a record.
+    /// The account's record per spirit — every seat the visitor has recorded, their own and their
+    /// table's. A reference page has no player selector and never narrows: it is the catalogue
+    /// measured against everything on the account, and the record sheets it opens say so.
+    /// <para>
+    /// Unlocks ordering by play count and win rate and the never-played filter, and puts the
+    /// numbers on the cards — sorting by a figure the cards don't show would leave the order
+    /// looking arbitrary. Null on the public route, which has nobody to have a record.
+    /// </para>
     /// </summary>
     [Parameter] public IReadOnlyDictionary<string, SetupInsights.PlayRecord>? Records { get; set; }
 

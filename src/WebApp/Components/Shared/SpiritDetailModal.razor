@@ -1,6 +1,12 @@
-@* Spirit reference sheet. Given Facts it also profiles the player's own history
-   with the spirit, and given OnSelected it can be chosen straight from here — that
-   is how the setup screen lets you explore before committing to a pick.
+@* Spirit reference sheet. Given Facts it also profiles the history with the spirit,
+   and given OnSelected it can be chosen straight from here — that is how the setup
+   screen lets you explore before committing to a pick.
+
+   Whose history that is belongs to the host, not to this sheet: SeatFilter narrows it
+   to one person's seats and SubjectName names them. The catalogue pages pass neither,
+   so a sheet there is the whole account's; the statistics page passes its selector and
+   the setup screen the seat being filled. The sheet only reports which it is.
+
    z-60 keeps it above the picker modals (z-50) that open it. *@
 
 @using Application.Features.Statistics
@@ -68,13 +74,11 @@
 
                 @if (_profile is not null)
                 {
-                    @* Facts only when unscoped — a sheet already scoped to one person
-                       has nothing for the owner toggle to switch between. *@
-                    <SetupProfileSection Profile="_profile" Name="@_spirit.Name" SubjectName="@SubjectName"
-                                         Facts="@(SeatFilter is null ? Facts : null)" SubjectId="@_spirit.Id.Value"
-                                         Title="Your record with this spirit"
+                    <SetupProfileSection Profile="_profile" Name="@_spirit.Name"
+                                         Scoped="@(SeatFilter is not null)" SubjectName="@SubjectName"
+                                         Title="record with this spirit"
                                          LinkGames="LinkGames"
-                                         AllGamesHref="@(LinkGames ? GamesLink.ForSpirit(_spirit.Id.Value) : null)"/>
+                                         AllGamesHref="@(LinkGames ? GamesLink.ForSpirit(_spirit.Id.Value, who: ScopeWho) : null)"/>
                 }
 
                 @if (_aspects.Count > 0)
@@ -133,9 +137,8 @@
                                                narrowed to a spirit but not to the aspect it was
                                                played as, so the link would quietly widen. *@
                                             <SetupProfileSection Profile="_aspectProfile" Name="@($"{_spirit.Name} · {aspect.Name}")"
-                                                                 SubjectName="@SubjectName"
-                                                                 Facts="@(SeatFilter is null ? Facts : null)" SubjectId="@aspect.Id.Value"
-                                                                 Title="@($"Your record as {aspect.Name}")"
+                                                                 Scoped="@(SeatFilter is not null)" SubjectName="@SubjectName"
+                                                                 Title="@($"record as {aspect.Name}")"
                                                                  LinkGames="LinkGames"/>
                                         </div>
                                     }
@@ -188,11 +191,19 @@
     /// <summary>Whether the record may link out to the games behind it — see AdversaryDetailModal.</summary>
     [Parameter] public bool LinkGames { get; set; }
 
-    /// <summary>Scopes the record to one person's seats — a friend sitting in the seat being set up.</summary>
+    /// <summary>
+    /// Narrows the record to one person's seats. Set by the hosts that have a scope of their own
+    /// — the statistics page's player selector, the seat being filled on the setup screen — and
+    /// left off by the reference pages, where a sheet is always the whole account's history. The
+    /// sheet states which of the two it is; there is no control inside it to change.
+    /// </summary>
     [Parameter] public Func<SetupFactSeat, bool>? SeatFilter { get; set; }
 
-    /// <summary>Whose record is shown when it isn't the current user's, e.g. "Anna".</summary>
+    /// <summary>Whose record it is when it isn't the reader's own, e.g. "Anna".</summary>
     [Parameter] public string? SubjectName { get; set; }
+
+    /// <summary>The same scope as a games-list <c>who</c> key, so the links out stay narrowed.</summary>
+    [Parameter] public string? ScopeWho { get; set; }
 
     /// <summary>When set, a footer action picks this spirit — used when opened from the picker.
     /// Each aspect gets an action of its own, so a variant can be chosen straight from here.</summary>

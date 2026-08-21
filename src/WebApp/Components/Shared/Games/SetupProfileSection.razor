@@ -1,23 +1,24 @@
-@* "Your record" — renders a SetupProfiles.Profile: headline numbers, what the
-   subject was paired with, and the most recent games. Used by the entity detail
-   modals (spirit / board / adversary / scenario) so a player can explore their
-   own history before committing to a matchup.
+@* The record sheet's record — a SetupProfiles.Profile rendered as headline numbers,
+   what the subject was paired with, and the most recent games. Used by the entity
+   detail modals (spirit / board / adversary / scenario / island) so a player can
+   explore the history before committing to a matchup.
 
-   Given Facts and SubjectId (seat-bound subjects only), the section grows an
-   owner toggle when more than one person has played the subject — All / You /
-   Anna — and rebuilds every number below for the picked person. Hosts that
-   already scope the sheet to one person simply don't pass Facts. *@
+   The section holds no control over whose games it counts — that is the host's
+   scope and nothing but the host's: a reference page is always the whole
+   account's history, the statistics page follows its player selector, and the
+   setup screen follows whoever sits in the seat being filled. Since the same
+   sheet appears under all three, it says which one it is in words (see
+   ScopeNote) rather than leaving the numbers to be read as anybody's. *@
 
 @using System.Globalization
-@using Application.Features.Statistics
 
 <div class="space-y-4">
-    <div class="flex items-baseline justify-between gap-2">
-        <h3 class="text-sm font-medium uppercase tracking-wide text-ink-500">@Title</h3>
-        @if (CornerLabel is { } corner)
-        {
-            <span class="text-[11px] text-ink-400">@corner</span>
-        }
+    <div>
+        <h3 class="text-sm font-medium uppercase tracking-wide text-ink-500">@Heading</h3>
+        <p class="mt-1 flex items-start gap-1.5 text-[11px] leading-relaxed text-ink-400">
+            <Icon Name="users" Class="w-3.5 h-3.5 shrink-0 mt-px"/>
+            <span>@ScopeNote</span>
+        </p>
     </div>
 
     @if (Profile.Record.Played == 0)
@@ -26,37 +27,24 @@
             <Icon Name="sparkles" Class="w-4 h-4 text-amber-600 shrink-0 mt-0.5"/>
             <div class="text-xs leading-relaxed text-amber-800">
                 <span class="font-semibold">@EmptyHeadline</span>
-                <span class="text-amber-700">Pick it and this becomes game one — every number here starts filling in.</span>
+                @* The nudge is only the reader's to act on — offered against somebody else's
+                   blank record it would promise something the reader cannot do. ml-1 stands in
+                   for the sentence space: Razor trims the whitespace either side of an @if, so
+                   the two spans would otherwise be flush against each other. *@
+                @if (SubjectName is null)
+                {
+                    <span class="ml-1 text-amber-700">Pick it and this becomes game one — every number here starts filling in.</span>
+                }
             </div>
         </div>
     }
     else
     {
-        @* --- owner toggle: whose seats the numbers below count --- *@
-        @if (_owners.Count > 1)
-        {
-            <div class="flex flex-wrap items-center gap-1">
-                <button type="button" @onclick="() => SelectOwner(null)" class="@OwnerPillClass(_ownerKey is null)">
-                    All players
-                </button>
-                @foreach (var owner in _owners)
-                {
-                    <button type="button" @onclick="() => SelectOwner(owner.Key)"
-                            class="@OwnerPillClass(_ownerKey == owner.Key)"
-                            title="@($"{owner.Label} — played {owner.Played}×")">
-                        <span class="h-1.5 w-1.5 shrink-0 rounded-full" style="background-color: @(owner.ColorHex ?? "#a8a29e");"></span>
-                        @owner.Label
-                        <span class="tabular-nums opacity-60">@(owner.Played)×</span>
-                    </button>
-                }
-            </div>
-        }
-
         @* --- headline --- *@
         <div class="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-xl border border-ink-200 bg-ink-50/40 px-4 py-3.5">
-            @if (_shown.Record.Completed > 0)
+            @if (Profile.Record.Completed > 0)
             {
-                <WinRateRing Pct="_shown.Record.WinRate" Size="76" Stroke="7" Caption="wins"/>
+                <WinRateRing Pct="Profile.Record.WinRate" Size="76" Stroke="7" Caption="wins"/>
             }
             else
             {
@@ -81,10 +69,10 @@
         }
 
         @* --- what it was paired with --- *@
-        @if (_shown.Breakdowns.Count > 0)
+        @if (Profile.Breakdowns.Count > 0)
         {
             <div class="grid gap-4 sm:grid-cols-2">
-                @foreach (var breakdown in _shown.Breakdowns)
+                @foreach (var breakdown in Profile.Breakdowns)
                 {
                     var most = breakdown.Rows.Max(r => r.Record.Played);
                     <div>
@@ -131,7 +119,7 @@
            readout of it — and the header carries the whole slice, which is more games than the
            five shown here. Only where the host asked for links: mid-setup these same sheets are
            how a spirit is chosen, and a link out would abandon the game being set up. *@
-        @if (_shown.Recent.Count > 0)
+        @if (Profile.Recent.Count > 0)
         {
             <div>
                 <div class="mb-1.5 flex items-baseline justify-between gap-2">
@@ -141,13 +129,13 @@
                     @if (AllGamesHref is { } allHref)
                     {
                         <a href="@allHref" class="text-[11px] font-medium text-accent-700 hover:text-accent-800 hover:underline"
-                           title="@($"Open the games list, filtered to {Name}")">
+                           title="@AllGamesTitle">
                             See all games →
                         </a>
                     }
                 </div>
                 <div class="divide-y divide-ink-100 overflow-hidden rounded-lg border border-ink-200">
-                    @foreach (var game in _shown.Recent)
+                    @foreach (var game in Profile.Recent)
                     {
                         @if (LinkGames)
                         {
@@ -196,17 +184,19 @@
     /// <summary>Whose history this is when the stats are scoped to someone else, e.g. "Anna".</summary>
     [Parameter] public string? SubjectName { get; set; }
 
-    [Parameter] public string Title { get; set; } = "Your record";
+    /// <summary>
+    /// What the record is of, as a bare noun phrase — "record with this spirit". The section
+    /// puts the possessive on it, so one wording serves every scope the sheet can carry.
+    /// </summary>
+    [Parameter] public string Title { get; set; } = "record";
 
     /// <summary>
-    /// The history behind <see cref="Profile"/>. Together with <see cref="SubjectId"/>
-    /// this enables the owner toggle; hosts whose sheet is already scoped to one
-    /// person leave it null.
+    /// Whether the numbers are one person's rather than the whole account's. Set by hosts that
+    /// narrow the history — the statistics page's player selector, the seat being filled on the
+    /// setup screen; the reference pages leave it off, where a sheet is always the account's.
+    /// <see cref="SubjectName"/> names that person when it isn't the reader.
     /// </summary>
-    [Parameter] public IReadOnlyList<SetupGameFact>? Facts { get; set; }
-
-    /// <summary>The subject's catalogue id — a spirit or board id.</summary>
-    [Parameter] public string? SubjectId { get; set; }
+    [Parameter] public bool Scoped { get; set; }
 
     /// <summary>
     /// Whether a recent-games line opens the game. Off by default: the same sheets are the
@@ -216,78 +206,80 @@
 
     /// <summary>
     /// The games list narrowed to this subject, when there is a filter that expresses it. Shown
-    /// beside the recent-games heading, since those five are rarely all of them.
+    /// beside the recent-games heading, since those five are rarely all of them. The host builds
+    /// it with the same scope it gave the numbers, so following it can't widen the slice.
     /// </summary>
     [Parameter] public string? AllGamesHref { get; set; }
 
-    private string? _ownerKey;
-    private string? _lastSubject;
-    private IReadOnlyList<SetupProfiles.OwnerOption> _owners = [];
-    private SetupProfiles.Profile _shown = default!;
+    /// The link carries the sheet's scope, so its tooltip says so rather than promising the
+    /// whole history behind a link that won't deliver it.
+    private string AllGamesTitle =>
+        SubjectName is { } name ? $"Open the games list, filtered to {Name} and {name}'s games"
+        : Scoped ? $"Open the games list, filtered to {Name} and your games"
+        : $"Open the games list, filtered to {Name}";
 
-    private SetupProfiles.OwnerOption? SelectedOwner =>
-        _ownerKey is null ? null : _owners.FirstOrDefault(o => o.Key == _ownerKey);
+    /// Whether the subject sits in a seat, which is what decides how the scope narrowed the
+    /// history — by dropping the other seats, or by dropping games the person was not at.
+    private bool SeatBound => SetupProfiles.IsSeatBound(Profile.Kind);
 
-    protected override void OnParametersSet()
-    {
-        // A new subject means a new toggle — carrying a selection over would silently
-        // show one spirit's sheet filtered by another spirit's player.
-        if (_lastSubject != SubjectId)
+    /// The heading belongs to whoever the numbers do. Unscoped they are the account's rather
+    /// than any one person's, so it goes without a possessive.
+    private string Heading =>
+        SubjectName is { } name ? $"{name}'s {Title}"
+        : Scoped ? $"Your {Title}"
+        : Title;
+
+    /// <summary>
+    /// One line saying exactly whose games were counted. The same sheet is opened from the
+    /// reference pages, the statistics page and the setup screen, and the scope is the only
+    /// thing that differs between them — so it is stated rather than left to be inferred from
+    /// a heading (or, worse, from the "Who played it" breakdown further down).
+    /// </summary>
+    private string ScopeNote =>
+        (Scoped || SubjectName is not null, SeatBound) switch
         {
-            _lastSubject = SubjectId;
-            _ownerKey = null;
+            (true, true) => $"Counting {Whose} seats only.",
+            (true, false) => $"Counting the games {WhoPlayed} played in.",
+            (false, true) => "Counting every seat you have recorded — your own and your table's.",
+            (false, false) => "Counting every game you have recorded, whoever sat at the table."
+        };
+
+    /// "Anna's" / "your own" — the possessive for whoever the sheet is scoped to.
+    private string Whose => SubjectName is { } name ? $"{name}'s" : "your own";
+
+    /// "Anna" / "you" — the same person as the subject of a verb.
+    private string WhoPlayed => SubjectName ?? "you";
+
+    private string EmptyHeadline
+    {
+        get
+        {
+            var verb = Profile.Kind switch
+            {
+                SetupSubjectKind.Board => "used",
+                SetupSubjectKind.Adversary => "faced",
+                SetupSubjectKind.IslandLayout or SetupSubjectKind.SavedLayout => "played on",
+                _ => "played"
+            };
+            // Whose blank it is follows the scope: an unscoped sheet has counted the whole
+            // table, so reporting nothing as the reader's own miss would overstate it.
+            return SubjectName is { } name ? $"{name} has never {verb} {Name}."
+                : Scoped ? $"You've never {verb} {Name}."
+                : $"Nobody at your table has {verb} {Name}.";
         }
-        _owners = Facts is { Count: > 0 } && SubjectId is not null
-            ? SetupProfiles.Owners(Profile.Kind, SubjectId, Facts)
-            : [];
-        if (_ownerKey is not null && _owners.All(o => o.Key != _ownerKey)) _ownerKey = null;
-        RecomputeShown();
     }
-
-    private void SelectOwner(string? key)
-    {
-        _ownerKey = key;
-        RecomputeShown();
-    }
-
-    private void RecomputeShown() =>
-        _shown = SelectedOwner is { } owner && Facts is not null && SubjectId is not null
-            ? SetupProfiles.Build(Profile.Kind, SubjectId, Facts, owner.Filter)
-            : Profile;
-
-    private static string OwnerPillClass(bool active) =>
-        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors " +
-        (active
-            ? "border-accent-300 bg-accent-100 text-accent-800"
-            : "border-ink-200 bg-white text-ink-600 hover:border-ink-300 hover:text-ink-800");
-
-    /// The corner names whose games the numbers are: the host's scope wins, then the
-    /// toggle's pick; nothing when the sheet is the whole table's.
-    private string? CornerLabel =>
-        SubjectName is not null ? $"{SubjectName}'s games"
-        : SelectedOwner is { } owner ? (owner.Key == "me" ? "your games" : $"{owner.Label}'s games")
-        : null;
-
-    private string EmptyHeadline => Profile.Kind switch
-    {
-        SetupSubjectKind.Spirit or SetupSubjectKind.Aspect => $"You've never played {Name}.",
-        SetupSubjectKind.Board => $"You've never used {Name}.",
-        SetupSubjectKind.Adversary => $"You've never faced {Name}.",
-        SetupSubjectKind.IslandLayout or SetupSubjectKind.SavedLayout => $"You've never played on {Name}.",
-        _ => $"You've never played {Name}."
-    };
 
     private IEnumerable<(string Label, string Value)> HeroStats
     {
         get
         {
-            var record = _shown.Record;
+            var record = Profile.Record;
             yield return ("Played", $"{record.Played}×");
             yield return ("Result", record.Completed > 0 ? $"{record.Wins} W · {record.Losses} L" : "drafts only");
-            if (_shown.BestScore is { } best) yield return ("Best score", best.ToString());
-            if (_shown.AverageScore is { } avg) yield return ("Avg score", avg.ToString("F0"));
-            if (_shown.AverageDifficulty is { } diff) yield return ("Avg difficulty", diff.ToString("F1"));
-            if (_shown.HardestWon is { } hardest) yield return ("Hardest won", hardest.ToString());
+            if (Profile.BestScore is { } best) yield return ("Best score", best.ToString());
+            if (Profile.AverageScore is { } avg) yield return ("Avg score", avg.ToString("F0"));
+            if (Profile.AverageDifficulty is { } diff) yield return ("Avg difficulty", diff.ToString("F1"));
+            if (Profile.HardestWon is { } hardest) yield return ("Hardest won", hardest.ToString());
         }
     }
 
@@ -297,9 +289,9 @@
     {
         get
         {
-            if (_shown.LastPlayed is not { } last) return null;
+            if (Profile.LastPlayed is not { } last) return null;
             var line = $"Last played {SetupInsights.Ago(last)}";
-            return _shown.Record.Played > 1 && _shown.FirstPlayed is { } first
+            return Profile.Record.Played > 1 && Profile.FirstPlayed is { } first
                 ? $"{line} · first played {SetupInsights.Ago(first)}"
                 : line;
         }

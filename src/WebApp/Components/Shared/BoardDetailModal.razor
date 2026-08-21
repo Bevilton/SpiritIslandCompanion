@@ -1,6 +1,7 @@
 @* Board reference sheet — the board's letter, thematic position and, given Facts,
-   the player's own record on it (which spirits they place there, how those games
-   went). Given OnSelected the board can be chosen straight from here.
+   the record on it (which spirits get placed there, how those games went). Given
+   OnSelected the board can be chosen straight from here. Whose record it is belongs
+   to the host — see SpiritDetailModal.
    z-60 keeps it above the picker modals (z-50) that open it. *@
 
 @using Application.Features.Statistics
@@ -44,13 +45,11 @@
             @if (_profile is not null)
             {
                 <div class="overflow-y-auto px-6 md:px-8 py-5">
-                    @* Facts only when unscoped — a sheet already scoped to one person
-                       has nothing for the owner toggle to switch between. *@
-                    <SetupProfileSection Profile="_profile" Name="@_board.Name" SubjectName="@SubjectName"
-                                         Facts="@(SeatFilter is null ? Facts : null)" SubjectId="@_board.Id.Value"
-                                         Title="Your record on this board"
+                    <SetupProfileSection Profile="_profile" Name="@_board.Name"
+                                         Scoped="@(SeatFilter is not null)" SubjectName="@SubjectName"
+                                         Title="record on this board"
                                          LinkGames="LinkGames"
-                                         AllGamesHref="@(LinkGames ? GamesLink.ForBoard(_board.Id.Value) : null)"/>
+                                         AllGamesHref="@(LinkGames ? GamesLink.ForBoard(_board.Id.Value, who: ScopeWho) : null)"/>
                 </div>
             }
             else if (!ReferenceOnly)
@@ -92,11 +91,14 @@
     /// <summary>Whether the record may link out to the games behind it — see AdversaryDetailModal.</summary>
     [Parameter] public bool LinkGames { get; set; }
 
-    /// <summary>Scopes the record to one person's seats — a friend sitting in the seat being set up.</summary>
+    /// <summary>Narrows the record to one person's seats — see SpiritDetailModal.</summary>
     [Parameter] public Func<SetupFactSeat, bool>? SeatFilter { get; set; }
 
-    /// <summary>Whose record is shown when it isn't the current user's, e.g. "Anna".</summary>
+    /// <summary>Whose record it is when it isn't the reader's own, e.g. "Anna".</summary>
     [Parameter] public string? SubjectName { get; set; }
+
+    /// <summary>The same scope as a games-list <c>who</c> key, so the links out stay narrowed.</summary>
+    [Parameter] public string? ScopeWho { get; set; }
 
     /// <summary>When set, a footer action picks this board — used when opened from the picker.</summary>
     [Parameter] public EventCallback<Board> OnSelected { get; set; }

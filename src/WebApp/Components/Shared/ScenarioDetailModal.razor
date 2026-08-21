@@ -1,6 +1,7 @@
-@* Scenario reference sheet. Given Facts it also profiles the player's own record
-   with the scenario, and given OnSelected it can be chosen straight from here.
-   z-60 keeps it above the picker modals (z-50) that open it. *@
+@* Scenario reference sheet. Given Facts it also profiles the record with the scenario,
+   and given OnSelected it can be chosen straight from here. A scenario is the whole
+   table's, so a host scopes it to a person by the games they sat in — see
+   AdversaryDetailModal. z-60 keeps it above the picker modals (z-50) that open it. *@
 
 @using Application.Features.Statistics
 
@@ -42,9 +43,10 @@
                 @if (_profile is not null)
                 {
                     <SetupProfileSection Profile="_profile" Name="@_scenario.Name"
-                                         Title="Your record in this scenario"
+                                         Scoped="@(SeatFilter is not null)" SubjectName="@SubjectName"
+                                         Title="record in this scenario"
                                          LinkGames="LinkGames"
-                                         AllGamesHref="@(LinkGames ? GamesLink.ForScenario(_scenario.Id.Value) : null)"/>
+                                         AllGamesHref="@(LinkGames ? GamesLink.ForScenario(_scenario.Id.Value, who: ScopeWho) : null)"/>
                 }
 
                 <div class="pt-2">
@@ -80,6 +82,18 @@
     /// <summary>Whether the record may link out to the games behind it — see AdversaryDetailModal.</summary>
     [Parameter] public bool LinkGames { get; set; }
 
+    /// <summary>
+    /// Narrows the record to the games one person sat in — a scenario is the whole table's, so
+    /// there are no seats to filter. See AdversaryDetailModal.
+    /// </summary>
+    [Parameter] public Func<SetupFactSeat, bool>? SeatFilter { get; set; }
+
+    /// <summary>Whose record it is when it isn't the reader's own, e.g. "Anna".</summary>
+    [Parameter] public string? SubjectName { get; set; }
+
+    /// <summary>The same scope as a games-list <c>who</c> key, so the links out stay narrowed.</summary>
+    [Parameter] public string? ScopeWho { get; set; }
+
     /// <summary>When set, a footer action picks this scenario — used when opened from the picker.</summary>
     [Parameter] public EventCallback<Scenario> OnSelected { get; set; }
 
@@ -91,8 +105,9 @@
     {
         _scenario = scenario;
         _detail = ScenarioDetails.For(scenario.Id);
-        _profile = Facts is { Count: > 0 }
-            ? SetupProfiles.Build(SetupSubjectKind.Scenario, scenario.Id.Value, Facts)
+        var facts = Facts is { Count: > 0 } ? SetupProfiles.GamesWith(Facts, SeatFilter) : null;
+        _profile = facts is not null
+            ? SetupProfiles.Build(SetupSubjectKind.Scenario, scenario.Id.Value, facts)
             : null;
         StateHasChanged();
     }

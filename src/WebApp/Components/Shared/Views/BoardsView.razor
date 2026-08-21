@@ -23,7 +23,7 @@
     <FilterBar Filter="_filter" OwnedExpansions="@OwnedExpansions"
                PresentExpansions="_filter.ExpansionsIn(_boardsInScope)"
                ShowingCount="_visibleBoards.Count" TotalCount="_boardsInScope.Count"
-               UntestedLabel="Never used" UntestedHint="Boards you have never played on"
+               UntestedLabel="Never used" UntestedHint="Boards nobody at your table has used"
                Changed="StateHasChanged"/>
 
     <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -99,7 +99,7 @@
        narrow different lists: a board count says nothing about board D. *@
     <FilterBar @ref="_layoutBar" Filter="_layoutFilter"
                ShowingCount="_visibleLayouts.Count" TotalCount="_entries.Count"
-               UntestedLabel="Never played" UntestedHint="Layouts you have never played on"
+               UntestedLabel="Never played" UntestedHint="Layouts nobody at your table has played on"
                Changed="StateHasChanged">
         <Facets>
             <FilterRow Label="Boards">
@@ -175,9 +175,10 @@
     [Parameter] public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
 
     /// <summary>
-    /// The visitor's record per board, when there is one. Unlocks ordering by how often they have
-    /// played on it and how it went, the never-used filter, and the figures on the cards. Null on
-    /// the public route.
+    /// The account's record per board — every seat the visitor has recorded, their own and their
+    /// table's, since a reference page has no player selector and never narrows. Unlocks ordering
+    /// by how often a board has been played on and how it went, the never-used filter, and the
+    /// figures on the cards. Null on the public route.
     /// </summary>
     [Parameter] public IReadOnlyDictionary<string, SetupInsights.PlayRecord>? Records { get; set; }
 

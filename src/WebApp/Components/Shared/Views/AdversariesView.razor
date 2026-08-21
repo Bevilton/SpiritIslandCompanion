@@ -1,10 +1,11 @@
 @* Reference content for adversaries. Used from /adversaries (public) and /app/adversaries.
    Pass OwnedExpansions to filter; null (default) shows every adversary.
-   Pass Records for the signed-in view to sort and filter by the player's own history.
+   Pass Records for the signed-in view to sort and filter by the account's recorded history — a
+   reference page counts every game on the account and never narrows to one player.
 
    The filter is FilterBar, shared with every other catalogue and picker. Adversaries have no
-   facets of their own — expansion, difficulty and your own record is the whole of what there is
-   to ask about eight of them. *@
+   facets of their own — expansion, difficulty and the record so far is the whole of what there
+   is to ask about eight of them. *@
 
 <div class="page-head">
     <div>
@@ -20,7 +21,7 @@
     <FilterBar Filter="_filter" OwnedExpansions="@OwnedExpansions"
                PresentExpansions="_filter.ExpansionsIn(_inScope)"
                ShowingCount="_visible.Count" TotalCount="_inScope.Count"
-               UntestedLabel="Never faced" UntestedHint="Adversaries you have never played against"
+               UntestedLabel="Never faced" UntestedHint="Adversaries nobody at your table has faced"
                Changed="StateHasChanged"/>
 </div>
 
@@ -72,7 +73,7 @@
                    open the sheet to find out that this page was showing them half the picture. *@
                 <div class="mt-5">
                     <div class="text-xs uppercase tracking-wide text-ink-500 mb-2">
-                        @(Records is null ? "Difficulty by level" : "Difficulty and your record by level")
+                        @(Records is null ? "Difficulty by level" : "Difficulty and record by level")
                     </div>
                     <AdversaryLevelGrid Adversary="a" Records="levels" Columns="grid-cols-7"
                                         LinkGames="@(Records is not null)" RaiseAboveOverlay="true"/>
@@ -96,9 +97,10 @@
     [Parameter] public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
 
     /// <summary>
-    /// The visitor's record per adversary, when there is one. Unlocks ordering by how often they
-    /// have faced it and how it went, the never-faced filter, and the figures on the cards. Null
-    /// on the public route, which has nobody to have a record.
+    /// The account's record per adversary — every game the visitor has recorded, whoever sat at
+    /// the table. Unlocks ordering by how often it has been faced and how it went, the never-faced
+    /// filter, and the figures on the cards. Null on the public route, which has nobody to have a
+    /// record.
     /// </summary>
     [Parameter] public IReadOnlyDictionary<string, SetupInsights.PlayRecord>? Records { get; set; }
 

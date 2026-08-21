@@ -1,7 +1,10 @@
 @* Island layout record sheet — the layout drawn large, which boards make it when that is
-   fixed, and, given Facts, the player's record on it: how those games went and who was
-   fielded. Serves both a published layout, whose picture ships with the app, and a saved
-   shape from the player's library, whose picture is drawn from the geometry they saved.
+   fixed, and, given Facts, the record on it: how those games went and who was fielded.
+   Serves both a published layout, whose picture ships with the app, and a saved shape
+   from the player's library, whose picture is drawn from the geometry they saved.
+
+   An island is the whole table's, so a host scopes it to a person by the games they sat
+   in rather than by seats — see AdversaryDetailModal.
 
    The picture is the point of this sheet — it is the one place the island can be looked at
    properly rather than as a thumbnail in a grid — so it leads the body at full width instead
@@ -70,7 +73,8 @@
 
                 @if (_profile is not null)
                 {
-                    <SetupProfileSection Profile="_profile" Name="@_name" Title="Your record on this island"
+                    <SetupProfileSection Profile="_profile" Name="@_name" Title="record on this island"
+                                         Scoped="@(SeatFilter is not null)" SubjectName="@SubjectName"
                                          LinkGames="LinkGames"
                                          AllGamesHref="@(LinkGames ? _gamesHref : null)"/>
                 }
@@ -103,6 +107,18 @@
     /// <summary>Whether the record may link out to the games behind it — see AdversaryDetailModal.</summary>
     [Parameter] public bool LinkGames { get; set; }
 
+    /// <summary>
+    /// Narrows the record to the games one person sat in — an island is the whole table's, so
+    /// there are no seats to filter. See AdversaryDetailModal.
+    /// </summary>
+    [Parameter] public Func<SetupFactSeat, bool>? SeatFilter { get; set; }
+
+    /// <summary>Whose record it is when it isn't the reader's own, e.g. "Anna".</summary>
+    [Parameter] public string? SubjectName { get; set; }
+
+    /// <summary>The same scope as a games-list <c>who</c> key, so the links out stay narrowed.</summary>
+    [Parameter] public string? ScopeWho { get; set; }
+
     private bool _open;
     private string _name = "";
     private int _boardCount;
@@ -132,10 +148,11 @@
         _name = setup.Name;
         _boardCount = setup.NumberOfPlayers;
         _regions = ThematicIslandBoards.For(setup.Id);
-        _profile = Facts is { Count: > 0 }
-            ? SetupProfiles.Build(SetupSubjectKind.IslandLayout, setup.Id.Value, Facts)
+        var facts = Facts is { Count: > 0 } ? SetupProfiles.GamesWith(Facts, SeatFilter) : null;
+        _profile = facts is not null
+            ? SetupProfiles.Build(SetupSubjectKind.IslandLayout, setup.Id.Value, facts)
             : null;
-        _gamesHref = GamesLink.ForIsland(setup.Id.Value);
+        _gamesHref = GamesLink.ForIsland(setup.Id.Value, ScopeWho);
         _open = true;
         StateHasChanged();
     }
@@ -149,10 +166,11 @@
         _name = saved.Name;
         _boardCount = saved.BoardCount;
         _regions = null;
-        _profile = Facts is { Count: > 0 }
-            ? SetupProfiles.Build(SetupSubjectKind.SavedLayout, saved.Id.ToString(), Facts)
+        var facts = Facts is { Count: > 0 } ? SetupProfiles.GamesWith(Facts, SeatFilter) : null;
+        _profile = facts is not null
+            ? SetupProfiles.Build(SetupSubjectKind.SavedLayout, saved.Id.ToString(), facts)
             : null;
-        _gamesHref = GamesLink.ForSavedLayout(saved.Id);
+        _gamesHref = GamesLink.ForSavedLayout(saved.Id, ScopeWho);
         _open = true;
         StateHasChanged();
     }

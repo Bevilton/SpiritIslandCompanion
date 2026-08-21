@@ -27,14 +27,21 @@ public abstract class CatalogueReferencePage : ComponentBase
     protected IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
 
     /// <summary>
-    /// The player's record per catalogue item, or null when there is no history to show — which is
-    /// what tells the view to leave the play-based orderings and the never-played filter out.
+    /// The account's record per catalogue item, or null when there is no history to show — which
+    /// is what tells the view to leave the play-based orderings and the never-played filter out.
+    /// <para>
+    /// Unnarrowed, always: a reference page has no player selector, so its numbers are every game
+    /// on the account and every seat in them, the visitor's own and their table's. The statistics
+    /// page is where a record gets narrowed to one person, and the record sheets these pages open
+    /// state which of the two they are showing.
+    /// </para>
     /// </summary>
     protected IReadOnlyDictionary<string, SetupInsights.PlayRecord>? Records { get; private set; }
 
     /// <summary>
-    /// The loaded history itself, for the detail modals — their "your record" profile needs the
-    /// full games, not the per-item projection the cards show.
+    /// The loaded history itself, for the detail modals — their record profile needs the full
+    /// games, not the per-item projection the cards show. Handed over as loaded, with no seat
+    /// filter alongside it, which is what makes those sheets the account's rather than anyone's.
     /// </summary>
     protected IReadOnlyList<SetupGameFact>? Facts { get; private set; }
 

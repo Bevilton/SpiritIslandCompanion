@@ -97,6 +97,12 @@
     /// <summary>The grid's columns. Seven levels fit one row from `sm` up; four wrap below it.</summary>
     [Parameter] public string Columns { get; set; } = "grid-cols-4 sm:grid-cols-7";
 
+    /// <summary>
+    /// The person the host's numbers are scoped to, as a games-list <c>who</c> key — so a level's
+    /// link opens the same games its count counted. Null where the host counts the whole account.
+    /// </summary>
+    [Parameter] public string? ScopeWho { get; set; }
+
     private IReadOnlyList<Domain.Models.Static.Mode> Modes =>
         Adversary.Modes.OrderBy(m => m.Level).ToList();
 
@@ -105,7 +111,7 @@
     /// <summary>A level links only when it has games behind it — an empty list is not an answer.</summary>
     private string? LinksFor(int level) =>
         LinkGames && !Pickable && Records?.GetValueOrDefault(level) is { Played: > 0 }
-            ? GamesLink.ForAdversary(Adversary.Id.Value, level)
+            ? GamesLink.ForAdversary(Adversary.Id.Value, level, who: ScopeWho)
             : null;
 
     private string TileClass(bool played, bool interactive, bool current) =>

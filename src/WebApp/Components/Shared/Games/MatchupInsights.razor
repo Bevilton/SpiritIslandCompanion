@@ -102,8 +102,11 @@
 
         @* spirits already fielded + fresh picks *@
         <div class="mt-4 border-t border-ink-100 pt-3">
+            @* "at your table" rather than "yours": this card is the table's, so its per-spirit
+               counts are every seat on the account and not only the reader's own (the seat
+               pickers are where a record narrows to one person — see MatchupContext.SeatFilter). *@
             <div class="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-ink-500">
-                @(Context.ExactLabel is { } scope ? $"Fielded {scope}" : "Your go-to spirits")
+                @(Context.ExactLabel is { } scope ? $"Fielded {scope}" : "Go-to spirits at your table")
             </div>
             @if (_playedChips.Count > 0)
             {
@@ -338,7 +341,7 @@
 
     private string FreshPicksLabel =>
         _freshChipsAreUntested
-            ? (Context.HasSelection ? "Fresh picks for this matchup" : "Spirits you've never played")
+            ? (Context.HasSelection ? "Fresh picks for this matchup" : "Spirits never played at your table")
             : "All tried — least played";
 
     /// <param name="scope">

@@ -152,44 +152,65 @@ public static class GamesLink
 
     // ---- the slices the rest of the app links at ----
 
+    /// <summary>
+    /// One person's <see cref="GamesFilter.WhoKey(Guid?, Guid?)"/>, carried by every slice below.
+    /// A link out of somewhere already narrowed to one person has to stay narrowed: the
+    /// statistics page under its player selector counts twelve games and must not open a list of
+    /// forty, and neither must a record sheet that has just said whose seats it counted.
+    /// <para>
+    /// The list is game-granular, so this means "games that person sat in" rather than "the seats
+    /// they sat in" — the same slice the scoped statistics themselves are built from.
+    /// </para>
+    /// </summary>
+    private static void AddWho(QueryBuilder q, string? who)
+    {
+        if (!string.IsNullOrEmpty(who)) q.Add(WhoKey, who);
+    }
+
     /// <param name="level">One escalation level, or null for every game against this foe.</param>
     /// <param name="status">Narrows to won / lost / unfinished — the loss leaderboards use it.</param>
-    public static string ForAdversary(string adversaryId, int? level = null, GameStatusTab? status = null)
+    /// <param name="who">The person the link's origin was scoped to — see <see cref="AddWho"/>.</param>
+    public static string ForAdversary(
+        string adversaryId, int? level = null, GameStatusTab? status = null, string? who = null)
     {
         var q = new QueryBuilder();
         q.Add(AdversaryKey, adversaryId);
         if (level is { } l) q.Add(LevelKey, l.ToString());
+        AddWho(q, who);
         AddStatus(q, status);
         return WithQuery(q.ToString());
     }
 
-    public static string ForSpirit(string spiritId, GameStatusTab? status = null) =>
-        One(SpiritKey, spiritId, status);
+    public static string ForSpirit(string spiritId, GameStatusTab? status = null, string? who = null) =>
+        One(SpiritKey, spiritId, status, who);
 
-    public static string ForScenario(string scenarioId, GameStatusTab? status = null) =>
-        One(ScenarioKey, scenarioId, status);
+    public static string ForScenario(string scenarioId, GameStatusTab? status = null, string? who = null) =>
+        One(ScenarioKey, scenarioId, status, who);
 
-    public static string ForBoard(string boardId, GameStatusTab? status = null) =>
-        One(BoardKey, boardId, status);
+    public static string ForBoard(string boardId, GameStatusTab? status = null, string? who = null) =>
+        One(BoardKey, boardId, status, who);
 
     /// <summary>A published island layout, by its setup id.</summary>
-    public static string ForIsland(string setupId) => One(IslandKey, setupId, null);
+    public static string ForIsland(string setupId, string? who = null) =>
+        One(IslandKey, setupId, null, who);
 
     /// <summary>A shape from the player's own library.</summary>
-    public static string ForSavedLayout(Guid layoutId) =>
-        One(IslandKey, GamesFilter.SavedIslandKey(layoutId), null);
+    public static string ForSavedLayout(Guid layoutId, string? who = null) =>
+        One(IslandKey, GamesFilter.SavedIslandKey(layoutId), null, who);
 
     /// <summary>Every hand-built island that was never saved, as one slice.</summary>
-    public static string ForOneOffIslands() => One(IslandKey, GamesFilter.OneOffIsland, null);
+    public static string ForOneOffIslands(string? who = null) =>
+        One(IslandKey, GamesFilter.OneOffIsland, null, who);
 
     /// <summary>Everything one person sat in, whichever way they are identified.</summary>
     public static string ForPlayer(Guid? userId, Guid? playerId) =>
-        One(WhoKey, GamesFilter.WhoKey(userId, playerId), null);
+        One(WhoKey, GamesFilter.WhoKey(userId, playerId), null, null);
 
-    private static string One(string key, string value, GameStatusTab? status)
+    private static string One(string key, string value, GameStatusTab? status, string? who)
     {
         var q = new QueryBuilder();
         q.Add(key, value);
+        AddWho(q, who);
         AddStatus(q, status);
         return WithQuery(q.ToString());
     }

@@ -1,7 +1,7 @@
 @* The catalogue filter, shared by every browse page and every picker so a player meets the same
    controls wherever they are choosing something.
 
-   It renders the questions every catalogue shares — expansion, your play, ordering — and leaves a
+   It renders the questions every catalogue shares — expansion, recorded play, ordering — and leaves a
    slot for whatever is peculiar to one: spirits put complexity, elements and tokens in Facets.
    State and matching live in FilterState and its subclasses.
 
@@ -74,7 +74,7 @@
 
             @if (Filter.HasHistory)
             {
-                <FilterRow Label="Your play">
+                <FilterRow Label="Recorded play">
                     @* Not the same thing as ordering by play count: that reorders the whole list,
                        this takes the played ones out of it — and in a picker it can ask about the
                        matchup on the table, which no ordering can express. *@

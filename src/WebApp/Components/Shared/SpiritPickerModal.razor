@@ -169,10 +169,25 @@
     private string UntestedLabel =>
         ShowMatchups ? $"New {_context.ExactLabel}" : "Never played";
 
+    /// The counts behind the pill are the seat's, not the reader's (MatchupContext.SeatFilter),
+    /// so the hint has to name the same person — or admit to the whole table when the seat is
+    /// still empty and there is nobody to scope by.
+    private string NeverPlayed =>
+        _context.SubjectName is { } name ? $"{name} has never played"
+        : _context.SeatFilter is not null ? "you have never played"
+        : "nobody at your table has played";
+
+    /// The concession the pill makes: a spirit played twenty times but never against these
+    /// foes still passes it.
+    private string Otherwise =>
+        _context.SubjectName is { } name ? $"however often {name} has played them otherwise"
+        : _context.SeatFilter is not null ? "however often you have played them otherwise"
+        : "however often they have been played otherwise";
+
     private string UntestedHint =>
         ShowMatchups
-            ? $"Spirits you have never played {_context.ExactLabel} — however often you have played them otherwise"
-            : "Spirits you have never played at all";
+            ? $"Spirits {NeverPlayed} {_context.ExactLabel} — {Otherwise}"
+            : $"Spirits {NeverPlayed} at all";
 
     private bool IsTested(string spiritId) =>
         ShowMatchups

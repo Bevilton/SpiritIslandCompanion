@@ -120,47 +120,24 @@ public static class SetupProfiles
             Breakdowns(kind, matched, includePlayers: seatFilter is null));
     }
 
-    /// <summary>One person who has played the subject — an option for the sheet's owner toggle.</summary>
-    public sealed record OwnerOption(
-        string Key, string Label, string? ColorHex, int Played, Func<SetupFactSeat, bool> Filter);
+    /// <summary>
+    /// Whether a subject of this kind belongs to a seat (a spirit, an aspect, a board) rather
+    /// than to the whole table (an adversary, a scenario, an island). It decides how a sheet is
+    /// narrowed to one person: a seat-bound subject drops the other seats, a table-level one
+    /// drops the games that person was not at.
+    /// </summary>
+    public static bool IsSeatBound(SetupSubjectKind kind) =>
+        kind is SetupSubjectKind.Spirit or SetupSubjectKind.Aspect or SetupSubjectKind.Board;
 
     /// <summary>
-    /// Who has played the subject, most-played first with the user's own seats leading.
-    /// Only seat-bound subjects (spirit, board) have owners; other kinds return empty.
+    /// The games one person sat in. A table-level subject is nobody's in particular, so a sheet
+    /// about one is narrowed to a person by dropping the games they were not at — the way the
+    /// server-side statistics scope (see GetStatistics), so a sheet and the page it was opened
+    /// from report the same slice of the history.
     /// </summary>
-    public static IReadOnlyList<OwnerOption> Owners(
-        SetupSubjectKind kind, string id, IReadOnlyList<SetupGameFact> facts)
-    {
-        if (kind is not (SetupSubjectKind.Spirit or SetupSubjectKind.Aspect or SetupSubjectKind.Board)) return [];
-        return facts
-            .SelectMany(g => SubjectSeats(kind, id, g, null))
-            .GroupBy(OwnerKeyOf)
-            .Select(grp =>
-            {
-                var owner = OwnerOf(grp.First());
-                return new OwnerOption(grp.Key, owner.Label, owner.ColorHex, grp.Count(), FilterFor(grp.First()));
-            })
-            .OrderByDescending(o => o.Key == "me")
-            .ThenByDescending(o => o.Played)
-            .ThenBy(o => o.Label)
-            .ToList();
-    }
-
-    private static string OwnerKeyOf(SetupFactSeat s) => s switch
-    {
-        { IsMine: true }       => "me",
-        { UserId: { } user }   => $"u:{user}",
-        { PlayerId: { } local } => $"p:{local}",
-        _                      => "unassigned"
-    };
-
-    private static Func<SetupFactSeat, bool> FilterFor(SetupFactSeat seat) => seat switch
-    {
-        { IsMine: true }       => s => s.IsMine,
-        { UserId: { } user }   => s => s.UserId == user,
-        { PlayerId: { } local } => s => s.PlayerId == local,
-        _                      => s => !s.IsMine && s.UserId is null && s.PlayerId is null
-    };
+    public static IReadOnlyList<SetupGameFact> GamesWith(
+        IReadOnlyList<SetupGameFact> facts, Func<SetupFactSeat, bool>? seatFilter) =>
+        seatFilter is null ? facts : facts.Where(g => g.Seats.Any(seatFilter)).ToList();
 
     /// <summary>The seats carrying the subject — every counted seat when it isn't seat-bound.</summary>
     private static List<SetupFactSeat> SubjectSeats(

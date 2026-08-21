@@ -266,19 +266,32 @@ else
 }
 
 @* Record sheets — the same reference modals the catalogue pages and the setup screen open.
-   Spirit and board sheets scope their profile to the picked player; the game-level sheets
-   (adversary / scenario / layout) always show the full table history.
+
+   All five follow this page's player selector, because everything else on the page does: a card
+   that counts twelve games must not open a sheet counting forty. A seat-bound sheet (spirit,
+   board) narrows to that person's seats and a table-level one (adversary / scenario / layout) to
+   the games they sat in — the same two rules GetStatistics scopes the server-side numbers by.
+   The catalogue pages have no selector and pass none of this, so a sheet there is the whole
+   account's history; each sheet says in words which of the two it is.
 
    LinkGames on all five: from here a sheet is a place to read the record, so every line in it
    may be opened as the game it reports. The setup screen opens the same sheets to choose with
    and leaves it off, since a link out of there would abandon a half-built game. *@
 <SpiritDetailModal @ref="_spiritModal" OwnedExpansions="OwnedExpansions" Facts="_facts"
-                   SeatFilter="ScopeSeatFilter" SubjectName="@ScopeSubjectName" LinkGames="true"/>
-<AdversaryDetailModal @ref="_adversaryModal" Facts="_facts" LinkGames="true"/>
-<ScenarioDetailModal @ref="_scenarioModal" Facts="_facts" LinkGames="true"/>
+                   SeatFilter="ScopeSeatFilter" SubjectName="@ScopeSubjectName" ScopeWho="@ScopeWho"
+                   LinkGames="true"/>
+<AdversaryDetailModal @ref="_adversaryModal" Facts="_facts"
+                      SeatFilter="ScopeSeatFilter" SubjectName="@ScopeSubjectName" ScopeWho="@ScopeWho"
+                      LinkGames="true"/>
+<ScenarioDetailModal @ref="_scenarioModal" Facts="_facts"
+                     SeatFilter="ScopeSeatFilter" SubjectName="@ScopeSubjectName" ScopeWho="@ScopeWho"
+                     LinkGames="true"/>
 <BoardDetailModal @ref="_boardModal" Facts="_facts"
-                  SeatFilter="ScopeSeatFilter" SubjectName="@ScopeSubjectName" LinkGames="true"/>
-<IslandLayoutDetailModal @ref="_layoutModal" Facts="_facts" LinkGames="true"/>
+                  SeatFilter="ScopeSeatFilter" SubjectName="@ScopeSubjectName" ScopeWho="@ScopeWho"
+                  LinkGames="true"/>
+<IslandLayoutDetailModal @ref="_layoutModal" Facts="_facts"
+                         SeatFilter="ScopeSeatFilter" SubjectName="@ScopeSubjectName" ScopeWho="@ScopeWho"
+                         LinkGames="true"/>
 
 @* ============================== OVERVIEW TAB ============================== *@
 @code {
@@ -406,7 +419,7 @@ else
                             adv?.Name ?? a.AdversaryId,
                             a.Losses,
                             $"avg L{a.AverageLevel:F1} · {a.WinRate:F0}% win",
-                            GamesLink.ForAdversary(a.AdversaryId, status: GameStatusTab.Defeats));
+                            GamesLink.ForAdversary(a.AdversaryId, status: GameStatusTab.Defeats, who: ScopeWho));
                     })
                     .ToList();
                 var hardScenarios = _stats.ScenarioStatistics
@@ -421,7 +434,7 @@ else
                             sc?.Name ?? s.ScenarioId,
                             s.Losses,
                             $"{s.WinRate:F0}% win",
-                            GamesLink.ForScenario(s.ScenarioId, GameStatusTab.Defeats));
+                            GamesLink.ForScenario(s.ScenarioId, GameStatusTab.Defeats, ScopeWho));
                     })
                     .ToList();
                 var hardSpirits = _stats.SpiritStatistics
@@ -436,7 +449,7 @@ else
                             sp?.Name ?? s.SpiritId,
                             s.Losses,
                             $"{s.WinRate:F0}% win",
-                            GamesLink.ForSpirit(s.SpiritId, GameStatusTab.Defeats));
+                            GamesLink.ForSpirit(s.SpiritId, GameStatusTab.Defeats, ScopeWho));
                     })
                     .ToList();
             }
@@ -688,8 +701,8 @@ else
                                         </div>
                                     </div>
                                 </td>
-                                @GamesCountCell(s.GamesPlayed, GamesLink.ForSpirit(s.SpiritId),
-                                                $"Every game played as {spirit?.Name ?? s.SpiritId}")
+                                @GamesCountCell(s.GamesPlayed, GamesLink.ForSpirit(s.SpiritId, who: ScopeWho),
+                                                ScopedTitle($"Every game played as {spirit?.Name ?? s.SpiritId}"))
                                 <td class="text-right text-accent-700 tabular-nums">@s.Wins</td>
                                 <td class="text-right text-red-600 tabular-nums">@s.Losses</td>
                                 <td>
@@ -824,8 +837,8 @@ else
                                                dotted-rule idiom the tables use — see LinkedCount,
                                                which this cannot share because the tone differs on
                                                the card's smaller, greyer line. *@
-                                            <a href="@GamesLink.ForAdversary(a.AdversaryId)"
-                                               title="@($"Every game against {name}")"
+                                            <a href="@GamesLink.ForAdversary(a.AdversaryId, who: ScopeWho)"
+                                               title="@ScopedTitle($"Every game against {name}")"
                                                class="pointer-events-auto rounded font-medium text-ink-600 underline decoration-dotted
                                                       decoration-ink-300 underline-offset-4 transition-colors
                                                       hover:text-accent-800 hover:decoration-accent-500
@@ -847,7 +860,8 @@ else
                                 @if (adv is not null)
                                 {
                                     <AdversaryLevelGrid Adversary="adv" Records="LevelRecords(a)"
-                                                        LinkGames="true" RaiseAboveOverlay="true"/>
+                                                        LinkGames="true" RaiseAboveOverlay="true"
+                                                        ScopeWho="@ScopeWho"/>
                                 }
                             </div>
                         </div>
@@ -959,8 +973,8 @@ else
                                             </button>
                                         </div>
                                     </td>
-                                    @GamesCountCell(s.GamesPlayed, GamesLink.ForScenario(s.ScenarioId),
-                                                    $"Every game in {sc?.Name ?? s.ScenarioId}")
+                                    @GamesCountCell(s.GamesPlayed, GamesLink.ForScenario(s.ScenarioId, who: ScopeWho),
+                                                    ScopedTitle($"Every game in {sc?.Name ?? s.ScenarioId}"))
                                     <td class="text-right text-accent-700 tabular-nums">@s.Wins</td>
                                     <td class="text-right text-red-600 tabular-nums">@s.Losses</td>
                                     <td>
@@ -1062,8 +1076,8 @@ else
                                             </div>
                                         </div>
                                     </td>
-                                    @GamesCountCell(b.GamesPlayed, GamesLink.ForBoard(b.BoardId),
-                                                    $"Every game with {board?.Name ?? b.BoardId} on the island")
+                                    @GamesCountCell(b.GamesPlayed, GamesLink.ForBoard(b.BoardId, who: ScopeWho),
+                                                    ScopedTitle($"Every game with {board?.Name ?? b.BoardId} on the island"))
                                     <td class="text-right text-accent-700 tabular-nums">@b.Wins</td>
                                     <td class="text-right text-red-600 tabular-nums">@b.Losses</td>
                                     <td>
@@ -1109,8 +1123,8 @@ else
                            still be opened as the games it counts, which is all it has to say. *@
                         @if (oneOffRecord.Played > 0)
                         {
-                            <a href="@GamesLink.ForOneOffIslands()"
-                               title="Hand-built islands that weren't saved to your library — see those games"
+                            <a href="@GamesLink.ForOneOffIslands(ScopeWho)"
+                               title="@ScopedTitle("Hand-built islands that weren't saved to your library — see those games")"
                                class="flex flex-col items-center rounded-xl border border-dashed border-ink-300 bg-white p-2 text-center
                                       transition-all hover:-translate-y-px hover:border-ink-400 hover:shadow-sm
                                       focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
@@ -1255,6 +1269,20 @@ else
     /// <summary>Whose record the sheets are labelled with — null for "you".</summary>
     private string? ScopeSubjectName =>
         _scoped is null || _scoped.Kind == PlayerKind.Me ? null : _scoped.Name;
+
+    /// <summary>
+    /// The page scope as a games-list <c>who</c> key, put on every slice this page links at so a
+    /// count and the list it opens are the same games. Null while the page is global.
+    /// </summary>
+    private string? ScopeWho =>
+        _scoped is null ? null : GamesFilter.WhoKey(_scoped.UserId, _scoped.PlayerId);
+
+    /// <summary>
+    /// A link's tooltip, narrowed the way <see cref="ScopeWho"/> narrows the link itself — while
+    /// the page is somebody's, "every game" is not the promise these links keep.
+    /// </summary>
+    private string ScopedTitle(string title) =>
+        _scoped is null ? title : $"{title} — {_scoped.Name}'s games only";
 
     /// <summary>The history narrowed to the page scope: games the picked player sat in.</summary>
     private IReadOnlyList<SetupGameFact> ScopedFacts =>

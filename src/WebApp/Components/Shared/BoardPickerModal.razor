@@ -11,7 +11,7 @@
                         Choose a board
                     </h2>
                     <p class="text-xs text-ink-500 mt-1">
-                        Pick the board this player will use.@(_recordsLabel is null ? "" : $" Records show your games {_recordsLabel}.")
+                        Pick the board this player will use.@(_recordsLabel is null ? "" : $" Records show {WhoseGames} {_recordsLabel}.")
                         @if (BoardsTaken.Count > 0)
                         {
                             <text> Boards picked by other players are marked.</text>
@@ -161,9 +161,27 @@
     /// has to say so. A board played often but never under this spirit passes it.
     private string UntestedLabel => _recordsLabel is null ? "Never used" : $"Never {_recordsLabel}";
 
+    /// Whose games the per-board counts are, for the line under the title.
+    private string WhoseGames =>
+        _context.SubjectName is { } name ? $"{name}'s games"
+        : _context.SeatFilter is not null ? "your games"
+        : "every game recorded";
+
+    /// The counts behind the pill are the seat's, not the reader's (MatchupContext.SeatFilter),
+    /// so the hint names the same person — or the whole table, while the seat is still empty.
+    private string NeverUsed =>
+        _context.SubjectName is { } name ? $"{name} has never used"
+        : _context.SeatFilter is not null ? "you have never used"
+        : "nobody at your table has used";
+
+    private string Otherwise =>
+        _context.SubjectName is { } name ? $"however often {name} has used them otherwise"
+        : _context.SeatFilter is not null ? "however often you have used them otherwise"
+        : "however often they have been used otherwise";
+
     private string UntestedHint => _recordsLabel is null
-        ? "Boards you have never played on"
-        : $"Boards you have never played {_recordsLabel} — however often you have used them otherwise";
+        ? $"Boards {NeverUsed}"
+        : $"Boards {NeverUsed} {_recordsLabel} — {Otherwise}";
 
     private void Close() => _open = false;
 
