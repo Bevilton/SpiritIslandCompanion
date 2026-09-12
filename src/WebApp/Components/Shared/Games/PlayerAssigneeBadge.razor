@@ -1,83 +1,79 @@
-@* Read-only avatar + name pair for an assignee on a recorded game.
-   The interactive variant (with dropdown) lives in PlayerAssigneePicker. *@
-@using Application.Features.Statistics
+@* Avatar + name pair for whoever sat in a seat. Every surface that names a player draws this —
+   the recorded game's cards, the dashboard's table, the people lists, the statistics scope
+   picker, and the seat picker's own trigger — so the three colours (you, a friend, a guest) mean
+   the same thing wherever they turn up.
+
+   Avatar is public because PlayerAssigneePicker lays some of its rows out itself: its list puts a
+   person's *email* under the name rather than their kind, so it needs the avatar without the rest
+   of the badge. It lived there in a second copy until this. The four decisions the badge is built
+   from stay private — what identifies a seat's occupant is this component's answer to give, and
+   the fewer of them are reachable the fewer places a second one can be improvised. *@
 
 <span class="@ContainerClass">
-    <span class="@AvatarClass">
-        <Icon Name="@IconName()" Class="@IconClass"/>
-    </span>
-    @if (!Compact)
-    {
-        <span class="min-w-0">
-            <span class="block text-sm font-medium text-ink-900 truncate">@Name</span>
-            @if (!string.IsNullOrEmpty(DetailLabel) || ShowKindLabel)
-            {
-                <span class="block text-[10px] uppercase tracking-wide @KindLabelClass()">
-                    @(DetailLabel ?? KindLabel())
-                </span>
-            }
+    @Avatar(Kind)
+    <span class="min-w-0">
+        <span class="block text-sm font-medium text-ink-900 truncate">@Name</span>
+        <span class="block micro-label @KindLabelClass(Kind)">
+            @(DetailLabel ?? KindLabel(Kind))
         </span>
-    }
+    </span>
 </span>
 
 @code {
-    public enum AssigneeKind { Me, Friend, Player, Unknown }
-
-    /// <summary>The badge for a seat the statistics report on — every page that lists players
-    /// draws them from the same tally, so they should all get the same avatar.</summary>
-    public static AssigneeKind For(PlayerKind kind) => kind switch
-    {
-        PlayerKind.Me     => AssigneeKind.Me,
-        PlayerKind.Friend => AssigneeKind.Friend,
-        _                 => AssigneeKind.Player,
-    };
-
+    /// <summary>Who or what sits here — see <see cref="AssigneeKind"/>.</summary>
     [Parameter, EditorRequired] public AssigneeKind Kind { get; set; }
     [Parameter, EditorRequired] public string Name { get; set; } = "";
 
     /// <summary>Override the line below the name. Falls back to the kind label.</summary>
     [Parameter] public string? DetailLabel { get; set; }
 
-    /// <summary>If false, render only the avatar.</summary>
-    [Parameter] public bool ShowKindLabel { get; set; } = true;
-
-    /// <summary>When true, render only the avatar (no text).</summary>
-    [Parameter] public bool Compact { get; set; }
-
-    /// <summary>Extra classes on the outer wrapper.</summary>
+    /// <summary>Extra classes on the outer wrapper. The default is the badge in a run of text;
+    /// <see cref="RowLayout"/> is the badge as the body of a row.</summary>
     [Parameter] public string ContainerClass { get; set; } = "inline-flex items-center gap-2 min-w-0";
 
-    private string AvatarClass => Kind switch
-    {
-        AssigneeKind.Me     => "inline-flex h-8 w-8 items-center justify-center rounded-full bg-accent-600 text-white shadow-sm shrink-0",
-        AssigneeKind.Friend => "inline-flex h-8 w-8 items-center justify-center rounded-full bg-sky-100 text-sky-700 ring-1 ring-sky-200 shrink-0",
-        AssigneeKind.Player => "inline-flex h-8 w-8 items-center justify-center rounded-full bg-ink-100 text-ink-600 ring-1 ring-ink-200 shrink-0",
-        _                   => "inline-flex h-8 w-8 items-center justify-center rounded-full bg-ink-100 text-ink-500 shrink-0",
-    };
+    /// <summary>
+    /// The badge filling a row, with whatever the row ends in pushed to the far end — the
+    /// dashboard's attention rows, the people page's request rows, the statistics page's scoped
+    /// header. Four hosts had spelled the same five utilities out.
+    /// </summary>
+    public const string RowLayout = "inline-flex items-center gap-3 min-w-0 flex-1";
 
-    private string IconClass => "w-4 h-4";
+    /// <summary>Just the avatar, for a host that lays the name out itself.</summary>
+    public static RenderFragment Avatar(AssigneeKind kind) =>
+        @<span class="@AvatarClass(kind)"><Icon Name="@IconName(kind)" Class="w-4 h-4"/></span>;
 
-    private string IconName() => Kind switch
+    private static string AvatarClass(AssigneeKind kind) =>
+        "disc h-8 w-8 shrink-0 " + kind switch
+        {
+            AssigneeKind.Me       => "bg-accent-600 text-white shadow-sm",
+            AssigneeKind.Friend   => "bg-sky-100 text-sky-700 ring-1 ring-sky-200",
+            AssigneeKind.Player   => "bg-ink-100 text-ink-600 ring-1 ring-ink-200",
+            // Unringed and soft: it stands for the whole list rather than for one of it.
+            AssigneeKind.Everyone => "bg-accent-50 text-accent-700",
+            _                     => "bg-ink-100 text-ink-500",
+        };
+
+    private static string IconName(AssigneeKind kind) => kind switch
     {
         AssigneeKind.Me     => "star",
-        AssigneeKind.Friend => "users",
-        AssigneeKind.Player => "user",
+        AssigneeKind.Friend or AssigneeKind.Everyone => "users",
         _                   => "user",
     };
 
-    private string KindLabel() => Kind switch
+    private static string KindLabel(AssigneeKind kind) => kind switch
     {
-        AssigneeKind.Me     => "You",
-        AssigneeKind.Friend => "Friend",
-        AssigneeKind.Player => "Local player",
-        _                   => "—",
+        AssigneeKind.Me       => "You",
+        AssigneeKind.Friend   => "Friend",
+        AssigneeKind.Player   => "Local player",
+        AssigneeKind.Everyone => "Everybody",
+        _                     => "—",
     };
 
-    private string KindLabelClass() => Kind switch
+    private static string KindLabelClass(AssigneeKind kind) => kind switch
     {
         AssigneeKind.Me     => "text-accent-700",
         AssigneeKind.Friend => "text-sky-700",
-        AssigneeKind.Player => "text-ink-500",
+        AssigneeKind.Player or AssigneeKind.Everyone => "text-ink-500",
         _                   => "text-ink-400",
     };
 }

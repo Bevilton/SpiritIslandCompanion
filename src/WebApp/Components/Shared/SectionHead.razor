@@ -1,0 +1,120 @@
+@* The heading over one block of a page, with whatever shares its baseline at the right-hand end
+   — a caption, a count, the way onward.
+
+   Thirty blocks were spelling this out, and the four lines had drifted in every direction the
+   pairing allows: the heading written as an h2 in most of them and an h3 in others with no rule
+   telling the two apart, the line under a title carrying `mt-0.5` in some and not in others, and
+   the caption beside it a `<span>` here and a `<p>` there. The shape is the same everywhere, so
+   it is one component and the differences are parameters.
+
+   Two bands, one row: .section-head is a division of the page — a margin under it and nothing
+   else — and .surface-head the bordered top band of a card, which is that same row wearing the
+   card's gutters and its own edge. One component because what goes *in* them is identical;
+   which band it is stays the caller's, since only the caller knows whether there is a card
+   around it.
+
+   Three registers, one ladder (Size). "lg" and the default are the page's voice at two volumes;
+   "label" is the caption register — the same heading where the app is captioning a block rather
+   than announcing one (see .section-label in site.css). The caption used to be left out of this
+   component on the grounds that it was "a different thing wearing a similar shape", and the seven
+   blocks written in it went on to prove it is the same shape: two of them are this exact band,
+   heading plus note, and one wrote its heading as an <h3> while the other wrote a <span>. That is
+   not a register difference, it is the drift this component exists to stop — and while
+   .section-label left the face to the element it was a visible one, since the base layer sets
+   h1–h4 in the serif. A heading is a heading, so it is one here too. *@
+
+<div class="@(Surface ? "surface-head" : "section-head") @Class">
+    @if (Sub is null)
+    {
+        @Heading
+    }
+    else
+    {
+        @* Title and note as one block, so the right-hand end stays free for whatever the
+           section links to. *@
+        <div>
+            @Heading
+            <p class="section-note mt-0.5">@Sub</p>
+        </div>
+    }
+    @if (Note is not null)
+    {
+        <span class="section-note">@Note</span>
+    }
+    @Trailing
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+
+    /// <summary>The line under the heading — what the block holds, in a phrase.</summary>
+    [Parameter] public RenderFragment? Sub { get; set; }
+
+    /// <summary>The caption at the right-hand end: a count, a rule of thumb, how to work the
+    /// block. A string, so it can be left off with a ternary; use <see cref="Trailing"/> for a
+    /// caption with markup in it.</summary>
+    [Parameter] public string? Note { get; set; }
+
+    /// <summary>The right-hand end when it is not a plain caption — the link onward, or a
+    /// caption that has markup of its own.</summary>
+    [Parameter] public RenderFragment? Trailing { get; set; }
+
+    /// <summary>Whatever leads the heading inside the band — the glyph an "attention" panel puts
+    /// before its name. Sits ahead of the title rather than at the right-hand end, so it reads as
+    /// part of the heading rather than as something the block links to.</summary>
+    [Parameter] public RenderFragment? Glyph { get; set; }
+
+    /// <summary>The bordered top band of a card, rather than a division of the page.</summary>
+    [Parameter] public bool Surface { get; set; }
+
+    /// <summary>
+    /// Which of the three registers this heading is in. "md" (the default) is a panel's own
+    /// voice; "lg" one of the page's divisions — a recorded game's Setup / Players / Notes, a
+    /// catalogue cut into expansions; "label" the caption register, for a block that is being
+    /// named rather than announced. See the note above, and .section-title / .section-title-lg /
+    /// .section-label in site.css.
+    /// </summary>
+    [Parameter] public string Size { get; set; } = "md";
+
+    /// <summary>
+    /// Which heading this is in the document's outline. Two by default; three where the block
+    /// already sits under one of its own, as the landing page's cards do inside their bands.
+    /// </summary>
+    [Parameter] public int Level { get; set; } = 2;
+
+    /// <summary>Extra classes on the band — the spacing a particular block wants under it.</summary>
+    [Parameter] public string? Class { get; set; }
+
+    private string TitleClass => Size switch
+    {
+        "lg"    => "section-title-lg",
+        "label" => "section-label",
+        _       => "section-title", // "md"
+    };
+
+    /// A glyph beside the heading has to travel with it into the Sub block, so the two stay one
+    /// unit whether or not there is a line under them.
+    private RenderFragment Heading => __builder =>
+    {
+        @if (Glyph is null)
+        {
+            @HeadingText
+        }
+        else
+        {
+            <span class="flex min-w-0 items-center gap-2.5">@Glyph @HeadingText</span>
+        }
+    };
+
+    private RenderFragment HeadingText => __builder =>
+    {
+        @if (Level == 3)
+        {
+            <h3 class="@TitleClass">@Title</h3>
+        }
+        else
+        {
+            <h2 class="@TitleClass">@Title</h2>
+        }
+    };
+}

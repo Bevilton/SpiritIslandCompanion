@@ -1,52 +1,50 @@
-@* Reference content for adversaries. Used from /adversaries (public) and /app/adversaries.
-   Pass OwnedExpansions to filter; null (default) shows every adversary.
-   Pass Records for the signed-in view to sort and filter by the account's recorded history — a
-   reference page counts every game on the account and never narrows to one player.
+@* Reference content for adversaries. Used from /adversaries (public) and /app/adversaries; what
+   either route hands over is CatalogueViewBase.
 
    The filter is FilterBar, shared with every other catalogue and picker. Adversaries have no
    facets of their own — expansion, difficulty and the record so far is the whole of what there
    is to ask about eight of them. *@
+@inherits CatalogueViewBase
 
-<div class="page-head">
-    <div>
-        <span class="eyebrow">Reference</span>
-        <h1 class="page-title mt-2">Adversaries</h1>
-        <p class="page-sub">@_inScope.Count adversaries with their difficulty progression.</p>
-    </div>
-    <input type="search" class="input md:w-64" placeholder="Filter by name…" aria-label="Filter by name"
-           @bind="_filter.Query" @bind:event="oninput"/>
-</div>
+@* Derived once at the top of the render — see SpiritsView. *@
+@{
+    var inScope = OwnedCatalogue.Adversaries(OwnedExpansions);
+    var visible = _filter.Apply(inScope);
+}
+
+<PageHeader Eyebrow="Reference" Title="Adversaries">
+    <Sub>@Copy.Count(inScope.Count, "adversary") with their difficulty progression.</Sub>
+    <Actions>
+        <SearchBox @bind-Value="_filter.Query"/>
+    </Actions>
+</PageHeader>
 
 <div class="mt-4">
     <FilterBar Filter="_filter" OwnedExpansions="@OwnedExpansions"
-               PresentExpansions="_filter.ExpansionsIn(_inScope)"
-               ShowingCount="_visible.Count" TotalCount="_inScope.Count"
-               UntestedLabel="Never faced" UntestedHint="Adversaries nobody at your table has faced"
+               PresentExpansions="_filter.ExpansionsIn(inScope)"
+               ShowingCount="visible.Count" TotalCount="inScope.Count"
+               UntestedLabel="Never faced" UntestedHint="@Copy.Untried("Adversaries", "faced")"
                Changed="StateHasChanged"/>
 </div>
 
-<div class="grid lg:grid-cols-2 gap-4 mt-6">
-    @foreach (var a in _visible)
+<div class="mt-6 grid gap-4 lg:grid-cols-2">
+    @foreach (var a in visible)
     {
         var detail = AdversaryDetails.For(a.Id);
-        var levels = _facing?.GetValueOrDefault(a.Id.Value)?.Levels
-                     ?? (Records is null ? null : AdversaryLevelGrid.NoRecords);
+        var levels = AdversaryLevelGrid.RecordsFor(_facing?.GetValueOrDefault(a.Id.Value), HasRecord);
         @* A card holding tappable level tiles has to stop being one big button — a button inside
-           one is not something the browser will render. The disclosure becomes a full-card
-           overlay and the level tiles are raised above it, the same arrangement the statistics
-           cards use. *@
+           one is not something the browser will render. CardOverlay is that arrangement: the
+           disclosure becomes a full-card overlay and the level tiles are raised above it. *@
         <div @key="a.Id.Value"
-             class="surface relative p-5 transition-all hover:shadow-sm hover:-translate-y-px md:p-6">
-            <button type="button" @onclick="() => OpenDetail(a)"
-                    title="@($"{a.Name} — details{(Records is null ? "" : " and full record")}")"
-                    class="absolute inset-0 w-full rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
-                <span class="sr-only">@a.Name — details@(Records is null ? "" : " and full record")</span>
-            </button>
-            <div class="pointer-events-none relative">
+             class="surface card-lift relative p-5 md:p-6">
+            <CardOverlay Label="@Copy.SheetTooltip(a.Name, HasRecord)"
+                         OnOpen="() => OpenDetail(a)">
                 <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
-                        <h3 class="text-lg font-semibold leading-tight">@a.Name</h3>
-                        <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-500">
+                        @* .card-title, like the spirit and board browse cards — this was the one
+                           of the three that named its subject a size larger. *@
+                        <h3 class="card-title">@a.Name</h3>
+                        <div class="row-sub mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                             <span>@GameLookups.ExpansionName(a.ExpansionId)</span>
                             @if (detail is not null)
                             {
@@ -59,7 +57,7 @@
                        splits it up, so the total belongs with the foe it is about rather than in
                        a section of its own under it. The shield stays where there is no record
                        to put here, which is the public route. *@
-                    @if (Records is not null)
+                    @if (HasRecord)
                     {
                         <RecordChip Record="Records.GetValueOrDefault(a.Id.Value)" Subject="@a.Name" NeverLabel="Never faced"/>
                     }
@@ -75,42 +73,26 @@
                    A tap opens the sheet already focused on that level, the same thing a tap on
                    a level means inside the sheet itself. *@
                 <div class="mt-5">
-                    <div class="text-xs uppercase tracking-wide text-ink-500 mb-2">
-                        @(Records is null ? "Difficulty by level" : "Difficulty and record by level")
+                    <div class="micro-label mb-2">
+                        @(HasRecord ? "Difficulty and record by level" : "Difficulty by level")
                     </div>
-                    <AdversaryLevelGrid Adversary="a" Records="levels" Columns="grid-cols-7"
+                    <AdversaryLevelGrid Adversary="a" Records="levels"
                                         OnPick="LevelTap(a)" TapHint="Opens the record sheet focused on this level."
                                         RaiseAboveOverlay="true"/>
                 </div>
-            </div>
+            </CardOverlay>
         </div>
     }
 </div>
 
-@if (_visible.Count == 0)
+@if (visible.Count == 0)
 {
-    <div class="surface text-center py-10 mt-6 text-ink-500">No adversaries match the current filters.</div>
+    <div class="surface no-matches mt-6">@Copy.NoMatches("adversaries")</div>
 }
 
-@* LinkGames only where there is a record to link from: the public route has no reader to have
-   one, and no games page to send them to. *@
-<AdversaryDetailModal @ref="_modal" Facts="Facts" LinkGames="@(Records is not null)"/>
+<AdversaryDetailModal @ref="_modal" Facts="Facts" LinkGames="HasRecord"/>
 
 @code {
-    /// <summary>Null (default) shows everything; non-null restricts to those expansions.</summary>
-    [Parameter] public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
-
-    /// <summary>
-    /// The account's record per adversary — every game the visitor has recorded, whoever sat at
-    /// the table. Unlocks ordering by how often it has been faced and how it went, the never-faced
-    /// filter, and the figures on the cards. Null on the public route, which has nobody to have a
-    /// record.
-    /// </summary>
-    [Parameter] public IReadOnlyDictionary<string, SetupInsights.PlayRecord>? Records { get; set; }
-
-    /// <summary>The history behind <see cref="Records"/>, for the detail modal's profile.</summary>
-    [Parameter] public IReadOnlyList<Application.Features.Statistics.SetupGameFact>? Facts { get; set; }
-
     private AdversaryDetailModal _modal = default!;
 
     /// Per-level records, derived once per parameter change rather than per card.
@@ -121,16 +103,10 @@
         a => a.Id.Value, a => a.Name, a => a.ExpansionId,
         numeric: (FilterState.ByDifficulty, a => a.Modes.Any() ? a.Modes.Max(m => m.Difficulty) : 0));
 
-    protected override void OnParametersSet()
-    {
-        _filter.UseHistory(Records);
+    protected override FilterState Filter => _filter;
+
+    protected override void OnRecordsChanged() =>
         _facing = Facts is { Count: > 0 } ? SetupInsights.AdversaryRecords(Facts) : null;
-    }
-
-    private IReadOnlyList<Adversary> _inScope =>
-        GameData.Adversaries.Where(a => OwnedExpansions is null || OwnedExpansions.Contains(a.ExpansionId)).ToList();
-
-    private IReadOnlyList<Adversary> _visible => _filter.Apply(_inScope);
 
     private void OpenDetail(Adversary a) => _modal.Show(a);
 
@@ -139,5 +115,5 @@
     /// focus: on the public route the tiles stay inert and the card's overlay is the one door.
     /// </summary>
     private EventCallback<int> LevelTap(Adversary a) =>
-        Records is null ? default : EventCallback.Factory.Create<int>(this, (int level) => _modal.Show(a, level));
+        HasRecord ? EventCallback.Factory.Create<int>(this, (int level) => _modal.Show(a, level)) : default;
 }

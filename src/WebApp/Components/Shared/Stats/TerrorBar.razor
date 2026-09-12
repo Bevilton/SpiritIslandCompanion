@@ -1,71 +1,40 @@
-@* Tiny 4-segment stacked bar showing the terror-level distribution. Used in
-   the Spirits table and as the visual base for the overview's terror card.
-   Color ramp goes from green (terror I) to red (terror IV) — semantic
-   "danger scale". *@
+@* How a spirit's games split across the four terror levels, as one small stacked bar. The ramp
+   is TerrorScale's, shared with the distribution panel's tiles, so the two climb the same colours.
+
+   The track is .meter's, the same one every other proportion bar in the app stands in; only the
+   fill differs, and it differs enough to stay here rather than in Meter: this is four segments
+   laid side by side, not one width against a rest. Standing outside Meter is also how it came to
+   be the one bar still writing its widths in whatever culture the server happens to run under.
+
+   Its own width is w-28 rather than a parameter: one table draws this, and the parameter's
+   default had already stopped being the width in use. *@
 
 @{
-    var total = TerrorOrder.Sum(t => Get(t));
+    var total = TerrorScale.Order.Sum(Get);
     if (total == 0)
     {
-        <span class="text-[10px] text-ink-400">no data</span>
+        @* .no-value — the register for a value that isn't there, as the tables' own dashes are.
+           The size is this cell's, which the class leaves to the caller. *@
+        <span class="no-value text-[10px]">no data</span>
         return;
     }
 }
 
-<div class="@(ShowLabels ? "space-y-1" : "")">
-    <div class="flex h-2 rounded-full overflow-hidden bg-ink-100 @WidthClass">
-        @foreach (var t in TerrorOrder)
-        {
-            var count = Get(t);
-            if (count == 0) continue;
-            var pct = (double)count / total * 100;
-            <div class="h-full" style="width:@($"{pct:F2}")%; background-color: @TerrorColor(t);"
-                 title="@TerrorLabel(t): @count game@(count == 1 ? "" : "s")"></div>
-        }
-    </div>
-    @if (ShowLabels)
+<div class="meter flex h-2 w-28">
+    @foreach (var t in TerrorScale.Order)
     {
-        <div class="flex justify-between text-[10px] tabular-nums">
-            @foreach (var t in TerrorOrder)
-            {
-                var count = Get(t);
-                <span class="@(count > 0 ? "text-ink-700 font-medium" : "text-ink-400")">
-                    @TerrorLabel(t)<span class="ml-1">@count</span>
-                </span>
-            }
-        </div>
+        var count = Get(t);
+        if (count == 0) continue;
+        @* The width is going into CSS, so it is spelled invariantly — see BrowserNumber. *@
+        var pct = Percent.Of(count, total).ToInvariant("F2");
+        <div @key="t" class="h-full" style="width:@(pct)%; background-color: @TerrorScale.Color(t);"
+             title="@TerrorScale.Label(t): @Copy.Count(count, "game")"></div>
     }
 </div>
 
 @code {
-    [Parameter, EditorRequired] public Dictionary<TerrorLevel, int> Counts { get; set; } = new();
-    [Parameter] public bool ShowLabels { get; set; }
-    [Parameter] public string WidthClass { get; set; } = "w-24";
-
-    private static readonly TerrorLevel[] TerrorOrder =
-    [
-        TerrorLevel.First, TerrorLevel.Second, TerrorLevel.Third, TerrorLevel.Max,
-    ];
+    [Parameter, EditorRequired] public IReadOnlyDictionary<TerrorLevel, int> Counts { get; set; } =
+        new Dictionary<TerrorLevel, int>();
 
     private int Get(TerrorLevel t) => Counts.TryGetValue(t, out var c) ? c : 0;
-
-    public static string TerrorLabel(TerrorLevel t) => t switch
-    {
-        TerrorLevel.First  => "I",
-        TerrorLevel.Second => "II",
-        TerrorLevel.Third  => "III",
-        TerrorLevel.Max    => "IV",
-        _                  => "?",
-    };
-
-    // Terror escalates from the island's own green, through the sun, into the invaders' ember —
-    // the palette's three semantic families in the order the game climbs them.
-    public static string TerrorColor(TerrorLevel t) => t switch
-    {
-        TerrorLevel.First  => StatsTheme.Accent500,
-        TerrorLevel.Second => StatsTheme.Sun400,
-        TerrorLevel.Third  => StatsTheme.DangerSoft,
-        TerrorLevel.Max    => StatsTheme.Danger,
-        _                  => StatsTheme.Ink400,
-    };
 }

@@ -1,0 +1,24 @@
+@* What a table row's subject is called, as the keyboard's way into its record sheet. The whole
+   row opens the same sheet on click, but a row is not focusable — so the name is a real button
+   inside it, and stops its click from reaching the row and opening the sheet twice.
+
+   Four tables draw one — the reference page's scenarios and the statistics page's spirits,
+   scenarios and boards — and the reference table had been written without the three utilities
+   that make `truncate` mean anything: the button is a flex item, and an inline one sizes to its
+   content and pushes the row wide instead of clipping. The statistics tables had it, in a page
+   fragment of their own; one component, and the fourth table cannot be the one left out. *@
+
+<button type="button" @onclick="OnClick" @onclick:stopPropagation title="@Title"
+        class="row-title block max-w-full truncate rounded text-left focus-ring">
+    @Name
+</button>
+
+@code {
+    [Parameter, EditorRequired] public string Name { get; set; } = "";
+
+    /// <summary>Opens the subject's record sheet — the same handler the row's own click uses.</summary>
+    [Parameter, EditorRequired] public EventCallback OnClick { get; set; }
+
+    /// <summary>The tooltip, where the name alone doesn't say what a tap will show.</summary>
+    [Parameter] public string? Title { get; set; }
+}

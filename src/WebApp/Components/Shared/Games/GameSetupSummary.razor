@@ -9,89 +9,85 @@
         .Where(x => x.Adversary is not null)
         .ToList();
 
-    var isStandardGame = adversaries.Count == 0 && scenario is null && !ExtraBoard && !ThematicMaps && DifficultyModifier == 0;
+    @* What made the difficulty, from the same place the setup screen's dial reads it — the two
+       are one explanation of one formula, and each used to keep its own copy of which things
+       count. Only the foes still in the catalogue, as the adversaries section below lists: one
+       played from a box since removed has a name nobody can look up.
+
+       The extra board's letter is left out here: the island line below already names it in a
+       chip, and repeating it in the total's breakdown says it twice. *@
+    var contributions = DifficultyBreakdown.Of(
+        adversaries.Select(x => (x.Item.AdversaryId, x.Item.Level)),
+        ScenarioId, ExtraBoard, extraBoardLetter: null, ThematicMaps, DifficultyModifier);
 }
 
 <section class="surface overflow-hidden">
-    @* Difficulty hero *@
-    <div class="bg-gradient-to-br from-accent-50 to-accent-100/60 border-b border-accent-200 p-5 flex items-center justify-between gap-4">
+    @* Difficulty hero — .panel-result's jade band, the same gradient the result panels are built
+       from, worn as the card's top band rather than as a panel of its own. *@
+    <div class="panel-result is-win border-x-0 border-t-0 p-5 flex items-center justify-between gap-4">
         <div>
-            <div class="text-[11px] uppercase tracking-wider text-accent-700 font-semibold">Total difficulty</div>
-            <div class="text-4xl font-bold text-accent-900 mt-1 leading-none" style="font-family: var(--font-serif);">@Difficulty</div>
+            <div class="micro-label-strong text-accent-700">Total difficulty</div>
+            <div class="numeral-display mt-1 text-4xl text-accent-900">@Difficulty</div>
         </div>
         <div class="text-xs text-accent-800/70 text-right space-y-0.5">
-            @if (isStandardGame)
+            @if (contributions.Count == 0)
             {
                 <div>@GameLookups.StandardGameTitle</div>
             }
             else
             {
-                @foreach (var (item, adv) in adversaries)
+                @foreach (var line in contributions)
                 {
-                    var mode = adv!.Modes.FirstOrDefault(m => m.Level == item.Level);
-                    <div>@adv.Name L@(item.Level) <span class="text-accent-700/60">+@(mode?.Difficulty ?? 0)</span></div>
-                }
-                @if (scenario is not null)
-                {
-                    <div>@scenario.Name <span class="text-accent-700/60">+@scenario.Difficulty</span></div>
-                }
-                @if (ExtraBoard)
-                {
-                    <div>Extra board <span class="text-accent-700/60">+@GameRestrictions.ExtraBoardDifficultyBonus</span></div>
-                }
-                @if (ThematicMaps)
-                {
-                    <div>Thematic maps <span class="text-accent-700/60">+@GameRestrictions.ThematicMapsDifficultyBonus</span></div>
-                }
-                @if (DifficultyModifier != 0)
-                {
-                    <div>Modifier <span class="text-accent-700/60">@(DifficultyModifier > 0 ? "+" : "")@DifficultyModifier</span></div>
+                    <div>@line.Label <span class="text-accent-700/60">@GameFormat.Signed(line.Amount)</span></div>
                 }
             }
         </div>
     </div>
 
-    @* Island layout *@
-    <div class="px-5 md:px-6 py-5 flex items-center gap-4">
+    @* Island layout — the card's .surface-body, as the two bands under it are its .surface-foot;
+       all three had spelled the gutters out by hand, with the rule a shade off the class's. *@
+    <div class="surface-body flex items-center gap-4">
         <div class="h-20 w-20 shrink-0 flex items-center justify-center">
             @* A hand-built island has no published picture, but the game kept its own copy of
                the arrangement — so the record shows the island as it was actually played. The
                label is the saved shape's name when it had one; a published layout passes none
                and keeps its own. *@
             <IslandSetupDiagram Setup="setup" Geometry="@IslandLayoutJson"
-                                Label="@CustomLayoutName" Class="max-h-full max-w-full"/>
+                                Label="@CustomLayoutName"/>
         </div>
         <div class="min-w-0 flex-1">
-            <div class="text-[10px] uppercase tracking-wide text-ink-500 font-medium">Island setup</div>
+            <div class="micro-label">Island setup</div>
             @* A hand-built island shows the saved shape's name when it came from the layout
                library; the placeholder setup only knows it as "Custom". *@
-            <div class="mt-0.5 text-base font-semibold text-ink-900 truncate">
+            <div class="card-title mt-0.5 truncate">
                 @(CustomLayoutName ?? setup?.Name ?? "Unknown layout")
             </div>
             <div class="mt-1 flex flex-wrap items-center gap-1.5">
                 @if (setup is not null)
                 {
-                    <span class="text-[11px] text-ink-500">@setup.NumberOfPlayers @(setup.NumberOfPlayers == 1 ? "board" : "boards")</span>
+                    <span class="row-sub">@Copy.Count(setup.NumberOfPlayers, "board")</span>
                 }
+                @* SetupChip — the same chip the games list puts beside a match's title for the
+                   same facts, so a game reads the same way in the list and on its own page. *@
                 @if (IsCustom)
                 {
-                    <span class="inline-flex items-center text-[10px] uppercase tracking-wider text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded"
-                          title="@(CustomLayoutName is null ? "A one-off island arranged by hand for this game." : $"Played on \"{CustomLayoutName}\", a hand-built shape from the layout library.")">
-                        Custom island
-                    </span>
+                    <SetupChip Icon="map" Label="Custom island"
+                               Title="@(CustomLayoutName is null
+                                   ? "A one-off island arranged by hand for this game."
+                                   : $"Played on \"{CustomLayoutName}\", a hand-built shape from the layout library.")"/>
                 }
                 @if (ThematicMaps)
                 {
-                    <span class="inline-flex items-center text-[10px] uppercase tracking-wider text-accent-700 bg-accent-50 px-1.5 py-0.5 rounded">Thematic</span>
+                    <SetupChip Label="Thematic"/>
                 }
                 @if (ExtraBoard)
                 {
                     @* Games recorded before the extra board's letter was asked for have none to
                        show, so the chip falls back to just saying there was one. *@
-                    <span class="inline-flex items-center text-[10px] uppercase tracking-wider text-accent-700 bg-accent-50 px-1.5 py-0.5 rounded"
-                          title="@(ExtraBoardLetter is null ? "An extra board was played; which one wasn't recorded." : $"Board {ExtraBoardLetter} was on the island with no spirit on it.")">
-                        Extra board@(ExtraBoardLetter is { } letter ? $" · {letter}" : "")
-                    </span>
+                    <SetupChip Label="@($"Extra board{(ExtraBoardLetter is { } letter ? $" · {letter}" : "")}")"
+                               Title="@(ExtraBoardLetter is null
+                                   ? "An extra board was played; which one wasn't recorded."
+                                   : $"Board {ExtraBoardLetter} was on the island with no spirit on it.")"/>
                 }
             </div>
         </div>
@@ -100,40 +96,16 @@
     @* Adversaries *@
     @if (adversaries.Count > 0)
     {
-        <div class="px-5 md:px-6 py-4 border-t border-ink-100">
-            <div class="text-[10px] uppercase tracking-wide text-ink-500 font-medium mb-2">
-                @(adversaries.Count > 1 ? "Adversaries" : "Adversary")
-            </div>
-            @* Given LinkGames the card is the way sideways: from this evening to every other
-               night against the same foe at the same level. Nothing new on the page — the card
-               that was already there simply becomes a link. *@
+        <div class="surface-foot">
+            <div class="micro-label mb-2">@Copy.Noun(adversaries.Count, "Adversary")</div>
             <div class="grid sm:grid-cols-2 gap-2.5">
                 @foreach (var (item, adv) in adversaries)
                 {
                     var mode = adv!.Modes.FirstOrDefault(m => m.Level == item.Level);
-                    var face = ((RenderFragment)(@<text>
-                        <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-accent-50 text-accent-700 shrink-0">
-                            <Icon Name="shield" Class="w-4 h-4"/>
-                        </span>
-                        <div class="min-w-0 flex-1">
-                            <div class="text-sm font-semibold text-ink-900 truncate">@adv.Name</div>
-                            <div class="text-[11px] text-ink-500">Level @item.Level · +@(mode?.Difficulty ?? 0) difficulty</div>
-                        </div>
-                    </text>));
-                    @if (LinkGames)
-                    {
-                        <a href="@GamesLink.ForAdversary(item.AdversaryId, item.Level)"
-                           title="@($"See every game against {adv.Name} at level {item.Level}")"
-                           class="flex items-center gap-3 rounded-lg border border-ink-200 bg-white p-3 transition-colors
-                                  hover:border-accent-300 hover:bg-accent-50/40
-                                  focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
-                            @face
-                        </a>
-                    }
-                    else
-                    {
-                        <div class="flex items-center gap-3 rounded-lg border border-ink-200 bg-white p-3">@face</div>
-                    }
+                    @Face("shield", "bg-accent-50 text-accent-700", adv.Name,
+                        $"Level {item.Level} · +{mode?.Difficulty ?? 0} difficulty",
+                        GamesLink.ForAdversary(item.AdversaryId, item.Level),
+                        $"See every game against {adv.Name} at level {item.Level}")
                 }
             </div>
         </div>
@@ -142,38 +114,48 @@
     @* Scenario *@
     @if (scenario is not null)
     {
-        <div class="px-5 md:px-6 py-4 border-t border-ink-100">
-            <div class="text-[10px] uppercase tracking-wide text-ink-500 font-medium mb-2">Scenario</div>
-            @{
-                var scenarioFace = ((RenderFragment)(@<text>
-                    <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-accent-100 text-accent-700 shrink-0">
-                        <Icon Name="book" Class="w-4 h-4"/>
-                    </span>
-                    <div class="min-w-0 flex-1">
-                        <div class="text-sm font-semibold text-ink-900 truncate">@scenario.Name</div>
-                        <div class="text-[11px] text-ink-500">+@scenario.Difficulty difficulty</div>
-                    </div>
-                </text>));
-            }
-            @if (LinkGames)
-            {
-                <a href="@GamesLink.ForScenario(scenario.Id.Value)"
-                   title="@($"See every game in {scenario.Name}")"
-                   class="flex items-center gap-3 rounded-lg border border-ink-200 bg-white p-3 transition-colors
-                          hover:border-accent-300 hover:bg-accent-50/40
-                          focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
-                    @scenarioFace
-                </a>
-            }
-            else
-            {
-                <div class="flex items-center gap-3 rounded-lg border border-ink-200 bg-white p-3">@scenarioFace</div>
-            }
+        <div class="surface-foot">
+            <div class="micro-label mb-2">Scenario</div>
+            @Face("book", "bg-accent-100 text-accent-700", scenario.Name,
+                $"+{scenario.Difficulty} difficulty",
+                GamesLink.ForScenario(scenario.Id.Value),
+                $"See every game in {scenario.Name}")
         </div>
     }
 </section>
 
 @code {
+    /// <summary>
+    /// One thing the game was set up against — a foe at a level, or the scenario. Given
+    /// <see cref="LinkGames"/> the same card becomes the way sideways: from this evening to
+    /// every other night with the same foe. The linked and unlinked forms were written out
+    /// twice each, once per subject, for four copies of one card.
+    /// </summary>
+    private RenderFragment Face(string icon, string iconTone, string name, string detail,
+        string href, string title) => __builder =>
+    {
+        var body = FaceBody(icon, iconTone, name, detail);
+        @if (LinkGames)
+        {
+            <a href="@href" title="@title"
+               class="flex items-center gap-3 rounded-lg border border-ink-200 bg-white p-3 transition-colors
+                      hover:border-accent-300 hover:bg-accent-50/40 focus-ring">@body</a>
+        }
+        else
+        {
+            <div class="flex items-center gap-3 rounded-lg border border-ink-200 bg-white p-3">@body</div>
+        }
+    };
+
+    private static RenderFragment FaceBody(string icon, string iconTone, string name, string detail) =>
+        @<text>
+            <IconChip Name="@icon" Tone="@iconTone"/>
+            <div class="min-w-0 flex-1">
+                <div class="row-title truncate">@name</div>
+                <div class="row-sub">@detail</div>
+            </div>
+        </text>;
+
     /// <summary>
     /// Whether the foe and scenario cards link to every other game with them. Off by default:
     /// only a record of a played game has other games to compare itself with.
@@ -201,10 +183,10 @@
     [Parameter] public string? ExtraBoardId { get; set; }
 
     private string? ExtraBoardLetter =>
-        GameLookups.BoardFor(ExtraBoardId) is { } b ? GameLookups.BoardLetter(b) : null;
+        GameLookups.BoardLetterFor(ExtraBoardId);
     [Parameter] public bool ThematicMaps { get; set; }
     [Parameter] public int Difficulty { get; set; }
     [Parameter] public int DifficultyModifier { get; set; }
     [Parameter] public string? ScenarioId { get; set; }
-    [Parameter] public IReadOnlyList<Application.Features.Games.Dtos.GameAdversaryResponse> Adversaries { get; set; } = [];
+    [Parameter] public IReadOnlyList<GameAdversaryResponse> Adversaries { get; set; } = [];
 }

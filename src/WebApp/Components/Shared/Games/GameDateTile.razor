@@ -1,0 +1,23 @@
+@* The day-over-month block a recorded game is listed under: "14" with "MAR" beneath it, and the
+   full date on hover, since a row has no room for the year.
+
+   The games list and the dashboard's attention panel both draw one, and both must read the date
+   back exactly as stored rather than converting it: StartedAt carries the wall clock the player
+   wrote down, at offset zero, and shifting it to server-local time moves a late-evening game onto
+   the wrong day. Two copies of that were two chances to convert one of them. *@
+
+<div class="@(Small ? "w-10" : "w-11") shrink-0 text-center" title="@GameFormat.LongDate(Date)">
+    <div class="numeral-display @(Small ? "text-base" : "text-lg") text-ink-900">
+        @Date.ToString("dd")
+    </div>
+    <div class="mt-0.5 micro-label">@Date.ToString("MMM")</div>
+</div>
+
+@code {
+    /// <summary>The game's start, already unwrapped from its offset — see the note above.</summary>
+    [Parameter, EditorRequired] public DateTime Date { get; set; }
+
+    /// <summary>A step down, for the dashboard's two-column panel where a full-width row's
+    /// numeral is too heavy.</summary>
+    [Parameter] public bool Small { get; set; }
+}

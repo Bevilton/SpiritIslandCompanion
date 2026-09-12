@@ -1,0 +1,36 @@
+@* The coloured tile a board or island layout is identified by: its letter on its colour,
+   serif, white. A dozen of these were hand-rolled at eight sizes and had begun to disagree
+   about the corner radius, the type size and the weight at the same box size — the picker's
+   board tile was rounded-lg while the catalogue's, same size, was rounded-xl. The ladder
+   below pairs box, radius and type once, so two tiles of one size cannot drift again. Every
+   lettered board mark in the app is one of these now — the profile section's board badge was the
+   last hand-rolled copy. *@
+
+<span class="inline-flex shrink-0 items-center justify-center font-serif text-white @SizeClasses"
+      style="background-color: @Color;">@Text</span>
+
+@code {
+    [Parameter, EditorRequired] public string? Text { get; set; }
+
+    /// <summary>The subject's colour — usually <see cref="Games.GameLookups.BoardColor"/>.</summary>
+    [Parameter, EditorRequired] public string Color { get; set; } = "";
+
+    /// <summary>
+    /// "2xs" the setup key's map dot, "xs" a facet pill's, "sm" a missing-pill's, "md" a sheet's
+    /// board list, "lg" a row or choice strip, "xl" a seat card, "2xl" a catalogue or picker
+    /// card, "3xl" the detail sheet's header. Bold below "sm", where a hairline letter smears.
+    /// </summary>
+    [Parameter] public string Size { get; set; } = "lg";
+
+    private string SizeClasses => Size switch
+    {
+        "2xs" => "h-3.5 w-3.5 rounded text-[8px] font-bold",
+        "xs"  => "h-4 w-4 rounded text-[9px] font-bold",
+        "sm"  => "h-5 w-5 rounded text-[10px] font-semibold",
+        "md"  => "h-6 w-6 rounded text-[11px] font-semibold",
+        "xl"  => "h-9 w-9 rounded-lg text-base font-semibold",
+        "2xl" => "h-11 w-11 rounded-xl text-lg font-semibold shadow-sm",
+        "3xl" => "h-12 w-12 rounded-xl text-2xl font-semibold shadow-sm",
+        _     => "h-8 w-8 rounded-lg text-base font-semibold", // "lg"
+    };
+}

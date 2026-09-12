@@ -1,0 +1,18 @@
+@* The figure a sticky action bar carries while the rest of it acts: "Difficulty 7", "Score 34".
+   The setup form and the complete-game flow both float one of these bars, and each was spelling
+   this pill out twice — the score's tone had already drifted from the difficulty's between them.
+   Jade unless the figure is a losing score, which is the one number the bar tones by outcome. *@
+
+<span class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold
+             @(Loss ? "border-red-200 bg-red-50 text-red-900" : "border-accent-200 bg-accent-50 text-accent-900")">
+    <span class="micro-label-strong @(Loss ? "text-red-700" : "text-accent-700")">@Label</span>
+    <span class="numeral">@Value</span>
+</span>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter, EditorRequired] public int Value { get; set; }
+
+    /// <summary>A losing score wears ember; everything else the pill reports is jade.</summary>
+    [Parameter] public bool Loss { get; set; }
+}

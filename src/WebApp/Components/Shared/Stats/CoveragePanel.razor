@@ -3,16 +3,20 @@
    pills. Generic over the item type so it works for spirits, scenarios,
    boards, adversary levels, etc. *@
 
+@typeparam TItem
+
 @{
     var missingCount = MissingCount ?? Missing.Count;
-    var pct = Total > 0 ? Math.Clamp((double)(Total - missingCount) / Total * 100, 0, 100) : 100;
+    // Nothing to cover is fully covered; the clamp is for the printed figure, since Meter clamps
+    // its own width.
+    var pct = Total > 0 ? Math.Clamp(Percent.Of(Total - missingCount, Total), 0, 100) : 100;
 }
 
 <section class="surface px-5 py-4">
-    <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+    <div class="section-head">
         <div>
-            <div class="text-[10px] uppercase tracking-wide text-ink-500 font-medium">@Title</div>
-            <div class="mt-0.5 text-base font-semibold text-ink-900" style="font-family: var(--font-serif);">
+            <div class="micro-label">@Title</div>
+            <div class="numeral mt-0.5 text-base text-ink-900">
                 @(Total - missingCount) <span class="text-ink-500 font-normal">/ @Total played</span>
             </div>
         </div>
@@ -21,12 +25,10 @@
 
     @if (!string.IsNullOrEmpty(Note))
     {
-        <div class="-mt-1 mb-3 text-[11px] text-ink-500">@Note</div>
+        <div class="section-note -mt-1 mb-3">@Note</div>
     }
 
-    <div class="h-2 bg-ink-100 rounded-full overflow-hidden mb-4">
-        <div class="h-full bg-accent-500 rounded-full transition-all" style="width:@($"{pct:F0}")%"></div>
-    </div>
+    <Meter Value="pct" FillClass="bg-accent-500" Class="h-2 mb-4"/>
 
     @if (Missing.Count == 0)
     {
@@ -37,7 +39,7 @@
     }
     else
     {
-        <div class="text-[11px] uppercase tracking-wide text-ink-500 font-medium mb-2">Not yet played</div>
+        <div class="micro-label mb-2">Not yet played</div>
         <div class="flex flex-wrap gap-1.5">
             @foreach (var item in Missing)
             {
@@ -50,8 +52,8 @@
 @code {
     [Parameter, EditorRequired] public string Title { get; set; } = "";
     [Parameter, EditorRequired] public int Total { get; set; }
-    [Parameter, EditorRequired] public IReadOnlyList<object> Missing { get; set; } = [];
-    [Parameter, EditorRequired] public RenderFragment<object> ItemTemplate { get; set; } = default!;
+    [Parameter, EditorRequired] public IReadOnlyList<TItem> Missing { get; set; } = [];
+    [Parameter, EditorRequired] public RenderFragment<TItem> ItemTemplate { get; set; } = default!;
 
     /// <summary>
     /// A line under the tally, for what the tally deliberately leaves out — chiefly the

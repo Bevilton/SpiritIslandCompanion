@@ -1,76 +1,55 @@
 @page "/app/statistics"
 @attribute [Authorize]
-@using Application.Features.IslandLayouts
-@using Application.Features.Statistics
 @inject IMediator Mediator
 @inject ICurrentUserService CurrentUser
 @inject NavigationManager Nav
 
-<PageTitle>Statistics</PageTitle>
+<AppPageTitle Title="Statistics"/>
 
-<div class="page-head">
-    <div>
-        <span class="eyebrow">Insights</span>
-        <h1 class="page-title mt-2">Statistics</h1>
-        <p class="page-sub">@HeaderSummary</p>
-    </div>
+<PageHeader Eyebrow="Insights" Title="Statistics">
+    <Sub>@HeaderSummary</Sub>
+    <Actions>
     @if (_unfilteredPlayers.Count > 1)
     {
         <div class="relative">
-            <button type="button" @onclick="ToggleScopePicker"
-                    class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-ink-200 bg-white hover:bg-ink-50 transition-colors text-left
-                           focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/30 min-w-[14rem]">
+            @* The same trigger and menu the seat picker on the setup screen wears — see
+               .field-button / .field-menu. *@
+            <button type="button" @onclick="ToggleScopePicker" class="field-button min-w-[14rem]"
+                    aria-expanded="@Aria.Flag(_scopeOpen)">
                 @if (_scoped is null)
                 {
-                    <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-accent-50 text-accent-700 shrink-0">
-                        <Icon Name="users" Class="w-4 h-4"/>
-                    </span>
-                    <div class="min-w-0 flex-1">
-                        <div class="text-sm font-medium text-ink-900">All players</div>
-                        <div class="text-[10px] uppercase tracking-wide text-ink-500">Global stats</div>
-                    </div>
+                    @EveryoneBadge("Global stats")
                 }
                 else
                 {
-                    <PlayerAssigneeBadge Kind="PlayerAssigneeBadge.For(_scoped.Kind)" Name="@_scoped.Name"
-                                         DetailLabel="@($"{_scoped.GamesPlayed} games")"/>
+                    <PlayerAssigneeBadge Kind="_scoped.Kind.ToAssigneeKind()" Name="@_scoped.Name"
+                                         DetailLabel="@Copy.Count(_scoped.GamesPlayed, "game")"
+                                         ContainerClass="@PlayerAssigneeBadge.RowLayout"/>
                 }
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none"
-                     class="w-4 h-4 text-ink-400 shrink-0 ml-auto transition-transform @(_scopeOpen ? "rotate-180" : "")">
-                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m6 8 4 4 4-4"/>
-                </svg>
+                <Chevron Open="_scopeOpen"/>
             </button>
 
             @if (_scopeOpen)
             {
-                <button type="button" class="fixed inset-0 z-20 cursor-default" aria-hidden="true" tabindex="-1"
-                        @onclick="() => _scopeOpen = false"></button>
-                <div class="absolute z-30 mt-1 right-0 w-72 surface shadow-lg p-2 max-h-80 overflow-y-auto">
-                    <button type="button" @onclick="() => SetScope(null)" class="@ScopeRowClass(_scoped is null)">
-                        <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-accent-50 text-accent-700 shrink-0">
-                            <Icon Name="users" Class="w-4 h-4"/>
-                        </span>
-                        <div class="flex-1 text-left min-w-0">
-                            <div class="text-sm font-medium text-ink-900 truncate">All players</div>
-                            <div class="text-[10px] text-ink-500">Global stats across every recorded game</div>
-                        </div>
-                        @if (_scoped is null) { <Icon Name="check" Class="w-4 h-4 text-accent-700"/> }
-                    </button>
+                <ClickAway OnDismiss="() => _scopeOpen = false"/>
+                <div class="field-menu right-0 w-72 max-h-80">
+                    <PickRow Active="_scoped is null" OnClick="() => SetScope(null)">
+                        @EveryoneBadge("Every recorded game")
+                    </PickRow>
                     <div class="my-1 border-t border-ink-100"></div>
                     @foreach (var p in _unfilteredPlayers)
                     {
-                        var isSelected = SameScope(p, _scoped);
-                        <button type="button" @onclick="() => SetScope(p)" class="@ScopeRowClass(isSelected)">
-                            <PlayerAssigneeBadge Kind="PlayerAssigneeBadge.For(p.Kind)" Name="@p.Name"
-                                                 DetailLabel="@($"{p.GamesPlayed} games · {p.WinRate:F0}% win")"/>
-                            @if (isSelected) { <Icon Name="check" Class="w-4 h-4 text-accent-700 ml-auto"/> }
-                        </button>
+                        <PickRow @key="@($"{p.UserId}-{p.PlayerId}")" Active="SameScope(p, _scoped)" OnClick="() => SetScope(p)">
+                            <PlayerAssigneeBadge Kind="p.Kind.ToAssigneeKind()" Name="@p.Name"
+                                                 DetailLabel="@($"{Copy.Count(p.GamesPlayed, "game")} · {p.WinRate:F0}% win")"/>
+                        </PickRow>
                     }
                 </div>
             }
         </div>
     }
-</div>
+    </Actions>
+</PageHeader>
 
 @if (_loading)
 {
@@ -78,51 +57,53 @@
 }
 else if (_stats is null || _stats.TotalGames == 0)
 {
-    <div class="surface px-6 py-16 text-center">
-        <div class="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-50 text-accent-700">
-            <Icon Name="chart" Class="w-6 h-6"/>
-        </div>
-        @if (_scoped is null)
-        {
-            <h2 class="text-lg font-semibold text-ink-900" style="font-family: var(--font-serif);">No statistics yet</h2>
-            <p class="mx-auto mt-1 max-w-sm text-sm text-ink-500">
-                Record your first game and the numbers start telling the story — win rates, matchups, coverage.
-            </p>
-            <a href="/app/games/new" class="btn btn-primary mt-5">
-                <Icon Name="plus" Class="w-4 h-4"/> Record a game
-            </a>
-        }
-        else
-        {
-            <h2 class="text-lg font-semibold text-ink-900" style="font-family: var(--font-serif);">No games with @_scoped.Name yet</h2>
-            <p class="mx-auto mt-1 max-w-sm text-sm text-ink-500">Nothing has been recorded for this player so far.</p>
-            <button class="btn btn-secondary mt-5" @onclick="() => SetScope(null)">Clear filter</button>
-        }
-    </div>
+    @if (_scoped is null)
+    {
+        <EmptyState Icon="chart" Title="No statistics yet"
+                    Body="Record your first game and the numbers start telling the story — win rates, matchups, coverage.">
+            <Action>
+                <a href="@GamesLink.New" class="btn btn-primary">
+                    <Icon Name="plus" Class="w-4 h-4"/> Record a game
+                </a>
+            </Action>
+        </EmptyState>
+    }
+    else
+    {
+        <EmptyState Icon="chart" Title="@($"No games with {_scoped.Name} yet")"
+                    Body="Nothing has been recorded for this player so far.">
+            <Action>
+                <button type="button" class="btn btn-secondary" @onclick="() => SetScope(null)">Clear filter</button>
+            </Action>
+        </EmptyState>
+    }
 }
 else
 {
     @* ============================== SCOPED PLAYER HEADER ============================== *@
     @if (_scoped is not null)
     {
-        var favSpirit = _scoped.FavouriteSpirit is null ? null : GameLookups.SpiritFor(_scoped.FavouriteSpirit);
-        var favDetail = favSpirit is null ? null : SpiritDetails.For(favSpirit.Id);
-        var favColor = favDetail?.ColorHex ?? GameLookups.NeutralColor;
+        var favSpirit = GameLookups.SpiritFor(_scoped.FavouriteSpirit);
+        var favColor = GameLookups.SpiritColor(favSpirit);
         var isMe = _scoped.Kind == PlayerKind.Me;
         <div class="surface mb-6 overflow-hidden">
             <div class="flex flex-wrap items-center gap-5 px-5 py-4">
-                <PlayerAssigneeBadge Kind="PlayerAssigneeBadge.For(_scoped.Kind)" Name="@_scoped.Name"
-                                     DetailLabel="@($"{_scoped.GamesPlayed} game{(_scoped.GamesPlayed == 1 ? "" : "s")} recorded")"
-                                     ContainerClass="inline-flex items-center gap-3 min-w-0 flex-1"/>
+                <PlayerAssigneeBadge Kind="_scoped.Kind.ToAssigneeKind()" Name="@_scoped.Name"
+                                     DetailLabel="@($"{Copy.Count(_scoped.GamesPlayed, "game")} recorded")"
+                                     ContainerClass="@PlayerAssigneeBadge.RowLayout"/>
                 <div class="ml-auto flex items-center gap-4">
                     <WinRateRing Pct="_scoped.WinRate" Size="64" Caption="win"/>
                     @if (favSpirit is not null)
                     {
                         <div class="flex min-w-0 items-center gap-2">
-                            <span class="inline-block h-9 w-1.5 shrink-0 rounded-full" style="background-color: @favColor;"></span>
+                            <ColorBar Color="@favColor"/>
                             <div class="min-w-0">
-                                <div class="text-[10px] uppercase tracking-wide text-ink-500">Favourite spirit</div>
-                                <button type="button" class="truncate text-sm font-semibold text-ink-900 hover:text-accent-800"
+                                <div class="micro-label">Favourite spirit</div>
+                                @* .row-title, which is what the three utilities here spelled out —
+                                   and the keyboard's way into the spirit's sheet, so it carries
+                                   the focus ring every other clickable name does. *@
+                                <button type="button" class="row-title block max-w-full truncate rounded hover:text-accent-800 focus-ring"
+                                        title="@Copy.SheetTooltip(favSpirit.Name)"
                                         @onclick="() => OpenSpirit(favSpirit.Id.Value)">@favSpirit.Name</button>
                             </div>
                         </div>
@@ -134,7 +115,7 @@ else
                        title="@($"Open the games list, filtered to the games {(isMe ? "you" : _scoped.Name)} sat in")">
                         <Icon Name="controller" Class="w-3.5 h-3.5"/> @(isMe ? "Your games" : "Their games")
                     </a>
-                    <button class="btn btn-ghost btn-sm" @onclick="() => SetScope(null)">
+                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => SetScope(null)">
                         <Icon Name="x" Class="w-3.5 h-3.5"/> Clear filter
                     </button>
                 </div>
@@ -142,26 +123,24 @@ else
 
             @* The line that says what this page is now showing — the same sentence in every
                scope, so nobody has to work out whose numbers they are looking at. *@
-            <div class="flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 bg-ink-50/50 px-5 py-2.5 text-[11px] text-ink-500">
-                <span class="inline-flex items-center gap-1.5">
-                    <Icon Name="info" Class="w-3.5 h-3.5 text-ink-400"/>
+            <div class="flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 bg-ink-50/50 px-5 py-2.5 section-note">
+                <IconNote Icon="info">
                     @if (isMe)
                     {
-                        <span>Every game you sat in, whoever recorded it.</span>
+                        <text>Every game you sat in, whoever recorded it.</text>
                     }
                     else
                     {
-                        <span>
+                        <text>
                             Only the games <span class="font-medium text-ink-700">you and @_scoped.Name</span> played together —
                             @(_scoped.Kind == PlayerKind.Friend
                                 ? "their other tables stay theirs."
                                 : "a guest at your table.")
-                        </span>
+                        </text>
                     }
-                </span>
+                </IconNote>
                 <span class="tabular-nums">
-                    <span class="font-medium text-accent-700">@_scoped.Wins W</span> ·
-                    <span class="font-medium text-red-600">@_scoped.Losses L</span>
+                    <WinLossTally Wins="_scoped.Wins" Losses="_scoped.Losses"/>
                     @if (_scoped.BestScore is { } best)
                     {
                         <span> · best <span class="font-medium text-ink-700">@best</span></span>
@@ -185,13 +164,13 @@ else
                   Icon="controller"/>
         <StatHero Value="@($"{_stats.WinRate:F0}%")"
                   Label="Win rate"
-                  Caption="@($"{_stats.Wins} W · {_stats.Losses} L")"
+                  Caption="@WinLossTally.Text(_stats.Wins, _stats.Losses)"
                   Icon="trophy"/>
         <StatHero Value="@(_stats.BestScoreGameId is not null ? _stats.BestScore.ToString() : "—")"
                   Label="Best score"
                   Caption="@(_stats.BestScoreGameId is not null ? "View that match →" : "no completed games")"
                   Icon="star" Class="tile-sun"
-                  Href="@(_stats.BestScoreGameId is { } id ? GamesLink.Game(id, null) : null)"/>
+                  Href="@(_stats.BestScoreGameId is { } id ? GamesLink.Game(id) : null)"/>
     </div>
     @* Second row: secondary stats, denser. *@
     <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
@@ -201,7 +180,7 @@ else
                   Icon="chart" Class="tile-sun"/>
         <StatHero Value="@StatsFormat.Hours(_stats.TotalPlayTime)"
                   Label="Time played"
-                  Caption="@($"avg {_stats.AverageDuration:h\\:mm} per game")"
+                  Caption="@StatsFormat.AverageDurationCaption(_stats.AverageDuration)"
                   Icon="clock" Class="tile-deep"/>
         <StatHero Value="@(_stats.LongestStreak > 0 ? _stats.LongestStreak.ToString() : "—")"
                   Label="Best streak"
@@ -211,7 +190,7 @@ else
                   Label="Lowest score"
                   Caption="@(_stats.MinScoreGameId is not null ? "View that match →" : "no completed games")"
                   Icon="minus" Class="tile-ember"
-                  Href="@(_stats.MinScoreGameId is { } minId ? GamesLink.Game(minId, null) : null)"/>
+                  Href="@(_stats.MinScoreGameId is { } minId ? GamesLink.Game(minId) : null)"/>
         <StatHero Value="@($"{_stats.AverageDahan:F1}")"
                   Label="Avg dahan"
                   Caption="alive at game end"
@@ -227,20 +206,8 @@ else
        tab is an address here: it can be opened in a new tab, sent to somebody, and returned to
        after following a game out of the page. The scope rides along, so a friend's numbers stay
        a friend's numbers while you move between the sections. *@
-    <nav class="mb-6 flex flex-wrap items-center gap-2" aria-label="Statistics sections">
-        @foreach (var (key, label) in StatsLink.Tabs)
-        {
-            var count = TabCount(key);
-            <FilterPill Active="@(_tab == key)" Href="@StatsLink.For(key, _scoped?.UserId, _scoped?.PlayerId)"
-                        Title="@(_scoped is null ? label : $"{label} — {_scoped.Name}'s games")">
-                @label
-                @if (count is { } c)
-                {
-                    <span class="tabular-nums opacity-60">@c</span>
-                }
-            </FilterPill>
-        }
-    </nav>
+    <TabNav Tabs="StatsLink.Tabs" Current="@_tab" Label="Statistics sections"
+            Href="TabHref" Title="TabTitle" Count="TabCount"/>
 
     @switch (_tab)
     {
@@ -277,7 +244,7 @@ else
    LinkGames on all five: from here a sheet is a place to read the record, so every line in it
    may be opened as the game it reports. The setup screen opens the same sheets to choose with
    and leaves it off, since a link out of there would abandon a half-built game. *@
-<SpiritDetailModal @ref="_spiritModal" OwnedExpansions="OwnedExpansions" Facts="_facts"
+<SpiritDetailModal @ref="_spiritModal" Facts="_facts"
                    SeatFilter="ScopeSeatFilter" SubjectName="@ScopeSubjectName" ScopeWho="@ScopeWho"
                    LinkGames="true"/>
 <AdversaryDetailModal @ref="_adversaryModal" Facts="_facts"
@@ -293,35 +260,44 @@ else
                          SeatFilter="ScopeSeatFilter" SubjectName="@ScopeSubjectName" ScopeWho="@ScopeWho"
                          LinkGames="true"/>
 
+@code {
+    /// <summary>
+    /// "Everybody", as one of the people the scope picker offers — the same badge as the players
+    /// below it, so the unscoped choice reads as one of the list rather than as a heading over it.
+    /// The trigger and the menu row differ only in the line under the name.
+    /// </summary>
+    private static RenderFragment EveryoneBadge(string detail) =>
+        @<PlayerAssigneeBadge Kind="AssigneeKind.Everyone" Name="All players"
+                              DetailLabel="@detail"
+                              ContainerClass="@PlayerAssigneeBadge.RowLayout"/>;
+}
+
 @* ============================== OVERVIEW TAB ============================== *@
 @code {
     private RenderFragment OverviewTab() =>
         @<div class="space-y-6">
             @{
                 var topSpirit = _stats!.SpiritStatistics.OrderByDescending(s => s.GamesPlayed).FirstOrDefault();
-                var bestSpirit = _stats.SpiritStatistics.Where(s => s.Wins + s.Losses >= StatsFormat.MinRatedGames).OrderByDescending(s => s.WinRate).FirstOrDefault();
-                var toughAdv = _stats.AdversaryStatistics.Where(a => a.Wins + a.Losses >= StatsFormat.MinRatedGames).OrderBy(a => a.WinRate).FirstOrDefault();
+                var bestSpirit = BestRated(_stats.SpiritStatistics);
+                var toughAdv = BestRated(_stats.AdversaryStatistics, worst: true);
                 var favAdv = _stats.AdversaryStatistics.OrderByDescending(a => a.GamesPlayed).FirstOrDefault();
             }
 
             @* ===== Outcome donut + Highlights row ===== *@
             <div class="grid lg:grid-cols-3 gap-6">
                 @* Outcome donut card *@
-                <div class="surface px-5 py-5">
-                    <h2 class="section-title mb-3">Outcome</h2>
+                <div class="panel">
+                    <SectionHead Title="Outcome"/>
                     <div class="flex items-center justify-between gap-4">
                         <WinRateRing Pct="_stats.WinRate" Size="128" Stroke="12" Caption="win rate"/>
                         <div class="space-y-2 text-sm flex-1 min-w-0">
-                            <div class="flex items-center justify-between gap-2">
-                                <span class="inline-flex items-center gap-2 text-ink-700"><span class="h-2.5 w-2.5 rounded-full bg-accent-500"></span>Wins</span>
-                                <span class="font-semibold tabular-nums text-ink-900">@_stats.Wins</span>
-                            </div>
-                            <div class="flex items-center justify-between gap-2">
-                                <span class="inline-flex items-center gap-2 text-ink-700"><span class="h-2.5 w-2.5 rounded-full bg-red-400"></span>Losses</span>
-                                <span class="font-semibold tabular-nums text-ink-900">@_stats.Losses</span>
-                            </div>
-                            <div class="flex items-center justify-between gap-2 pt-2 border-t border-ink-100">
-                                <span class="inline-flex items-center gap-2 text-ink-500 text-xs">In progress</span>
+                            @OutcomeTally("bg-accent-500", "Wins", _stats.Wins)
+                            @OutcomeTally("bg-red-400", "Losses", _stats.Losses)
+                            @* The third line is not one of the two the ring is drawn from — a
+                               draft has no outcome yet — so it wears no swatch and sits below a
+                               rule, quieter than the pair above it. *@
+                            <div class="flex items-center justify-between gap-2 border-t border-ink-100 pt-2">
+                                <span class="block-note">In progress</span>
                                 <span class="font-medium tabular-nums text-ink-700">@_stats.InProgress</span>
                             </div>
                         </div>
@@ -333,7 +309,7 @@ else
                     @if (topSpirit is not null)
                     {
                         var sp = GameLookups.SpiritFor(topSpirit.SpiritId);
-                        var color = (sp is null ? null : SpiritDetails.For(sp.Id))?.ColorHex;
+                        var color = GameLookups.SpiritAccent(sp);
                         <InsightCard Title="Most played spirit"
                                      Subject="@(sp?.Name ?? topSpirit.SpiritId)"
                                      Secondary="@($"{topSpirit.WinRate:F0}% win · {topSpirit.AverageScore:F0} avg score")"
@@ -345,10 +321,10 @@ else
                     @if (bestSpirit is not null && bestSpirit.SpiritId != topSpirit?.SpiritId)
                     {
                         var sp = GameLookups.SpiritFor(bestSpirit.SpiritId);
-                        var color = (sp is null ? null : SpiritDetails.For(sp.Id))?.ColorHex;
+                        var color = GameLookups.SpiritAccent(sp);
                         <InsightCard Title="Highest win rate"
                                      Subject="@(sp?.Name ?? bestSpirit.SpiritId)"
-                                     Secondary="@($"{bestSpirit.GamesPlayed} games")"
+                                     Secondary="@Copy.Count(bestSpirit.GamesPlayed, "game")"
                                      Metric="@($"{bestSpirit.WinRate:F0}%")"
                                      MetricLabel="wins"
                                      MetricColorClass="@WinTone.ForRate(bestSpirit.WinRate)"
@@ -374,7 +350,7 @@ else
                         var adv = GameLookups.AdversaryFor(toughAdv.AdversaryId);
                         <InsightCard Title="Toughest matchup"
                                      Subject="@(adv?.Name ?? toughAdv.AdversaryId)"
-                                     Secondary="@($"{toughAdv.GamesPlayed} games")"
+                                     Secondary="@Copy.Count(toughAdv.GamesPlayed, "game")"
                                      Metric="@($"{toughAdv.WinRate:F0}%")"
                                      MetricLabel="wins"
                                      MetricColorClass="@WinTone.ForRate(toughAdv.WinRate)"
@@ -385,79 +361,45 @@ else
 
             @* ===== Recent games ===== *@
             <div>
-                <div class="section-head">
-                    <h2 class="section-title">Recent games</h2>
-                    @* The strip is the newest of whatever this page is counting, so "all" has to
-                       mean the same thing — a scoped page sends you to that person's games, not
-                       to everybody's. *@
-                    <a href="@(_scoped is null ? GamesLink.Path : GamesLink.ForPlayer(_scoped.UserId, _scoped.PlayerId))"
-                       class="section-link">View all →</a>
-                </div>
+                @* The strip is the newest of whatever this page is counting, so "all" has to mean
+                   the same thing — a scoped page sends you to that person's games, not to
+                   everybody's. *@
+                <SectionHead Title="Recent games">
+                    <Trailing>
+                        <a href="@(_scoped is null ? GamesLink.Path : GamesLink.ForPlayer(_scoped.UserId, _scoped.PlayerId))"
+                           class="section-link">View all →</a>
+                    </Trailing>
+                </SectionHead>
                 <RecentGamesStrip Games="_stats.RecentGames"/>
             </div>
 
             @* ===== Activity chart full width ===== *@
-            <div class="surface px-5 pt-5 pb-3">
-                <div class="section-head">
-                    <h2 class="section-title">Activity over time</h2>
-                    <span class="section-note">Wins vs losses per month</span>
-                </div>
-                <MonthlyGamesChart Months="_stats.MonthlyStatistics" Height="280"/>
+            <div class="panel panel-chart">
+                <SectionHead Title="Activity over time" Note="Wins vs losses per month"/>
+                <MonthlyGamesChart Months="_stats.MonthlyStatistics"/>
             </div>
 
             @* ===== Hardest matchups ===== *@
             @{
-                var hardAdversaries = _stats.AdversaryStatistics
-                    .Where(a => a.Losses > 0)
-                    .OrderByDescending(a => a.Losses)
-                    .ThenByDescending(a => a.GamesPlayed)
-                    .Take(5)
-                    .Select(a =>
-                    {
-                        var adv = GameLookups.AdversaryFor(a.AdversaryId);
-                        return new LossLeaderboard.Row(
-                            adv?.Name ?? a.AdversaryId,
-                            a.Losses,
-                            $"avg L{a.AverageLevel:F1} · {a.WinRate:F0}% win",
-                            GamesLink.ForAdversary(a.AdversaryId, status: GameStatusTab.Defeats, who: ScopeWho));
-                    })
-                    .ToList();
-                var hardScenarios = _stats.ScenarioStatistics
-                    .Where(s => s.Losses > 0)
-                    .OrderByDescending(s => s.Losses)
-                    .ThenByDescending(s => s.GamesPlayed)
-                    .Take(5)
-                    .Select(s =>
-                    {
-                        var sc = GameLookups.ScenarioFor(s.ScenarioId);
-                        return new LossLeaderboard.Row(
-                            sc?.Name ?? s.ScenarioId,
-                            s.Losses,
-                            $"{s.WinRate:F0}% win",
-                            GamesLink.ForScenario(s.ScenarioId, GameStatusTab.Defeats, ScopeWho));
-                    })
-                    .ToList();
-                var hardSpirits = _stats.SpiritStatistics
-                    .Where(s => s.Losses > 0)
-                    .OrderByDescending(s => s.Losses)
-                    .ThenByDescending(s => s.GamesPlayed)
-                    .Take(5)
-                    .Select(s =>
-                    {
-                        var sp = GameLookups.SpiritFor(s.SpiritId);
-                        return new LossLeaderboard.Row(
-                            sp?.Name ?? s.SpiritId,
-                            s.Losses,
-                            $"{s.WinRate:F0}% win",
-                            GamesLink.ForSpirit(s.SpiritId, GameStatusTab.Defeats, ScopeWho));
-                    })
-                    .ToList();
+                var hardAdversaries = HardestBy(
+                    _stats.AdversaryStatistics, a => a.Losses, a => a.GamesPlayed,
+                    a => GameLookups.AdversaryFor(a.AdversaryId)?.Name ?? a.AdversaryId,
+                    a => $"avg L{a.AverageLevel:F1} · {a.WinRate:F0}% win",
+                    a => GamesLink.ForAdversary(a.AdversaryId, status: GameStatusTab.Defeats, who: ScopeWho));
+                var hardScenarios = HardestBy(
+                    _stats.ScenarioStatistics, s => s.Losses, s => s.GamesPlayed,
+                    s => GameLookups.ScenarioFor(s.ScenarioId)?.Name ?? s.ScenarioId,
+                    s => $"{s.WinRate:F0}% win",
+                    s => GamesLink.ForScenario(s.ScenarioId, GameStatusTab.Defeats, ScopeWho));
+                var hardSpirits = HardestBy(
+                    _stats.SpiritStatistics, s => s.Losses, s => s.GamesPlayed,
+                    s => GameLookups.SpiritFor(s.SpiritId)?.Name ?? s.SpiritId,
+                    s => $"{s.WinRate:F0}% win",
+                    s => GamesLink.ForSpirit(s.SpiritId, GameStatusTab.Defeats, ScopeWho));
             }
             <div>
-                <div class="section-head">
-                    <h2 class="section-title">Hardest matchups</h2>
-                    <span class="section-note">Sorted by total losses · tap a row for those defeats</span>
-                </div>
+                <SectionHead Title="Hardest matchups"
+                             Note="Sorted by total losses · tap a row for those defeats"/>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <LossLeaderboard Title="Adversaries" Subtitle="Most defeats by" Rows="hardAdversaries"/>
                     <LossLeaderboard Title="Scenarios" Subtitle="Most defeats in" Rows="hardScenarios"/>
@@ -467,76 +409,70 @@ else
 
             @* ===== Distributions ===== *@
             <div class="grid lg:grid-cols-2 gap-6">
-                <div class="surface px-5 pt-5 pb-3">
-                    <div class="section-head">
-                        <h2 class="section-title">Score distribution</h2>
-                        <span class="section-note">@_stats.CompletedScores.Count completed games</span>
-                    </div>
+                <div class="panel panel-chart">
+                    <SectionHead Title="Score distribution"
+                                 Note="@($"{_stats.CompletedScores.Count} completed games")"/>
                     <ScoreDistributionChart Scores="_stats.CompletedScores"/>
                 </div>
-                <div class="surface px-5 pt-5 pb-3">
-                    <div class="section-head">
-                        <h2 class="section-title">Difficulty distribution</h2>
-                        <span class="section-note">avg @($"{_stats.AverageDifficulty:F1}")</span>
-                    </div>
+                <div class="panel panel-chart">
+                    <SectionHead Title="Difficulty distribution"
+                                 Note="@($"avg {_stats.AverageDifficulty:F1}")"/>
                     <DifficultyDistributionChart Difficulties="_stats.CompletedDifficulties"/>
                 </div>
             </div>
 
             @* ===== Terror distribution ===== *@
-            @{
-                var terrorTotal = _stats.TerrorDistribution.Sum(t => t.GamesPlayed);
-                var topTerror = _stats.TerrorDistribution.OrderByDescending(t => t.GamesPlayed).FirstOrDefault();
-            }
-            @if (terrorTotal > 0)
-            {
-                <div class="surface px-5 py-5">
-                    <div class="section-head mb-4">
-                        <div>
-                            <h2 class="section-title">Terror level at game end</h2>
-                            @if (topTerror is not null)
-                            {
-                                <p class="section-note mt-0.5">
-                                    Most games end at <span class="text-ink-800 font-medium">Terror @TerrorBar.TerrorLabel(topTerror.TerrorLevel)</span>
-                                    (@($"{(double)topTerror.GamesPlayed / terrorTotal * 100:F0}%"))
-                                </p>
-                            }
-                        </div>
-                        <span class="section-note">@terrorTotal completed games</span>
-                    </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        @foreach (var t in _stats.TerrorDistribution)
-                        {
-                            var pct = terrorTotal > 0 ? (double)t.GamesPlayed / terrorTotal * 100 : 0;
-                            var losses = t.GamesPlayed - t.Wins;
-                            var winPct = t.GamesPlayed > 0 ? (double)t.Wins / t.GamesPlayed * 100 : 0;
-                            <div class="rounded-xl border border-ink-200 px-4 py-3">
-                                <div class="flex items-baseline justify-between gap-2">
-                                    <div class="flex items-center gap-2">
-                                        <span class="inline-block h-3 w-3 rounded-sm" style="background-color: @TerrorBar.TerrorColor(t.TerrorLevel);"></span>
-                                        <span class="text-xs uppercase tracking-wide text-ink-500 font-medium">Terror @TerrorBar.TerrorLabel(t.TerrorLevel)</span>
-                                    </div>
-                                    <span class="text-base font-bold tabular-nums text-ink-900" style="font-family: var(--font-serif);">@t.GamesPlayed</span>
-                                </div>
-                                <div class="mt-2 h-1.5 bg-ink-100 rounded-full overflow-hidden">
-                                    <div class="h-full rounded-full" style="width:@($"{pct:F0}")%; background-color: @TerrorBar.TerrorColor(t.TerrorLevel);"></div>
-                                </div>
-                                @if (t.GamesPlayed > 0)
-                                {
-                                    <div class="mt-2 flex items-center justify-between text-[11px] text-ink-500 tabular-nums">
-                                        <span><span class="text-accent-700 font-medium">@t.Wins W</span> · <span class="text-red-600 font-medium">@losses L</span></span>
-                                        <span class="font-medium @WinTone.ForRate(winPct)">@($"{winPct:F0}% win")</span>
-                                    </div>
-                                }
-                                else
-                                {
-                                    <div class="mt-2 text-[11px] text-ink-400">no game ended here</div>
-                                }
-                            </div>
-                        }
-                    </div>
-                </div>
-            }
+            <TerrorDistributionPanel Levels="_stats.TerrorDistribution"/>
+        </div>;
+
+    /// <summary>
+    /// The five entries a "hardest" leaderboard lists: the ones that have actually cost games,
+    /// worst first, with the play count breaking a tie so a foe met twice does not outrank one
+    /// met twenty times on the same two defeats.
+    /// <para>
+    /// Three of these were spelled out — adversaries, scenarios, spirits — and differed only in
+    /// what each row is called and where its defeats can be read. The ordering, the cutoff and
+    /// the "only what has lost" rule are the leaderboard's, not each subject's, so they are
+    /// written once.
+    /// </para>
+    /// </summary>
+    private static List<LossLeaderboard.Row> HardestBy<T>(
+        IEnumerable<T> rows,
+        Func<T, int> losses,
+        Func<T, int> played,
+        Func<T, string> name,
+        Func<T, string> detail,
+        Func<T, string> href) =>
+        rows.Where(r => losses(r) > 0)
+            .OrderByDescending(losses)
+            .ThenByDescending(played)
+            .Take(LeaderboardRows)
+            .Select(r => new LossLeaderboard.Row(name(r), losses(r), detail(r), href(r)))
+            .ToList();
+
+    /// <summary>How many rows a "hardest" leaderboard lists — it is the shape of the problem,
+    /// not the whole table, which is what the tabs below are for.</summary>
+    private const int LeaderboardRows = 5;
+
+    /// <summary>
+    /// The best row by win rate, or with <paramref name="worst"/> the poorest — over the rows
+    /// with enough finished games to be rated at all. Two drafts and a win is not an 88%, and
+    /// that cutoff was written out at seven call sites across five stat types. One spelling now,
+    /// so raising the bar is one edit; "finished" is wins plus losses, never seats taken.
+    /// </summary>
+    private static T? BestRated<T>(IEnumerable<T> rows, bool worst = false)
+        where T : class, IWinRateTally
+    {
+        var rated = rows.Where(r => r.Wins + r.Losses >= StatsFormat.MinRatedGames);
+        return worst ? rated.MinBy(r => r.WinRate) : rated.MaxBy(r => r.WinRate);
+    }
+
+    /// <summary>One side of the outcome ring's legend: the swatch that names a slice of the ring,
+    /// the word for it, and the count. The pair must read as one legend, so it is written once.</summary>
+    private static RenderFragment OutcomeTally(string dotClass, string label, int count) =>
+        @<div class="flex items-center justify-between gap-2">
+            <span class="inline-flex items-center gap-2 text-ink-700"><ColorDot Size="sm" Class="@dotClass"/>@label</span>
+            <span class="font-semibold tabular-nums text-ink-900">@count</span>
         </div>;
 }
 
@@ -550,10 +486,7 @@ else
             @{
                 var ranked = _unfilteredPlayers.OrderByDescending(p => p.GamesPlayed).ToList();
                 var mostPlayed = ranked.FirstOrDefault(p => p.Kind != PlayerKind.Me);
-                var bestPartner = ranked
-                    .Where(p => p.Kind != PlayerKind.Me && p.Wins + p.Losses >= StatsFormat.MinRatedGames)
-                    .OrderByDescending(p => p.WinRate)
-                    .FirstOrDefault();
+                var bestPartner = BestRated(ranked.Where(p => p.Kind != PlayerKind.Me));
             }
 
             @if (mostPlayed is not null || bestPartner is not null)
@@ -572,7 +505,7 @@ else
                     {
                         <InsightCard Title="Best record together"
                                      Subject="@bestPartner.Name"
-                                     Secondary="@($"{bestPartner.GamesPlayed} games")"
+                                     Secondary="@Copy.Count(bestPartner.GamesPlayed, "game")"
                                      Metric="@($"{bestPartner.WinRate:F0}%")"
                                      MetricLabel="wins"
                                      MetricColorClass="@WinTone.ForRate(bestPartner.WinRate)"
@@ -587,10 +520,12 @@ else
                 @foreach (var p in ranked)
                 {
                     var active = SameScope(p, _scoped);
+                    @* No DetailLabel: the line under the name is the badge's own word for the kind
+                       of person this is, the same word every other surface uses — this tab had
+                       kept a second spelling of the three. *@
                     <PersonCard @key="@($"{p.UserId}-{p.PlayerId}")"
-                                Kind="PlayerAssigneeBadge.For(p.Kind)" Name="@p.Name"
-                                DetailLabel="@KindCaption(p.Kind)"
-                                Games="p.GamesPlayed" Wins="p.Wins" Losses="p.Losses" WinRate="p.WinRate"
+                                Kind="p.Kind.ToAssigneeKind()" Name="@p.Name"
+                                Record="p"
                                 FavouriteSpiritId="@p.FavouriteSpirit"
                                 EmptyNote="No completed games yet."
                                 Selected="active"
@@ -599,27 +534,17 @@ else
                         <Details>
                             @if (p.BestScore is { } best)
                             {
-                                <div class="flex items-center gap-2">
-                                    <Icon Name="star" Class="w-3.5 h-3.5 text-ink-400"/>
-                                    <span>Best <span class="font-medium text-ink-800 tabular-nums">@best</span> · avg <span class="tabular-nums">@($"{p.AverageScore:F0}")</span></span>
-                                </div>
+                                <IconNote Icon="star">Best <span class="font-medium text-ink-800 tabular-nums">@best</span> · avg <span class="tabular-nums">@($"{p.AverageScore:F0}")</span></IconNote>
                             }
                         </Details>
                     </PersonCard>
                 }
             </div>
 
-            <p class="text-[11px] text-ink-500">
+            <p class="section-note">
                 Counted over your own games only. A friend's own history at other tables is theirs to show.
             </p>
         </div>;
-
-    private static string KindCaption(PlayerKind kind) => kind switch
-    {
-        PlayerKind.Me     => "You",
-        PlayerKind.Friend => "Friend · has an account",
-        _                 => "Local player",
-    };
 }
 
 @* ============================== SPIRITS TAB ============================== *@
@@ -634,19 +559,15 @@ else
                 var topSpirit = byPlayed.FirstOrDefault();
                 var bestScoreSpirit = spiritRows.Where(s => s.BestScore.HasValue).OrderByDescending(s => s.BestScore!.Value).FirstOrDefault();
                 // Rated over finished games, not seats taken: two drafts and a win is not an 88%.
-                var bestRateSpirit = spiritRows.Where(s => s.Wins + s.Losses >= StatsFormat.MinRatedGames).OrderByDescending(s => s.WinRate).FirstOrDefault();
+                var bestRateSpirit = BestRated(spiritRows);
                 var playedSpiritIds = _stats!.SpiritStatistics.Select(s => s.SpiritId).ToHashSet();
                 var playedSpirits = _stats.SpiritStatistics
                     .Select(s => GameLookups.SpiritFor(s.SpiritId)).OfType<Spirit>().ToList();
-                var ownedSpirits = OwnedSpiritsList();
-                var missingSpirits = ownedSpirits.Where(s => !playedSpiritIds.Contains(s.Id.Value)).Cast<object>().ToList();
-                var ownedAspects = ownedSpirits.Select(s => (Spirit: s, Aspects: OwnedAspectsFor(s))).ToList();
-                var missingAspects = MissingAspects(ownedAspects);
-                var missingAspectGroups = missingAspects
-                    .GroupBy(m => (m.SpiritId, m.SpiritName))
-                    .OrderBy(g => g.Key.SpiritName)
-                    .Select(g => new MissingAspectGroup(g.Key.SpiritId, g.Key.SpiritName, g.Select(m => m.AspectName).ToList()))
-                    .Cast<object>().ToList();
+                var ownedSpirits = OwnedCatalogue.Spirits(OwnedExpansions);
+                var missingSpirits = ownedSpirits.Where(s => !playedSpiritIds.Contains(s.Id.Value)).ToList();
+                var ownedAspects = ownedSpirits.Select(s => (Spirit: s, Aspects: OwnedCatalogue.AspectsFor(s.Id, OwnedExpansions))).ToList();
+                var missingAspects = StatsCoverage.MissingAspects(ownedAspects, _stats.SpiritStatistics);
+                var missingAspectGroups = StatsCoverage.GroupAspects(missingAspects);
                 var totalAspects = ownedAspects.Sum(x => x.Aspects.Count);
             }
 
@@ -654,19 +575,14 @@ else
                elements, tokens, ordering — put in charge of the whole tab: the cards, the
                landscape, the table and the matchup grid below all recompute from what it keeps. *@
             <div class="space-y-3">
-                <input type="search" class="input sm:w-72" placeholder="Find a spirit…" aria-label="Find a spirit"
-                       @bind="_spiritFilter.Query" @bind:event="oninput"/>
-                <FilterBar @ref="_spiritBar" Filter="_spiritFilter" OwnedExpansions="OwnedExpansions"
+                <SearchBox @bind-Value="_spiritFilter.Query" Placeholder="Find a spirit…" Class="sm:w-72"/>
+                <FilterBar Filter="_spiritFilter" OwnedExpansions="OwnedExpansions"
                            PresentExpansions="_spiritFilter.ExpansionsIn(playedSpirits)"
                            ShowingCount="spiritRows.Count" TotalCount="_stats.SpiritStatistics.Count"
-                           UntestedLabel="Never played"
-                           UntestedHint="Only spirits nobody at your table has taken — this tab counts the played, so the coverage panel below is where they are named"
+                           UntestedHint="@Copy.UntriedOnStatsTab("spirits", "taken")"
                            Changed="OnSpiritFilterChanged">
-                    <Facets>
-                        @if (_spiritBar is not null)
-                        {
-                            <SpiritFacets Filter="_spiritFilter" Bar="_spiritBar"/>
-                        }
+                    <Facets Context="bar">
+                        <SpiritFacets Filter="_spiritFilter" Bar="bar"/>
                     </Facets>
                 </FilterBar>
             </div>
@@ -674,25 +590,21 @@ else
             @if (spiritRows.Count > 0)
             {
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    @if (topSpirit is not null) { @SpiritInsight("Most played", topSpirit, $"{topSpirit.GamesPlayed} games") }
+                    @if (topSpirit is not null) { @SpiritInsight("Most played", topSpirit, Copy.Count(topSpirit.GamesPlayed, "game")) }
                     @if (bestRateSpirit is not null) { @SpiritInsight("Highest win rate", bestRateSpirit, $"{bestRateSpirit.WinRate:F0}%", WinTone.ForRate(bestRateSpirit.WinRate)) }
                     @if (bestScoreSpirit is not null) { @SpiritInsight("Highest score", bestScoreSpirit, $"{bestScoreSpirit.BestScore} pts") }
                 </div>
             }
 
-            <div class="surface px-5 pt-5 pb-3">
-                <div class="section-head">
-                    <h2 class="section-title">The spirit landscape</h2>
-                    <span class="section-note">played (→) × win rate (↑) · initials on every dot, full name on hover · hollow = fewer than 3 finished games · tap a dot for its sheet</span>
-                </div>
+            <div class="panel panel-chart">
+                <SectionHead Title="The spirit landscape"
+                             Note="played (→) × win rate (↑) · initials on every dot, full name on hover · hollow = fewer than 3 finished games · tap a dot for its sheet"/>
                 <SpiritLandscapeChart Spirits="spiritRows" OnPick="OpenSpirit"/>
             </div>
 
             <div class="surface">
-                <div class="surface-head">
-                    <h2 class="text-base font-semibold">All spirits</h2>
-                    <span class="text-[11px] text-ink-500">Click a column to sort · tap a row for the record sheet, a count for those games</span>
-                </div>
+                <SectionHead Surface="true" Title="All spirits"
+                             Note="Click a column to sort · tap a row for the record sheet, a count for those games"/>
                 @* The list scrolls inside the card with the headings pinned, so "where am I" always
                    has an answer — thirty-seven spirits used to be twenty-eight hundred pixels of it. *@
                 <div class="table-wrap max-h-[560px] overflow-y-auto">
@@ -700,47 +612,41 @@ else
                         <thead><tr>
                             @SpiritTh("name", "Spirit")
                             @SpiritTh("games", "Games", right: true)
-                            @SpiritTh("wins", "W", right: true)
-                            @SpiritTh("losses", "L", right: true)
+                            @SpiritTh("wins", "W", right: true, sortName: "wins")
+                            @SpiritTh("losses", "L", right: true, sortName: "losses")
                             @SpiritTh("winrate", "Win rate")
                             @SpiritTh("avg", "Avg score", right: true)
                             @SpiritTh("best", "Best", right: true)
-                            <th class="sticky top-0 z-10 bg-ink-50">Aspects</th>
-                            <th class="sticky top-0 z-10 bg-ink-50">Terror reached</th>
+                            <th scope="col" class="@StickyTh">Aspects</th>
+                            <th scope="col" class="@StickyTh">Terror reached</th>
                         </tr></thead>
                         <tbody>
+                        @if (tableRows.Count == 0)
+                        {
+                            <tr><td colspan="9" class="no-matches">@Copy.NoRecordedMatches("spirits")</td></tr>
+                        }
                         @foreach (var s in tableRows)
                         {
                             var spirit = GameLookups.SpiritFor(s.SpiritId);
-                            var detail = spirit is null ? null : SpiritDetails.For(spirit.Id);
-                            var color = detail?.ColorHex ?? GameLookups.NeutralColor;
+                            var detail = GameLookups.DetailFor(spirit);
+                            var color = GameLookups.SpiritColor(detail);
                             var playedAspects = PlayedAspects(s);
                             var aspectsOpen = _openAspectRows.Contains(s.SpiritId);
                             <tr @key="s.SpiritId" @onclick="() => OpenSpirit(s.SpiritId)">
                                 <td>
                                     <div class="flex items-center gap-3 min-w-0">
-                                        <span class="inline-block h-8 w-1.5 rounded-full shrink-0" style="background-color: @color;"></span>
+                                        <ColorBar Color="@color"/>
                                         <div class="min-w-0">
-                                            @* A real button inside the clickable row, so the sheet is reachable by keyboard too. *@
-                                            <button type="button" @onclick="() => OpenSpirit(s.SpiritId)" @onclick:stopPropagation
-                                                    class="block max-w-full truncate rounded text-left text-sm font-semibold text-ink-900
-                                                           focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
-                                                @(spirit?.Name ?? s.SpiritId)
-                                            </button>
-                                            @if (detail is not null) { <div class="text-[11px] text-ink-500 truncate">@detail.PlayStyle</div> }
+                                            <RowNameButton Name="@(spirit?.Name ?? s.SpiritId)" OnClick="() => OpenSpirit(s.SpiritId)"/>
+                                            @if (detail is not null) { <div class="row-sub truncate">@detail.PlayStyle</div> }
                                         </div>
                                     </div>
                                 </td>
                                 @GamesCountCell(s.GamesPlayed, GamesLink.ForSpirit(s.SpiritId, who: ScopeWho),
                                                 ScopedTitle($"Every game played as {spirit?.Name ?? s.SpiritId}"))
-                                <td class="text-right text-accent-700 tabular-nums">@s.Wins</td>
-                                <td class="text-right text-red-600 tabular-nums">@s.Losses</td>
-                                <td>
-                                    @if (s.Wins + s.Losses > 0) { <WinRateBar Pct="s.WinRate"/> }
-                                    else { <span class="text-xs text-ink-400">—</span> }
-                                </td>
-                                <td class="text-right tabular-nums">@(s.Wins + s.Losses > 0 ? $"{s.AverageScore:F0}" : "—")</td>
-                                <td class="text-right tabular-nums">@(s.BestScore?.ToString() ?? "—")</td>
+                                @RecordCells(s.Wins, s.Losses, s.WinRate)
+                                @AverageScoreCell(s.AverageScore, s.Wins + s.Losses)
+                                @FigureCell(s.BestScore?.ToString())
                                 <td>
                                     @* Which variants the plays were, folded behind a count: the chips
                                        were what stretched rows to double height, and an aspect is a
@@ -748,38 +654,31 @@ else
                                     @if (playedAspects.Count > 0)
                                     {
                                         <button type="button" @onclick="() => ToggleAspectRow(s.SpiritId)" @onclick:stopPropagation
-                                                aria-expanded="@(aspectsOpen ? "true" : "false")"
+                                                aria-expanded="@Aria.Flag(aspectsOpen)"
                                                 title="@($"{(aspectsOpen ? "Hide" : "Show")} the record per variant")"
-                                                class="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-ink-200 bg-white px-2 py-0.5 text-[11px] text-ink-600 transition-colors
-                                                       hover:border-accent-300 hover:text-ink-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
-                                            @playedAspects.Count aspect@(playedAspects.Count == 1 ? "" : "s")
-                                            <Icon Name="chevron-down" Class="@($"w-3 h-3 transition-transform {(aspectsOpen ? "rotate-180" : "")}")"/>
+                                                class="chip chip-neutral chip-door whitespace-nowrap">
+                                            @Copy.Count(playedAspects.Count, "aspect")
+                                            <Chevron Open="aspectsOpen" Class="w-3 h-3"/>
                                         </button>
                                     }
                                     else
                                     {
-                                        <span class="text-xs text-ink-400">—</span>
+                                        <span class="no-figure text-xs">—</span>
                                     }
                                 </td>
-                                <td><TerrorBar Counts="s.TerrorCounts" WidthClass="w-28"/></td>
+                                <td><TerrorBar Counts="s.TerrorCounts"/></td>
                             </tr>
                             @if (aspectsOpen && playedAspects.Count > 0)
                             {
-                                <tr @key="@($"{s.SpiritId}:aspects")" class="!cursor-default">
+                                <tr @key="@($"{s.SpiritId}:aspects")" class="cursor-default!">
                                     <td colspan="9" class="bg-accent-50/40">
                                         <div class="flex flex-wrap items-center gap-2 pl-7">
-                                            <span class="shrink-0 text-[10px] font-medium uppercase tracking-wide text-ink-500">Variants played</span>
+                                            <span class="shrink-0 micro-label">Variants played</span>
                                             <AspectChips Aspects="playedAspects" Records="AspectRecordsOf(s)"/>
                                         </div>
                                     </td>
                                 </tr>
                             }
-                        }
-                        @if (tableRows.Count == 0)
-                        {
-                            <tr><td colspan="9" class="py-8 text-center text-ink-500">
-                                No played spirits match — clear a filter, or see the coverage panel below for the never-played.
-                            </td></tr>
                         }
                         </tbody>
                     </table>
@@ -789,10 +688,8 @@ else
             @if (ScopedFacts.Count > 0)
             {
                 <div class="surface">
-                    <div class="surface-head">
-                        <h2 class="text-base font-semibold">Matchups</h2>
-                        <span class="text-[11px] text-ink-500">Win rate against each adversary · follows the filter above</span>
-                    </div>
+                    <SectionHead Surface="true" Title="Matchups"
+                                 Note="Win rate against each adversary · follows the filter above"/>
                     <MatchupHeatmap Facts="ScopedFacts" SpiritIds="heatmapIds"
                                     SeatFilter="ScopeSeatFilter" ScopeWho="@ScopeWho"
                                     OnPickSpirit="OpenSpirit"/>
@@ -800,7 +697,7 @@ else
             }
 
             <CoveragePanel Title="Spirits" Total="ownedSpirits.Count" Missing="missingSpirits" ItemTemplate="SpiritPill"
-                           Note="@OutsideCollectionNote(playedSpiritIds, ownedSpirits.Select(s => s.Id.Value), "spirit")"/>
+                           Note="@StatsCoverage.OutsideCollectionNote(playedSpiritIds, ownedSpirits.Select(s => s.Id.Value), "spirit")"/>
 
             @* Aspects are counted the way adversary levels are: one entry per variant, grouped
                under the spirit it varies, because an aspect is a different spirit to play. *@
@@ -817,8 +714,7 @@ else
     // --- The tab's filter, and the table's own orderings on top of it. ---
 
     /// Opens ordered by play count, the order the old fixed table had.
-    private readonly SpiritFilter _spiritFilter = new("played");
-    private FilterBar? _spiritBar;
+    private readonly SpiritFilter _spiritFilter = new(FilterState.ByPlayed.Key);
 
     /// The stats-only column the table is sorted by, when a header click has taken over
     /// from the filter's ordering; null while the filter's own order stands.
@@ -846,7 +742,7 @@ else
         var stats = _stats?.SpiritStatistics ?? [];
         var known = stats.Select(s => GameLookups.SpiritFor(s.SpiritId)).OfType<Spirit>();
         return NarrowStats(stats, s => s.SpiritId, _spiritFilter.Apply(known), sp => sp.Id.Value,
-            narrowed: FilterNarrows(_spiritFilter));
+            narrowed: _spiritFilter.Narrows);
     }
 
     /// <summary>
@@ -883,7 +779,7 @@ else
     /// </summary>
     private void SortSpiritTable(string key)
     {
-        var filterKey = key switch { "games" => "played", "name" => "name", "winrate" => "winrate", _ => null };
+        var filterKey = FilterSortKeyFor(key);
         if (filterKey is not null)
         {
             // Toggle only when this column's order is the one actually on show. While a local
@@ -921,19 +817,39 @@ else
     private (bool Active, bool Desc) SpiritSortState(string key)
     {
         if (_spiritSortKey is not null) return (key == _spiritSortKey, _spiritSortDesc);
-        var filterKey = key switch { "games" => "played", "name" => "name", "winrate" => "winrate", _ => null };
-        return (filterKey == _spiritFilter.SortKey, _spiritFilter.Descending);
+        return (FilterSortKeyFor(key) == _spiritFilter.SortKey, _spiritFilter.Descending);
     }
 
+    /// <summary>
+    /// The filter's own ordering behind a table column, or null for a column only the table can
+    /// sort by. Spelled with the filter's keys rather than by hand, as the filters' defaults are
+    /// — a key that matches nothing silently falls back rather than failing.
+    /// </summary>
+    private static string? FilterSortKeyFor(string column) => column switch
+    {
+        "games"   => FilterState.ByPlayed.Key,
+        "name"    => FilterState.ByName.Key,
+        "winrate" => FilterState.ByWinRate.Key,
+        _         => null,
+    };
+
+    /// <summary>
+    /// A heading of the spirits table. The card scrolls its own body, so every heading — sortable
+    /// or not — has to stay pinned to the top of it; the two that carry no sort were spelling the
+    /// same three utilities out beside this one.
+    /// </summary>
+    private const string StickyTh = "sticky top-0 z-10 bg-ink-50";
+
     /// <summary>A sortable column heading. Sticky like its unsortable neighbours, so the header
-    /// row survives the card's own scroll.</summary>
-    private RenderFragment SpiritTh(string key, string label, bool right = false) =>
+    /// row survives the card's own scroll. <paramref name="sortName"/> is what the tooltip calls
+    /// the column where its label is an initial — "Sort by wins", not "Sort by w".</summary>
+    private RenderFragment SpiritTh(string key, string label, bool right = false, string? sortName = null) =>
         @<text>
             @{ var (active, desc) = SpiritSortState(key); }
-            <th class="sticky top-0 z-10 bg-ink-50 @(right ? "text-right" : null)"
+            <th scope="col" class="@StickyTh @(right ? "text-right" : null)"
                 aria-sort="@(active ? (desc ? "descending" : "ascending") : "none")">
-                <button type="button" @onclick="() => SortSpiritTable(key)" title="@($"Sort by {label.ToLowerInvariant()}")"
-                        class="inline-flex items-center gap-1 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40
+                <button type="button" @onclick="() => SortSpiritTable(key)" title="@($"Sort by {sortName ?? label.ToLowerInvariant()}")"
+                        class="inline-flex items-center gap-1 rounded focus-ring
                                @(right ? "w-full justify-end" : null) @(active ? "text-accent-700" : "hover:text-ink-700")">
                     @label
                     @if (active)
@@ -944,49 +860,33 @@ else
             </th>
         </text>;
 
-    private RenderFragment<object> AspectGroupPill => o =>
-        @<text>
-            @{
-                var entry = (MissingAspectGroup)o;
-                var spirit = GameLookups.SpiritFor(entry.SpiritId);
-                var color = spirit is null ? null : SpiritDetails.For(spirit.Id)?.ColorHex;
-            }
-            <button type="button" @onclick="() => OpenSpirit(entry.SpiritId)" title="@($"{entry.SpiritName} — details and full record")"
-                    class="inline-flex items-center gap-1.5 rounded-full border border-dashed border-amber-300 bg-amber-50/60 px-2.5 py-1 text-xs transition-colors
-                           hover:border-amber-400 hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
-                <span class="inline-block h-2 w-2 rounded-full" style="background-color: @(color ?? GameLookups.NeutralColor);"></span>
-                <span class="font-medium text-amber-800">@entry.SpiritName</span>
-                <span class="text-amber-700">@string.Join(", ", entry.AspectNames)</span>
-            </button>
-        </text>;
+    private RenderFragment<StatsCoverage.MissingAspectGroup> AspectGroupPill => entry =>
+        @<MissingPill Label="@entry.SpiritName" Detail="@string.Join(", ", entry.AspectNames)"
+                     OnClick="() => OpenSpirit(entry.SpiritId)">
+            <Glyph>@SpiritSwatch(GameLookups.SpiritFor(entry.SpiritId))</Glyph>
+        </MissingPill>;
 
-    private RenderFragment<object> SpiritPill => o =>
-        @<text>
-            @{
-                var spirit = (Spirit)o;
-                var detail = SpiritDetails.For(spirit.Id);
-                var color = detail?.ColorHex ?? GameLookups.NeutralColor;
-            }
-            <button type="button" @onclick="() => _spiritModal.Show(spirit)" title="@($"{spirit.Name} — details and full record")"
-                    class="inline-flex items-center gap-1.5 rounded-full border border-dashed border-amber-300 bg-amber-50/60 px-2.5 py-1 text-xs transition-colors
-                           hover:border-amber-400 hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
-                <span class="inline-block h-2 w-2 rounded-full" style="background-color: @color;"></span>
-                <span class="text-amber-800">@spirit.Name</span>
-            </button>
-        </text>;
+    private RenderFragment<Spirit> SpiritPill => spirit =>
+        @<MissingPill Label="@spirit.Name"
+                     OnClick="() => _spiritModal.Show(spirit)">
+            <Glyph>@SpiritSwatch(spirit)</Glyph>
+        </MissingPill>;
+
+    /// <summary>A spirit at pill size: its catalogue colour, or the neutral swatch without one.</summary>
+    private static RenderFragment SpiritSwatch(Spirit? spirit) =>
+        @<ColorDot Color="@GameLookups.SpiritColor(spirit)"/>;
 
     private RenderFragment SpiritInsight(string title, SpiritStats s, string metric, string? metricColor = null) =>
         @<text>
             @{
                 var sp = GameLookups.SpiritFor(s.SpiritId);
-                var detail = sp is null ? null : SpiritDetails.For(sp.Id);
-                var color = detail?.ColorHex;
+                var color = GameLookups.SpiritAccent(sp);
             }
             <InsightCard Title="@title"
                          Subject="@(sp?.Name ?? s.SpiritId)"
-                         Secondary="@($"{s.GamesPlayed} games · {s.AverageScore:F0} avg")"
+                         Secondary="@($"{Copy.Count(s.GamesPlayed, "game")} · {s.AverageScore:F0} avg")"
                          Metric="@metric"
-                         MetricColorClass="@(metricColor ?? "text-ink-900")"
+                         MetricColorClass="@metricColor"
                          AccentColor="@color"
                          OnClick="() => OpenSpirit(s.SpiritId)"/>
         </text>;
@@ -1001,105 +901,97 @@ else
                 var playedAdversaries = _stats!.AdversaryStatistics
                     .Select(a => GameLookups.AdversaryFor(a.AdversaryId)).OfType<Adversary>().ToList();
                 var topAdv = advRows.OrderByDescending(a => a.GamesPlayed).FirstOrDefault();
-                var bestAdv = advRows.Where(a => a.Wins + a.Losses >= StatsFormat.MinRatedGames).OrderByDescending(a => a.WinRate).FirstOrDefault();
-                var worstAdv = advRows.Where(a => a.Wins + a.Losses >= StatsFormat.MinRatedGames).OrderBy(a => a.WinRate).FirstOrDefault();
-                var ownedAdversaries = OwnedAdversariesList();
-                var missingLevels = MissingAdversaryLevels(_stats.AdversaryStatistics, ownedAdversaries);
-                var missingGroups = missingLevels
-                    .GroupBy(m => (m.AdversaryId, m.AdversaryName))
-                    .OrderBy(g => g.Key.AdversaryName)
-                    .Select(g => new MissingAdversaryGroup(g.Key.AdversaryId, g.Key.AdversaryName, g.Select(m => m.Level).OrderBy(l => l).ToList()))
-                    .Cast<object>().ToList();
-                var totalLevels = ownedAdversaries.Sum(a => a.Modes.Count());
+                var bestAdv = BestRated(advRows);
+                var worstAdv = BestRated(advRows, worst: true);
+                var ownedAdversaries = OwnedCatalogue.Adversaries(OwnedExpansions);
+                // The same walk the dashboard's coverage bar makes — see LevelCoverage.
+                var levelCoverage = LevelCoverage.Of(_stats.AdversaryStatistics, ownedAdversaries);
+                var missingLevels = levelCoverage.Missing;
+                var missingGroups = StatsCoverage.GroupLevels(missingLevels);
+                var totalLevels = levelCoverage.Total;
             }
 
             @* The same bar the spirits tab carries, asking only what a foe can answer —
-               expansion, recorded play, ordering. Everything below follows it. *@
-            <FilterBar Filter="_advFilter" OwnedExpansions="OwnedExpansions"
-                       PresentExpansions="_advFilter.ExpansionsIn(playedAdversaries)"
-                       ShowingCount="advRows.Count" TotalCount="_stats.AdversaryStatistics.Count"
-                       UntestedLabel="Never faced"
-                       UntestedHint="Only foes nobody at your table has met — this tab counts the faced, so the coverage panel below is where they are named"
-                       Changed="StateHasChanged"/>
+               expansion, recorded play, ordering. Everything below follows it. The name search
+               above it is the reference page's too: the filter has always narrowed by name, and
+               this was the one tab with no way to say so. *@
+            <div class="space-y-3">
+                <SearchBox @bind-Value="_advFilter.Query" Placeholder="Find an adversary…" Class="sm:w-72"/>
+                <FilterBar Filter="_advFilter" OwnedExpansions="OwnedExpansions"
+                           PresentExpansions="_advFilter.ExpansionsIn(playedAdversaries)"
+                           ShowingCount="advRows.Count" TotalCount="_stats.AdversaryStatistics.Count"
+                           UntestedLabel="Never faced"
+                           UntestedHint="@Copy.UntriedOnStatsTab("foes", "met", "faced")"
+                           Changed="StateHasChanged"/>
+            </div>
 
             @if (advRows.Count > 0)
             {
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    @if (topAdv is not null) { @AdversaryInsight("Most played", topAdv, $"{topAdv.GamesPlayed} games", null) }
+                    @if (topAdv is not null) { @AdversaryInsight("Most played", topAdv, Copy.Count(topAdv.GamesPlayed, "game")) }
                     @if (bestAdv is not null) { @AdversaryInsight("Highest win rate", bestAdv, $"{bestAdv.WinRate:F0}%", WinTone.ForRate(bestAdv.WinRate)) }
                     @if (worstAdv is not null && worstAdv.AdversaryId != bestAdv?.AdversaryId) { @AdversaryInsight("Toughest", worstAdv, $"{worstAdv.WinRate:F0}%", WinTone.ForRate(worstAdv.WinRate)) }
                 </div>
             }
 
             <div>
-                <div class="section-head">
-                    <h2 class="section-title">Every foe faced</h2>
-                    <span class="section-note">Tap a card for its sheet, a level to open it focused on that level</span>
-                </div>
+                <SectionHead Title="Every foe faced"
+                             Note="Tap a card for its sheet, a level to open it focused on that level"/>
 
                 @if (advRows.Count == 0)
                 {
-                    <div class="surface py-8 text-center text-sm text-ink-500">
-                        No faced adversaries match — clear a filter, or see the coverage panel below for the never-faced.
+                    <div class="surface no-matches">@Copy.NoRecordedMatches("adversaries", "faced")</div>
+                }
+                else
+                {
+                    <div class="grid sm:grid-cols-2 gap-4">
+                        @foreach (var a in advRows)
+                        {
+                            var adv = GameLookups.AdversaryFor(a.AdversaryId);
+                            var name = adv?.Name ?? a.AdversaryId;
+                            @* The card opens the foe's record sheet, as the catalogue cards do — but
+                               the counts on it are their own links into the games list, which is where
+                               "a lot of England games" turns into the games themselves. A button cannot
+                               contain a link, so CardOverlay raises the links above the disclosure. *@
+                            <div @key="a.AdversaryId" class="surface card-lift relative px-5 py-4">
+                                <CardOverlay Label="@Copy.SheetTooltip(name)"
+                                             OnOpen="() => OpenAdversary(a.AdversaryId)">
+                                    <div class="flex items-start justify-between gap-3 mb-3">
+                                        <div class="min-w-0">
+                                            <div class="card-title truncate">@name</div>
+                                            <div class="row-sub mt-0.5 tabular-nums">
+                                                @* The count is the way into those games, in the same
+                                                   dotted-rule idiom the tables use (.linked-count) —
+                                                   at the card's own smaller, greyer tone. *@
+                                                <a href="@GamesLink.ForAdversary(a.AdversaryId, who: ScopeWho)"
+                                                   title="@ScopedTitle($"Every game against {name}")"
+                                                   class="linked-count pointer-events-auto font-medium text-ink-600 focus-ring">
+                                                    @Copy.Count(a.GamesPlayed, "game")
+                                                </a> ·
+                                                <WinLossTally Wins="a.Wins" Losses="a.Losses"/> ·
+                                                avg L@(a.AverageLevel.ToString("F1"))
+                                            </div>
+                                        </div>
+                                        <WinRateRing Pct="a.WinRate" Size="56"/>
+                                    </div>
+                                    @* The same strip the reference card and the record sheet draw
+                                       (AdversaryLevelGrid): the level, what it adds to the difficulty,
+                                       and the record at it — a tap opens the sheet focused on that
+                                       level, where the way to those games is the profile's own link.
+                                       Only for a foe still in the catalogue; one played from a box
+                                       since removed has levels but nothing to say about them. *@
+                                    @if (adv is not null)
+                                    {
+                                        <AdversaryLevelGrid Adversary="adv" Records="LevelRecords(a)"
+                                                            OnPick="level => OpenAdversary(a.AdversaryId, level)"
+                                                            TapHint="Opens the record sheet focused on this level."
+                                                            RaiseAboveOverlay="true"/>
+                                    }
+                                </CardOverlay>
+                            </div>
+                        }
                     </div>
                 }
-                <div class="grid sm:grid-cols-2 gap-4">
-                    @foreach (var a in advRows)
-                    {
-                        var adv = GameLookups.AdversaryFor(a.AdversaryId);
-                        var name = adv?.Name ?? a.AdversaryId;
-                        @* The card opens the foe's record sheet, as the catalogue cards do — but
-                           the counts on it are their own links into the games list, which is where
-                           "a lot of England games" turns into the games themselves. A button cannot
-                           contain a link, so the disclosure is a full-card overlay and the links
-                           are raised above it: the same arrangement FilterBar's header uses. *@
-                        <div class="surface relative px-5 py-4 transition-all hover:-translate-y-px hover:shadow-sm">
-                            <button type="button" @onclick="() => OpenAdversary(a.AdversaryId)"
-                                    title="@($"{name} — details and full record")"
-                                    class="absolute inset-0 w-full rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
-                                <span class="sr-only">@name — details and full record</span>
-                            </button>
-                            <div class="pointer-events-none relative">
-                                <div class="flex items-start justify-between gap-3 mb-3">
-                                    <div class="min-w-0">
-                                        <div class="text-base font-semibold text-ink-900 truncate" style="font-family: var(--font-serif);">@name</div>
-                                        <div class="text-[11px] text-ink-500 mt-0.5 tabular-nums">
-                                            @* The count is the way into those games, in the same
-                                               dotted-rule idiom the tables use — see LinkedCount,
-                                               which this cannot share because the tone differs on
-                                               the card's smaller, greyer line. *@
-                                            <a href="@GamesLink.ForAdversary(a.AdversaryId, who: ScopeWho)"
-                                               title="@ScopedTitle($"Every game against {name}")"
-                                               class="pointer-events-auto rounded font-medium text-ink-600 underline decoration-dotted
-                                                      decoration-ink-300 underline-offset-4 transition-colors
-                                                      hover:text-accent-800 hover:decoration-accent-500
-                                                      focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
-                                                @a.GamesPlayed game@(a.GamesPlayed == 1 ? "" : "s")
-                                            </a> ·
-                                            <span class="text-accent-700 font-medium">@a.Wins W</span> ·
-                                            <span class="text-red-600 font-medium">@a.Losses L</span> ·
-                                            avg L@(a.AverageLevel.ToString("F1"))
-                                        </div>
-                                    </div>
-                                    <WinRateRing Pct="a.WinRate" Size="56"/>
-                                </div>
-                                @* The same strip the reference card and the record sheet draw
-                                   (AdversaryLevelGrid): the level, what it adds to the difficulty,
-                                   and the record at it — a tap opens the sheet focused on that
-                                   level, where the way to those games is the profile's own link.
-                                   Only for a foe still in the catalogue; one played from a box
-                                   since removed has levels but nothing to say about them. *@
-                                @if (adv is not null)
-                                {
-                                    <AdversaryLevelGrid Adversary="adv" Records="LevelRecords(a)"
-                                                        OnPick="level => OpenAdversary(a.AdversaryId, level)"
-                                                        TapHint="Opens the record sheet focused on this level."
-                                                        RaiseAboveOverlay="true"/>
-                                }
-                            </div>
-                        </div>
-                    }
-                </div>
             </div>
 
             <CoveragePanel Title="Adversary levels"
@@ -1107,7 +999,7 @@ else
                            Missing="missingGroups"
                            MissingCount="missingLevels.Count"
                            ItemTemplate="AdversaryLevelGroupPill"
-                           Note="@OutsideCollectionNote(
+                           Note="@StatsCoverage.OutsideCollectionNote(
                                      _stats.AdversaryStatistics.Select(a => a.AdversaryId),
                                      ownedAdversaries.Select(a => a.Id.Value),
                                      "adversary")"/>
@@ -1115,7 +1007,7 @@ else
 
     /// Foes have no facets of their own — expansion, recorded play and ordering is the whole ask.
     private readonly CatalogueFilter<Adversary> _advFilter =
-        new(a => a.Id.Value, a => a.Name, a => a.ExpansionId, defaultSortKey: "played");
+        new(a => a.Id.Value, a => a.Name, a => a.ExpansionId, defaultSortKey: FilterState.ByPlayed.Key);
 
     /// <summary>The faced adversaries the filter keeps, in the filter's order.</summary>
     private List<AdversaryStats> FilteredAdversaryStats()
@@ -1123,7 +1015,7 @@ else
         var stats = _stats?.AdversaryStatistics ?? [];
         var known = stats.Select(a => GameLookups.AdversaryFor(a.AdversaryId)).OfType<Adversary>();
         return NarrowStats(stats, a => a.AdversaryId, _advFilter.Apply(known), a => a.Id.Value,
-            narrowed: FilterNarrows(_advFilter));
+            narrowed: _advFilter.Narrows);
     }
 
     /// <summary>
@@ -1131,25 +1023,15 @@ else
     /// projection AspectRecordsOf does for the aspect chips.
     /// </summary>
     private static IReadOnlyDictionary<int, SetupInsights.PlayRecord> LevelRecords(AdversaryStats a) =>
-        a.Levels.ToDictionary(
-            l => l.Level,
-            l => new SetupInsights.PlayRecord(l.GamesPlayed, l.Wins, l.Losses));
+        SetupInsights.PlayRecordsBy(a.Levels, l => l.Level);
 
-    private RenderFragment<object> AdversaryLevelGroupPill => o =>
-        @<text>
-            @{
-                var entry = (MissingAdversaryGroup)o;
-            }
-            <button type="button" @onclick="() => OpenAdversary(entry.AdversaryId)" title="@($"{entry.AdversaryName} — details and full record")"
-                    class="inline-flex items-center gap-1.5 rounded-full border border-dashed border-amber-300 bg-amber-50/60 px-2.5 py-1 text-xs transition-colors
-                           hover:border-amber-400 hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
-                <Icon Name="shield" Class="w-3 h-3 text-amber-600"/>
-                <span class="text-amber-800 font-medium">@entry.AdversaryName</span>
-                <span class="text-amber-700">@string.Join(", ", entry.Levels.Select(l => $"L{l}"))</span>
-            </button>
-        </text>;
+    private RenderFragment<StatsCoverage.MissingAdversaryGroup> AdversaryLevelGroupPill => entry =>
+        @<MissingPill Label="@entry.AdversaryName" Detail="@string.Join(", ", entry.Levels.Select(l => $"L{l}"))"
+                     OnClick="() => OpenAdversary(entry.AdversaryId)">
+            <Glyph><Icon Name="shield" Class="w-3 h-3 text-amber-600"/></Glyph>
+        </MissingPill>;
 
-    private RenderFragment AdversaryInsight(string title, AdversaryStats a, string metric, string? metricColor) =>
+    private RenderFragment AdversaryInsight(string title, AdversaryStats a, string metric, string? metricColor = null) =>
         @<text>
             @{
                 var adv = GameLookups.AdversaryFor(a.AdversaryId);
@@ -1158,7 +1040,7 @@ else
                          Subject="@(adv?.Name ?? a.AdversaryId)"
                          Secondary="@($"avg L{a.AverageLevel:F1}")"
                          Metric="@metric"
-                         MetricColorClass="@(metricColor ?? "text-ink-900")"
+                         MetricColorClass="@metricColor"
                          OnClick="() => OpenAdversary(a.AdversaryId)"/>
         </text>;
 }
@@ -1172,21 +1054,19 @@ else
                 var playedScenarios = _stats!.ScenarioStatistics
                     .Select(s => GameLookups.ScenarioFor(s.ScenarioId)).OfType<Scenario>().ToList();
                 var topScen = scenRows.OrderByDescending(s => s.GamesPlayed).FirstOrDefault();
-                var bestScen = scenRows.Where(s => s.Wins + s.Losses >= StatsFormat.MinRatedGames).OrderByDescending(s => s.WinRate).FirstOrDefault();
+                var bestScen = BestRated(scenRows);
                 var playedIds = _stats.ScenarioStatistics.Select(s => s.ScenarioId).ToHashSet();
-                var ownedScenarios = OwnedScenariosList();
-                var missing = ownedScenarios.Where(s => !playedIds.Contains(s.Id.Value)).Cast<object>().ToList();
+                var ownedScenarios = OwnedCatalogue.Scenarios(OwnedExpansions);
+                var missing = ownedScenarios.Where(s => !playedIds.Contains(s.Id.Value)).ToList();
             }
 
             @* The same bar as the other tabs; scenarios add nothing beyond the shared questions. *@
             <div class="space-y-3">
-                <input type="search" class="input sm:w-72" placeholder="Find a scenario…" aria-label="Find a scenario"
-                       @bind="_scenarioFilter.Query" @bind:event="oninput"/>
+                <SearchBox @bind-Value="_scenarioFilter.Query" Placeholder="Find a scenario…" Class="sm:w-72"/>
                 <FilterBar Filter="_scenarioFilter" OwnedExpansions="OwnedExpansions"
                            PresentExpansions="_scenarioFilter.ExpansionsIn(playedScenarios)"
                            ShowingCount="scenRows.Count" TotalCount="_stats.ScenarioStatistics.Count"
-                           UntestedLabel="Never played"
-                           UntestedHint="Only scenarios nobody at your table has tried — this tab counts the played, so the coverage panel below is where they are named"
+                           UntestedHint="@Copy.UntriedOnStatsTab("scenarios", "tried")"
                            Changed="StateHasChanged"/>
             </div>
 
@@ -1205,7 +1085,7 @@ else
                     {
                         var s = GameLookups.ScenarioFor(bestScen.ScenarioId);
                         <InsightCard Title="Highest win rate" Subject="@(s?.Name ?? bestScen.ScenarioId)"
-                                     Secondary="@($"{bestScen.GamesPlayed} games")"
+                                     Secondary="@Copy.Count(bestScen.GamesPlayed, "game")"
                                      Metric="@($"{bestScen.WinRate:F0}%")" MetricColorClass="@WinTone.ForRate(bestScen.WinRate)"
                                      OnClick="() => OpenScenario(bestScen.ScenarioId)"/>
                     }
@@ -1215,43 +1095,39 @@ else
             @if (_stats.ScenarioStatistics.Count > 0)
             {
                 <div class="surface">
-                    <div class="surface-head">
-                        <h2 class="text-base font-semibold">All scenarios played</h2>
-                        <span class="text-[11px] text-ink-500">Tap a row for the record sheet, a count for those games</span>
-                    </div>
+                    <SectionHead Surface="true" Title="All scenarios played"
+                                 Note="Tap a row for the record sheet, a count for those games"/>
                     <div class="table-wrap">
                         <table class="table table-hover">
-                            <thead><tr><th>Scenario</th><th class="text-right">Games</th><th class="text-right">W</th><th class="text-right">L</th><th>Win rate</th><th class="text-right">Avg score</th></tr></thead>
+                            <thead>
+                            <tr>
+                                <th scope="col">Scenario</th>
+                                <th scope="col" class="text-right">Games</th>
+                                <th scope="col" class="text-right">W</th>
+                                <th scope="col" class="text-right">L</th>
+                                <th scope="col">Win rate</th>
+                                <th scope="col" class="text-right">Avg score</th>
+                            </tr>
+                            </thead>
                             <tbody>
                             @if (scenRows.Count == 0)
                             {
-                                <tr><td colspan="6" class="py-8 text-center text-ink-500">
-                                    No played scenarios match — clear a filter, or see the coverage panel below for the never-played.
-                                </td></tr>
+                                <tr><td colspan="6" class="no-matches">@Copy.NoRecordedMatches("scenarios")</td></tr>
                             }
                             @foreach (var s in scenRows)
                             {
                                 var sc = GameLookups.ScenarioFor(s.ScenarioId);
-                                <tr @onclick="() => OpenScenario(s.ScenarioId)">
+                                <tr @key="s.ScenarioId" @onclick="() => OpenScenario(s.ScenarioId)">
                                     <td>
                                         <div class="flex items-center gap-2 min-w-0">
-                                            <span class="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-accent-50 text-accent-700 shrink-0"><Icon Name="book" Class="w-3.5 h-3.5"/></span>
-                                            <button type="button" @onclick="() => OpenScenario(s.ScenarioId)" @onclick:stopPropagation
-                                                    class="truncate rounded text-left text-sm font-semibold text-ink-900
-                                                           focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
-                                                @(sc?.Name ?? s.ScenarioId)
-                                            </button>
+                                            <IconChip Name="book" Size="sm"/>
+                                            <RowNameButton Name="@(sc?.Name ?? s.ScenarioId)" OnClick="() => OpenScenario(s.ScenarioId)"/>
                                         </div>
                                     </td>
                                     @GamesCountCell(s.GamesPlayed, GamesLink.ForScenario(s.ScenarioId, who: ScopeWho),
                                                     ScopedTitle($"Every game in {sc?.Name ?? s.ScenarioId}"))
-                                    <td class="text-right text-accent-700 tabular-nums">@s.Wins</td>
-                                    <td class="text-right text-red-600 tabular-nums">@s.Losses</td>
-                                    <td>
-                                        @if (s.Wins + s.Losses > 0) { <WinRateBar Pct="s.WinRate"/> }
-                                        else { <span class="text-xs text-ink-400">—</span> }
-                                    </td>
-                                    <td class="text-right tabular-nums">@(s.Wins + s.Losses > 0 ? $"{s.AverageScore:F0}" : "—")</td>
+                                    @RecordCells(s.Wins, s.Losses, s.WinRate)
+                                    @AverageScoreCell(s.AverageScore, s.Wins + s.Losses)
                                 </tr>
                             }
                             </tbody>
@@ -1261,13 +1137,13 @@ else
             }
 
             <CoveragePanel Title="Scenarios" Total="ownedScenarios.Count" Missing="missing" ItemTemplate="ScenarioPill"
-                           Note="@OutsideCollectionNote(playedIds, ownedScenarios.Select(s => s.Id.Value), "scenario")"/>
+                           Note="@StatsCoverage.OutsideCollectionNote(playedIds, ownedScenarios.Select(s => s.Id.Value), "scenario")"/>
         </div>;
 
     /// Scenarios sift by the shared questions plus their one number, the difficulty bump.
     private readonly CatalogueFilter<Scenario> _scenarioFilter =
         new(s => s.Id.Value, s => s.Name, s => s.ExpansionId,
-            numeric: (FilterState.ByDifficulty, s => s.Difficulty), defaultSortKey: "played");
+            numeric: (FilterState.ByDifficulty, s => s.Difficulty), defaultSortKey: FilterState.ByPlayed.Key);
 
     /// <summary>The played scenarios the filter keeps, in the filter's order.</summary>
     private List<ScenarioStats> FilteredScenarioStats()
@@ -1275,20 +1151,14 @@ else
         var stats = _stats?.ScenarioStatistics ?? [];
         var known = stats.Select(s => GameLookups.ScenarioFor(s.ScenarioId)).OfType<Scenario>();
         return NarrowStats(stats, s => s.ScenarioId, _scenarioFilter.Apply(known), s => s.Id.Value,
-            narrowed: FilterNarrows(_scenarioFilter));
+            narrowed: _scenarioFilter.Narrows);
     }
 
-    private RenderFragment<object> ScenarioPill => o =>
-        @<text>
-            @{ var s = (Scenario)o; }
-            <button type="button" @onclick="() => _scenarioModal.Show(s)" title="@($"{s.Name} — details and full record")"
-                    class="inline-flex items-center gap-1.5 rounded-full border border-dashed border-amber-300 bg-amber-50/60 px-2.5 py-1 text-xs transition-colors
-                           hover:border-amber-400 hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
-                <Icon Name="book" Class="w-3 h-3 text-amber-600"/>
-                <span class="text-amber-800">@s.Name</span>
-                <span class="text-amber-700">+@s.Difficulty</span>
-            </button>
-        </text>;
+    private RenderFragment<Scenario> ScenarioPill => s =>
+        @<MissingPill Label="@s.Name" Detail="@($"+{s.Difficulty}")"
+                     OnClick="() => _scenarioModal.Show(s)">
+            <Glyph><Icon Name="book" Class="w-3 h-3 text-amber-600"/></Glyph>
+        </MissingPill>;
 }
 
 @* ============================== BOARDS TAB ============================== *@
@@ -1300,10 +1170,10 @@ else
                 var playedBoards = _stats!.BoardStatistics
                     .Select(b => GameLookups.BoardFor(b.BoardId)).OfType<Board>().ToList();
                 var topBoard = boardRows.OrderByDescending(b => b.GamesPlayed).FirstOrDefault();
-                var bestBoard = boardRows.Where(b => b.Wins + b.Losses >= StatsFormat.MinRatedGames).OrderByDescending(b => b.WinRate).FirstOrDefault();
+                var bestBoard = BestRated(boardRows);
                 var playedIds = _stats.BoardStatistics.Select(b => b.BoardId).ToHashSet();
-                var ownedBoards = OwnedBoardsList();
-                var missing = ownedBoards.Where(b => !playedIds.Contains(b.Id.Value)).Cast<object>().ToList();
+                var ownedBoards = OwnedCatalogue.Boards(OwnedExpansions);
+                var missing = ownedBoards.Where(b => !playedIds.Contains(b.Id.Value)).ToList();
 
                 var playedSetups = GameData.PublishedIslandSetups
                     .Select(s => (Setup: s, Record: _layoutRecords.GetValueOrDefault(s.Id.Value)))
@@ -1321,24 +1191,23 @@ else
                     .Where(f => IslandSetups.IsCustomId(f.IslandSetupId)
                                 && (f.CustomLayoutId is null || !savedIds.Contains(f.CustomLayoutId.Value)))
                     .ToList();
-                var oneOffRecord = new SetupInsights.PlayRecord(
-                    oneOffFacts.Count,
-                    oneOffFacts.Count(g => g.IsCompleted && g.Win == true),
-                    oneOffFacts.Count(g => g.IsCompleted && g.Win == false));
+                var oneOffRecord = SetupInsights.GameRecord(oneOffFacts);
             }
 
-            @* The same bar as the other tabs — a board answers only the shared questions. *@
+            @* The same bar as the other tabs — a board answers only the shared questions. Alone
+               among the four it carries no name search above it, and deliberately: eight lettered
+               boards are the whole catalogue, so a box to find one in them narrows nothing. See
+               BoardsView, which leaves it out for the same reason. *@
             <FilterBar Filter="_boardFilter" OwnedExpansions="OwnedExpansions"
                        PresentExpansions="_boardFilter.ExpansionsIn(playedBoards)"
                        ShowingCount="boardRows.Count" TotalCount="_stats.BoardStatistics.Count"
-                       UntestedLabel="Never played"
-                       UntestedHint="Only boards nobody at your table has set out — this tab counts the played, so the coverage panel below is where they are named"
+                       UntestedHint="@Copy.UntriedOnStatsTab("boards", "set out")"
                        Changed="StateHasChanged"/>
 
             @if (boardRows.Count > 0)
             {
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    @if (topBoard is not null) { @BoardInsight("Most played board", topBoard, $"{topBoard.GamesPlayed} games", null) }
+                    @if (topBoard is not null) { @BoardInsight("Most played board", topBoard, Copy.Count(topBoard.GamesPlayed, "game")) }
                     @if (bestBoard is not null && bestBoard.BoardId != topBoard?.BoardId) { @BoardInsight("Highest win rate", bestBoard, $"{bestBoard.WinRate:F0}%", WinTone.ForRate(bestBoard.WinRate)) }
                 </div>
             }
@@ -1346,48 +1215,43 @@ else
             @if (_stats.BoardStatistics.Count > 0)
             {
                 <div class="surface">
-                    <div class="surface-head">
-                        <h2 class="text-base font-semibold">All boards played</h2>
-                        <span class="text-[11px] text-ink-500">Tap a row for the record sheet, a count for those games</span>
-                    </div>
+                    <SectionHead Surface="true" Title="All boards played"
+                                 Note="Tap a row for the record sheet, a count for those games"/>
                     <div class="table-wrap">
                         <table class="table table-hover">
-                            <thead><tr><th>Board</th><th class="text-right">Games</th><th class="text-right">W</th><th class="text-right">L</th><th>Win rate</th></tr></thead>
+                            <thead>
+                            <tr>
+                                <th scope="col">Board</th>
+                                <th scope="col" class="text-right">Games</th>
+                                <th scope="col" class="text-right">W</th>
+                                <th scope="col" class="text-right">L</th>
+                                <th scope="col">Win rate</th>
+                            </tr>
+                            </thead>
                             <tbody>
                             @if (boardRows.Count == 0)
                             {
-                                <tr><td colspan="5" class="py-8 text-center text-ink-500">
-                                    No played boards match — clear a filter, or see the coverage panel below for the never-played.
-                                </td></tr>
+                                <tr><td colspan="5" class="no-matches">@Copy.NoRecordedMatches("boards")</td></tr>
                             }
                             @foreach (var b in boardRows)
                             {
                                 var board = GameLookups.BoardFor(b.BoardId);
-                                var detail = board is null ? null : BoardDetails.For(board.Id);
-                                var color = detail?.ColorHex ?? GameLookups.NeutralColor;
-                                var letter = detail?.Letter ?? (board is null ? "?" : board.Name[^1..]);
-                                <tr @onclick="() => OpenBoard(b.BoardId)">
+                                var detail = GameLookups.DetailFor(board);
+                                var color = GameLookups.BoardColor(detail);
+                                var letter = GameLookups.BoardLetterFor(b.BoardId) ?? "?";
+                                <tr @key="b.BoardId" @onclick="() => OpenBoard(b.BoardId)">
                                     <td>
                                         <div class="flex items-center gap-3 min-w-0">
-                                            <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-white text-sm font-semibold shrink-0" style="background-color: @color; font-family: var(--font-serif);">@letter</span>
+                                            <LetterTile Size="lg" Color="@color" Text="@letter"/>
                                             <div class="min-w-0">
-                                                <button type="button" @onclick="() => OpenBoard(b.BoardId)" @onclick:stopPropagation
-                                                        class="block max-w-full truncate rounded text-left text-sm font-semibold text-ink-900
-                                                               focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
-                                                    @(board?.Name ?? b.BoardId)
-                                                </button>
-                                                @if (detail is not null) { <div class="text-[11px] text-ink-500 truncate">@detail.ThematicName</div> }
+                                                <RowNameButton Name="@(board?.Name ?? b.BoardId)" OnClick="() => OpenBoard(b.BoardId)"/>
+                                                @if (detail is not null) { <div class="row-sub truncate">@detail.ThematicName</div> }
                                             </div>
                                         </div>
                                     </td>
                                     @GamesCountCell(b.GamesPlayed, GamesLink.ForBoard(b.BoardId, who: ScopeWho),
                                                     ScopedTitle($"Every game with {board?.Name ?? b.BoardId} on the island"))
-                                    <td class="text-right text-accent-700 tabular-nums">@b.Wins</td>
-                                    <td class="text-right text-red-600 tabular-nums">@b.Losses</td>
-                                    <td>
-                                        @if (b.Wins + b.Losses > 0) { <WinRateBar Pct="b.WinRate"/> }
-                                        else { <span class="text-xs text-ink-400">—</span> }
-                                    </td>
+                                    @RecordCells(b.Wins, b.Losses, b.WinRate)
                                 </tr>
                             }
                             </tbody>
@@ -1400,10 +1264,7 @@ else
             @if (playedSetups.Count > 0 || playedSaved.Count > 0 || oneOffRecord.Played > 0)
             {
                 <div>
-                    <div class="section-head">
-                        <h2 class="section-title">Island layouts</h2>
-                        <span class="section-note">Standard setups and your saved shapes</span>
-                    </div>
+                    <SectionHead Title="Island layouts" Note="Standard setups and your saved shapes"/>
                     @* The same tile the boards reference uses, so an island looks the same
                        wherever it is met — and a shape the player built reads as a layout among
                        the published ones rather than as an icon. The tint says which kind it is:
@@ -1429,14 +1290,13 @@ else
                         {
                             <a href="@GamesLink.ForOneOffIslands(ScopeWho)"
                                title="@ScopedTitle("Hand-built islands that weren't saved to your library — see those games")"
-                               class="flex flex-col items-center rounded-xl border border-dashed border-ink-300 bg-white p-2 text-center
-                                      transition-all hover:-translate-y-px hover:border-ink-400 hover:shadow-sm
-                                      focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                               class="card-lift flex flex-col items-center rounded-xl border border-dashed border-ink-300 bg-white p-2 text-center
+                                      hover:border-ink-400 focus-ring">
                                 <div class="flex h-20 w-full items-center justify-center text-ink-400">
                                     <Icon Name="map" Class="w-6 h-6"/>
                                 </div>
-                                <div class="mt-1.5 truncate w-full text-xs font-medium text-ink-900">One-off islands</div>
-                                <div class="w-full truncate text-[10px] text-ink-500">hand-built, not saved</div>
+                                <div class="tile-title mt-1.5 w-full truncate">One-off islands</div>
+                                <div class="fine-note w-full truncate">hand-built, not saved</div>
                                 <div class="mt-1"><RecordChip Record="oneOffRecord" Subject="One-off islands"/></div>
                             </a>
                         }
@@ -1445,12 +1305,12 @@ else
             }
 
             <CoveragePanel Title="Boards" Total="ownedBoards.Count" Missing="missing" ItemTemplate="BoardPill"
-                           Note="@OutsideCollectionNote(playedIds, ownedBoards.Select(b => b.Id.Value), "board")"/>
+                           Note="@StatsCoverage.OutsideCollectionNote(playedIds, ownedBoards.Select(b => b.Id.Value), "board")"/>
         </div>;
 
     /// A board answers only the shared questions — name, expansion, recorded play, ordering.
     private readonly CatalogueFilter<Board> _boardFilter =
-        new(b => b.Id.Value, b => b.Name, b => b.ExpansionId, defaultSortKey: "played");
+        new(b => b.Id.Value, b => b.Name, b => b.ExpansionId, defaultSortKey: FilterState.ByPlayed.Key);
 
     /// <summary>The played boards the filter keeps, in the filter's order.</summary>
     private List<BoardStats> FilteredBoardStats()
@@ -1458,36 +1318,28 @@ else
         var stats = _stats?.BoardStatistics ?? [];
         var known = stats.Select(b => GameLookups.BoardFor(b.BoardId)).OfType<Board>();
         return NarrowStats(stats, b => b.BoardId, _boardFilter.Apply(known), b => b.Id.Value,
-            narrowed: FilterNarrows(_boardFilter));
+            narrowed: _boardFilter.Narrows);
     }
 
-    private RenderFragment<object> BoardPill => o =>
-        @<text>
-            @{
-                var board = (Board)o;
-                var detail = BoardDetails.For(board.Id);
-                var color = detail?.ColorHex ?? GameLookups.NeutralColor;
-                var letter = detail?.Letter ?? board.Name[^1..];
-            }
-            <button type="button" @onclick="() => _boardModal.Show(board)" title="@($"{board.Name} — details and full record")"
-                    class="inline-flex items-center gap-1.5 rounded-full border border-dashed border-amber-300 bg-amber-50/60 px-2.5 py-1 text-xs transition-colors
-                           hover:border-amber-400 hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
-                <span class="inline-flex h-5 w-5 items-center justify-center rounded text-white text-[10px] font-semibold" style="background-color: @color; font-family: var(--font-serif);">@letter</span>
-                <span class="text-amber-800">@board.Name</span>
-            </button>
-        </text>;
+    private RenderFragment<Board> BoardPill => board =>
+        @<MissingPill Label="@board.Name"
+                     OnClick="() => _boardModal.Show(board)">
+            <Glyph>
+                <LetterTile Size="sm" Color="@GameLookups.BoardColor(board)" Text="@GameLookups.BoardLetter(board)"/>
+            </Glyph>
+        </MissingPill>;
 
-    private RenderFragment BoardInsight(string title, BoardStats b, string metric, string? metricColor) =>
+    private RenderFragment BoardInsight(string title, BoardStats b, string metric, string? metricColor = null) =>
         @<text>
             @{
                 var board = GameLookups.BoardFor(b.BoardId);
-                var detail = board is null ? null : BoardDetails.For(board.Id);
+                var detail = GameLookups.DetailFor(board);
             }
             <InsightCard Title="@title"
                          Subject="@(board?.Name ?? b.BoardId)"
                          Secondary="@(detail?.ThematicName)"
                          Metric="@metric"
-                         MetricColorClass="@(metricColor ?? "text-ink-900")"
+                         MetricColorClass="@metricColor"
                          AccentColor="@(detail?.ColorHex)"
                          OnClick="() => OpenBoard(b.BoardId)"/>
         </text>;
@@ -1503,11 +1355,10 @@ else
         @<td class="text-right tabular-nums">
             @if (games > 0)
             {
-                @* The row opens the sheet, so the link has to keep its click to itself.
-                   A dotted rule rather than the accent colour: in these tables green means won
-                   and red means lost, and a green count would join a conversation it isn't in. *@
+                @* The row opens the sheet, so the link has to keep its click to itself. The
+                   dotted rule and its hover are .linked-count; the tone is this caller's. *@
                 <a href="@href" title="@title" @onclick:stopPropagation
-                   class="@LinkedCount">
+                   class="linked-count text-ink-900 focus-ring">
                     @games
                 </a>
             }
@@ -1518,13 +1369,38 @@ else
         </td>;
 
     /// <summary>
-    /// How a number that is also a link looks: the text tone it would have had, plus a dotted
-    /// rule that firms up into the accent colour on hover. Used wherever a count is the way into
-    /// the games behind it.
+    /// The three columns every statistics table reports a record in: what was won, what was
+    /// lost, and the rate between them. Always this triple, always in this order — the tables
+    /// had a copy each, and their win-rate cells each carried their own empty state.
     /// </summary>
-    private const string LinkedCount =
-        "rounded text-ink-900 underline decoration-dotted decoration-ink-300 underline-offset-4 transition-colors " +
-        "hover:text-accent-800 hover:decoration-accent-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40";
+    private static RenderFragment RecordCells(int wins, int losses, double winRate) =>
+        @<text>
+            <td class="text-right text-accent-700 tabular-nums">@wins</td>
+            <td class="text-right text-red-600 tabular-nums">@losses</td>
+            <td><WinRateBar Pct="winRate" Completed="wins + losses"/></td>
+        </text>;
+
+    /// <summary>Mean score, or a dash while nothing has finished — an average over drafts is 0
+    /// by arithmetic, not a run of nil scores.</summary>
+    private static RenderFragment AverageScoreCell(double average, int completed) =>
+        FigureCell(completed > 0 ? $"{average:F0}" : null);
+
+    /// <summary>
+    /// A right-aligned figure, or the dash that stands where one would — in the register every
+    /// other missing figure in the app takes (.no-figure), rather than a dash set in the same
+    /// ink as the numbers around it. Two cells had written the fallback out as a bare "—".
+    /// </summary>
+    private static RenderFragment FigureCell(string? figure) =>
+        @<td class="text-right tabular-nums">
+            @if (figure is not null)
+            {
+                @figure
+            }
+            else
+            {
+                <span class="no-figure">—</span>
+            }
+        </td>;
 }
 
 @* ============================== TAB FILTERS, SHARED PLUMBING ==============================
@@ -1532,10 +1408,6 @@ else
    played list its stats describe. The filter thinks in catalogue items; the tabs think in stats
    rows — these two are the seam between them. *@
 @code {
-    /// <summary>Whether anything is narrowing — a facet, the untested pill, or a typed query.</summary>
-    private static bool FilterNarrows(FilterState filter) =>
-        filter.ActiveCount > 0 || !string.IsNullOrWhiteSpace(filter.Query);
-
     /// <summary>
     /// Maps a filtered, ordered catalogue back onto the stats rows it narrows. Rows whose id the
     /// catalogue no longer lists (a spirit played from a box since removed) can't answer the
@@ -1570,19 +1442,15 @@ else
     private void WireCatalogueFilters()
     {
         if (_stats is null) return;
-        _spiritFilter.UseHistory(_stats.SpiritStatistics.ToDictionary(
-            s => s.SpiritId, s => new SetupInsights.PlayRecord(s.GamesPlayed, s.Wins, s.Losses)));
-        _advFilter.UseHistory(_stats.AdversaryStatistics.ToDictionary(
-            a => a.AdversaryId, a => new SetupInsights.PlayRecord(a.GamesPlayed, a.Wins, a.Losses)));
-        _scenarioFilter.UseHistory(_stats.ScenarioStatistics.ToDictionary(
-            s => s.ScenarioId, s => new SetupInsights.PlayRecord(s.GamesPlayed, s.Wins, s.Losses)));
-        _boardFilter.UseHistory(_stats.BoardStatistics.ToDictionary(
-            b => b.BoardId, b => new SetupInsights.PlayRecord(b.GamesPlayed, b.Wins, b.Losses)));
+        _spiritFilter.UseHistory(SetupInsights.PlayRecordsBy(_stats.SpiritStatistics, s => s.SpiritId));
+        _advFilter.UseHistory(SetupInsights.PlayRecordsBy(_stats.AdversaryStatistics, a => a.AdversaryId));
+        _scenarioFilter.UseHistory(SetupInsights.PlayRecordsBy(_stats.ScenarioStatistics, s => s.ScenarioId));
+        _boardFilter.UseHistory(SetupInsights.PlayRecordsBy(_stats.BoardStatistics, b => b.BoardId));
     }
 }
 
 @code {
-    [CascadingParameter(Name = "OwnedExpansions")]
+    [CascadingParameter(Name = CurrentUserState.OwnedExpansionsCascade)]
     public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
 
     // The URL holds which tab is open and whose games are counted, and the page writes it back on
@@ -1613,8 +1481,8 @@ else
     // the same facts the setup screen and the catalogue pages load.
     private IReadOnlyList<SetupGameFact>? _facts;
     private List<IslandLayoutResponse> _savedLayouts = [];
-    private Dictionary<string, SetupInsights.PlayRecord> _layoutRecords = new();
-    private Dictionary<Guid, SetupInsights.PlayRecord> _savedLayoutRecords = new();
+    private Dictionary<string, SetupInsights.PlayRecord> _layoutRecords = [];
+    private Dictionary<Guid, SetupInsights.PlayRecord> _savedLayoutRecords = [];
 
     private SpiritDetailModal _spiritModal = default!;
     private AdversaryDetailModal _adversaryModal = default!;
@@ -1630,8 +1498,7 @@ else
     /// <summary>Seat predicate for the picked player, so the spirit/board sheets profile their
     /// seats. Rebuilt only when the scope moves (<see cref="ApplyScope"/>), so the components it
     /// is handed can tell "same scope" by reference and keep their own derived work.</summary>
-    private Func<SetupFactSeat, bool>? ScopeSeatFilter => _scopeSeatFilter;
-    private Func<SetupFactSeat, bool>? _scopeSeatFilter;
+    private Func<SetupFactSeat, bool>? ScopeSeatFilter { get; set; }
 
     /// <summary>Whose record the sheets are labelled with — null for "you".</summary>
     private string? ScopeSubjectName =>
@@ -1651,11 +1518,10 @@ else
     private string ScopedTitle(string title) =>
         _scoped is null ? title : $"{title} — {_scoped.Name}'s games only";
 
-    /// <summary>The history narrowed to the page scope: games the picked player sat in. A field,
-    /// not a per-access filter — the tab fragments read it on every render, and its stable
-    /// reference is what lets the matchup grid skip re-tallying an unchanged history.</summary>
-    private IReadOnlyList<SetupGameFact> ScopedFacts => _scopedFacts;
-    private IReadOnlyList<SetupGameFact> _scopedFacts = [];
+    /// <summary>The history narrowed to the page scope: games the picked player sat in. Held
+    /// rather than filtered per access — the tab fragments read it on every render, and its
+    /// stable reference is what lets the matchup grid skip re-tallying an unchanged history.</summary>
+    private IReadOnlyList<SetupGameFact> ScopedFacts { get; set; } = [];
 
     /// <summary>
     /// Everything derived from "whose games": the seat predicate, the narrowed history, and the
@@ -1664,19 +1530,28 @@ else
     /// </summary>
     private void ApplyScope()
     {
-        _scopeSeatFilter = _scoped switch
+        ScopeSeatFilter = _scoped switch
         {
             null => null,
             { UserId: { } u } => s => s.UserId == u,
             { PlayerId: { } p } => s => s.PlayerId == p,
             _ => null,
         };
-        _scopedFacts = _facts is null ? []
-            : _scopeSeatFilter is { } filter ? _facts.Where(g => g.Seats.Any(filter)).ToList()
+        ScopedFacts = _facts is null ? []
+            : ScopeSeatFilter is { } filter ? _facts.Where(g => g.Seats.Any(filter)).ToList()
             : _facts;
-        _layoutRecords = SetupInsights.LayoutRecords(_scopedFacts);
-        _savedLayoutRecords = SetupInsights.SavedLayoutRecords(_scopedFacts);
+        _layoutRecords = SetupInsights.LayoutRecords(ScopedFacts);
+        _savedLayoutRecords = SetupInsights.SavedLayoutRecords(ScopedFacts);
     }
+
+    /// <summary>A tab's address — the scope rides along, so a friend's numbers stay a friend's
+    /// numbers while the reader moves between sections.</summary>
+    private string TabHref(string key) => StatsLink.For(key, _scoped?.UserId, _scoped?.PlayerId);
+
+    /// <summary>A tab's tooltip. Whose games it will count, while the page is somebody's — the
+    /// label alone would promise the whole account's.</summary>
+    private string TabTitle(string key, string label) =>
+        _scoped is null ? label : $"{label} — {_scoped.Name}'s games";
 
     /// <summary>Played-entity count shown on the tab pill; null for tabs that aren't a list.</summary>
     private int? TabCount(string key) => key switch
@@ -1744,12 +1619,6 @@ else
         }
     }
 
-    public sealed record MissingLevel(string AdversaryId, string AdversaryName, int Level);
-    public sealed record MissingAdversaryGroup(string AdversaryId, string AdversaryName, List<int> Levels);
-
-    public sealed record MissingAspect(string SpiritId, string SpiritName, string AspectName);
-    public sealed record MissingAspectGroup(string SpiritId, string SpiritName, List<string> AspectNames);
-
     protected override async Task OnInitializedAsync()
     {
         // Without a user there is nothing to load — drop the spinner rather than spin forever.
@@ -1803,26 +1672,18 @@ else
         Go(_tab, player);
     }
 
-    private static bool SameScope(
-        PlayerStats? a,
-        PlayerStats? b)
-    {
-        if (a is null && b is null) return true;
-        if (a is null || b is null) return false;
-        return a.UserId == b.UserId && a.PlayerId == b.PlayerId;
-    }
-
-    private static string ScopeRowClass(bool active) =>
-        (active
-            ? "bg-accent-50 hover:bg-accent-100 "
-            : "hover:bg-ink-50 ")
-        + "w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg transition-colors";
+    /// <summary>Whether two picks name the same person — by identity, not by the tally row.</summary>
+    private static bool SameScope(PlayerStats? a, PlayerStats? b) =>
+        (a, b) switch
+        {
+            (null, null) => true,
+            (null, _) or (_, null) => false,
+            _ => a.UserId == b.UserId && a.PlayerId == b.PlayerId,
+        };
 
     /// <summary>The spirit's per-aspect tally in the shape the shared chips read.</summary>
     private static IReadOnlyDictionary<string, SetupInsights.PlayRecord> AspectRecordsOf(SpiritStats s) =>
-        s.Aspects.ToDictionary(
-            a => a.AspectId ?? SetupInsights.BaseAspectKey,
-            a => new SetupInsights.PlayRecord(a.GamesPlayed, a.Wins, a.Losses));
+        SetupInsights.PlayRecordsBy(s.Aspects, a => a.AspectId ?? SetupInsights.BaseAspectKey);
 
     /// <summary>
     /// Only the aspects actually played. The table is a record, not a catalogue — listing the
@@ -1835,78 +1696,4 @@ else
         return GameData.Aspects.Where(a => played.Contains(a.Id.Value)).ToList();
     }
 
-    /// <summary>The aspects of one spirit that are on the player's shelf.</summary>
-    private IReadOnlyList<Aspect> OwnedAspectsFor(Spirit s) =>
-        GameData.GetAspectsForSpirit(s.Id)
-            .Where(a => OwnedExpansions is null || OwnedExpansions.Contains(a.ExpansionId))
-            .ToList();
-
-    /// <summary>
-    /// Every owned aspect never played, flattened. Counted per variant rather than per spirit —
-    /// the same way adversary coverage counts levels, and for the same reason. Takes the owned
-    /// aspects already looked up, so the coverage total can count the same lists.
-    /// </summary>
-    private List<MissingAspect> MissingAspects(
-        IReadOnlyList<(Spirit Spirit, IReadOnlyList<Aspect> Aspects)> ownedAspects)
-    {
-        var played = _stats!.SpiritStatistics
-            .SelectMany(s => s.Aspects)
-            .Select(a => a.AspectId)
-            .OfType<string>()
-            .ToHashSet();
-        return ownedAspects
-            .SelectMany(x => x.Aspects
-                .Where(a => !played.Contains(a.Id.Value))
-                .Select(a => new MissingAspect(x.Spirit.Id.Value, x.Spirit.Name, a.Name)))
-            .ToList();
-    }
-
-    /// <summary>
-    /// What was played that the coverage bar above it can't count: content from expansions
-    /// this account doesn't own, which happens whenever somebody else brings the box. The
-    /// record keeps those games; the collection tally is about the shelf, so it can't.
-    /// </summary>
-    private static string? OutsideCollectionNote(
-        IEnumerable<string> playedIds, IEnumerable<string> ownedIds, string noun)
-    {
-        var owned = ownedIds.ToHashSet();
-        var extra = playedIds.Distinct().Count(id => !owned.Contains(id));
-        return extra == 0
-            ? null
-            : $"Plus {extra} {noun}{(extra == 1 ? "" : "s")} played from expansions you don't own.";
-    }
-
-    private IReadOnlyList<Spirit> OwnedSpiritsList() =>
-        GameData.Spirits.Where(s => OwnedExpansions is null || OwnedExpansions.Contains(s.ExpansionId)).ToList();
-
-    private IReadOnlyList<Adversary> OwnedAdversariesList() =>
-        GameData.Adversaries.Where(a => OwnedExpansions is null || OwnedExpansions.Contains(a.ExpansionId)).ToList();
-
-    private IReadOnlyList<Scenario> OwnedScenariosList() =>
-        GameData.Scenarios.Where(s => OwnedExpansions is null || OwnedExpansions.Contains(s.ExpansionId)).ToList();
-
-    private IReadOnlyList<Board> OwnedBoardsList() =>
-        GameData.Boards.Where(b => OwnedExpansions is null || OwnedExpansions.Contains(b.ExpansionId)).ToList();
-
-    private static List<MissingLevel> MissingAdversaryLevels(
-        IReadOnlyList<AdversaryStats> stats,
-        IReadOnlyList<Adversary> ownedAdversaries)
-    {
-        var statsByAdv = stats.ToDictionary(a => a.AdversaryId);
-        var missing = new List<MissingLevel>();
-        foreach (var adv in ownedAdversaries)
-        {
-            var played = statsByAdv.TryGetValue(adv.Id.Value, out var s)
-                ? s.Levels.Select(l => l.Level).ToHashSet()
-                : new HashSet<int>();
-            foreach (var mode in adv.Modes.OrderBy(m => m.Level))
-            {
-                if (!played.Contains(mode.Level))
-                {
-                    missing.Add(new MissingLevel(adv.Id.Value, adv.Name, mode.Level));
-                }
-            }
-        }
-        return missing;
-    }
 }

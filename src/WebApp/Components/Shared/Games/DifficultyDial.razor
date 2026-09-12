@@ -1,0 +1,51 @@
+@* The setup screen's difficulty dial: the total in a white disc and — tapped — the breakdown that
+   adds up to it, dropped as a menu under it. Self-contained: whether the menu is open is the
+   dial's own business, and the setup form only supplies the number and its parts. *@
+
+<div class="relative">
+    <button type="button" @onclick="() => _open = !_open" aria-expanded="@Aria.Flag(_open)"
+            class="disc relative z-30 h-20 w-20 flex-col border-2 border-amber-300 bg-white shadow-lg ring-4 ring-white/60 transition-transform hover:scale-105 focus:outline-none focus-visible:ring-amber-400/60"
+            title="Total difficulty — tap for the breakdown">
+        @* .micro-label, like every other word set over a figure in the app. *@
+        <span class="micro-label">Difficulty</span>
+        <span class="numeral-display text-3xl text-ink-900">@Total</span>
+    </button>
+    @if (_open)
+    {
+        <ClickAway OnDismiss="() => _open = false"/>
+        @* mt-2 rather than the menu's own mt-1: the dial above it wears a 4px ring, so the default
+           gutter would land the panel on it. *@
+        <div class="field-menu right-0 top-full mt-2 w-64 p-4 text-left">
+            <div class="micro-label-strong mb-2">Difficulty breakdown</div>
+            @if (Lines.Count == 0)
+            {
+                <div class="text-xs text-ink-600">@GameLookups.StandardGameTitle — no adversary, scenario, or modifiers.</div>
+            }
+            else
+            {
+                <ul class="space-y-1 text-xs text-ink-700">
+                    @foreach (var line in Lines)
+                    {
+                        <li class="flex justify-between gap-2">
+                            <span class="truncate">@line.Label</span>
+                            <span class="font-medium tabular-nums">@GameFormat.Signed(line.Amount)</span>
+                        </li>
+                    }
+                    <li class="mt-1 flex justify-between gap-2 border-t border-ink-100 pt-1.5 font-semibold text-ink-900">
+                        <span>Total</span><span class="tabular-nums">@Total</span>
+                    </li>
+                </ul>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    /// <summary>What the setup adds up to — the figure on the dial.</summary>
+    [Parameter, EditorRequired] public int Total { get; set; }
+
+    /// <summary>What made it — <see cref="DifficultyBreakdown.Of"/>. Empty means a standard game.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<BreakdownLine> Lines { get; set; } = [];
+
+    private bool _open;
+}

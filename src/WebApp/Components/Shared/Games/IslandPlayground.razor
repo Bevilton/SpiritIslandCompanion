@@ -10,7 +10,7 @@
 @inject IJSRuntime JS
 @inject IWebHostEnvironment Env
 
-<div class="island-pg-wrap @(_fullscreen ? "island-pg-wrap--full" : "")">
+<div class="island-pg-wrap @(_fullscreen ? "island-pg-wrap--full" : null)">
     <div @ref="_canvas" class="island-pg-host"></div>
 
     @* --- top-left: which arrangement is on the table --- *@
@@ -19,7 +19,7 @@
         <span>@LayoutLabel</span>
         @if (BoardCount > 0)
         {
-            <span class="island-pg-badge__count">@BoardCount board@(BoardCount == 1 ? "" : "s")</span>
+            <span class="island-pg-badge__count">@Copy.Count(BoardCount, "board")</span>
         }
     </div>
 
@@ -49,7 +49,8 @@
         {
             @if (_selected >= 0 && _selected < Boards.Count)
             {
-                <button type="button" @onclick="() => ActivateBoard(_selected)" title="Set up this board">
+                <button type="button" @onclick="() => ActivateBoard(_selected)"
+                        title="Set up this board" aria-label="Set up this board">
                     <Icon Name="settings" Class="w-4 h-4"/>
                     <span class="island-pg-tools__text">Set up</span>
                 </button>
@@ -61,19 +62,26 @@
         }
         else if (_selected >= 0)
         {
-            <button type="button" @onclick="() => Rotate(-1)" title="Rotate 60° counter-clockwise">
+            @* Named as well as titled, like the view controls above — every label in this bar is
+               dropped below sm (.island-pg-tools__text) and the two rotate buttons carry no text
+               at any width, so on a phone the whole bar was reachable only through its tooltips. *@
+            <button type="button" @onclick="() => Rotate(-1)"
+                    title="Rotate 60° counter-clockwise" aria-label="Rotate 60° counter-clockwise">
                 <Icon Name="rotate-ccw" Class="w-4 h-4"/>
             </button>
-            <button type="button" @onclick="() => Rotate(1)" title="Rotate 60° clockwise">
+            <button type="button" @onclick="() => Rotate(1)"
+                    title="Rotate 60° clockwise" aria-label="Rotate 60° clockwise">
                 <Icon Name="rotate-cw" Class="w-4 h-4"/>
             </button>
+            var unstickLabel = _islandSize <= 1 ? "This board isn't joined to anything" : "Unstick this board from its island";
             <button type="button" @onclick="Detach" disabled="@(_islandSize <= 1)"
-                    title="@(_islandSize <= 1 ? "This board isn't joined to anything" : "Unstick this board from its island")">
+                    title="@unstickLabel" aria-label="@unstickLabel">
                 <Icon Name="unlink" Class="w-4 h-4"/>
                 <span class="island-pg-tools__text">Unstick</span>
             </button>
             <span class="island-pg-tools__sep"></span>
-            <button type="button" @onclick="() => ActivateBoard(_selected)" title="Set up this board">
+            <button type="button" @onclick="() => ActivateBoard(_selected)"
+                    title="Set up this board" aria-label="Set up this board">
                 <Icon Name="settings" Class="w-4 h-4"/>
                 <span class="island-pg-tools__text">Set up</span>
             </button>
@@ -90,7 +98,8 @@
         @if (!Locked && BoardCount > 1)
         {
             <span class="island-pg-tools__sep"></span>
-            <button type="button" @onclick="Scatter" title="Pull every board apart and start over">
+            <button type="button" @onclick="Scatter"
+                    title="Pull every board apart and start over" aria-label="Scatter the boards">
                 <Icon Name="shuffle" Class="w-4 h-4"/>
                 <span class="island-pg-tools__text">Scatter</span>
             </button>
@@ -108,6 +117,14 @@
     /// because which board it is still has to be chosen.
     public sealed record BoardVisual(
         string Key, string? Letter, string Color, string? SpiritColor, string? Initials, bool Error, bool Seated = true);
+
+    /// <summary>
+    /// The land a board is painted in before its letter has been chosen — bare parchment, since
+    /// there is no lettered board yet to take its colour from. Named here rather than spelled at
+    /// the call site: the setup form had two hexes a shade apart for the same "not chosen yet",
+    /// one for a seat's board and one for the extra one, which made the same state read as two.
+    /// </summary>
+    public const string UnassignedColor = "#e8dcb8";
 
     [Parameter, EditorRequired] public IReadOnlyList<BoardVisual> Boards { get; set; } = [];
 

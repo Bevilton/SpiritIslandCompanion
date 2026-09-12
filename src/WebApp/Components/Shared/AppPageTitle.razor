@@ -1,0 +1,18 @@
+@* The browser tab's title, in one shape: "Games — Spirit Island Companion".
+
+   Every page said this for itself, and the two halves of the app had drifted — the public
+   reference pages carried the site name and their signed-in twins did not, so the same
+   catalogue read as "Spirits — Spirit Island Companion" on one route and a bare "Spirits" on
+   the other. With a dozen tabs open the bare ones name nothing.
+
+   The landing page is the exception and sets <PageTitle> directly: it is the site, so
+   "Spirit Island Companion — Spirit Island Companion" is not the name it wants. *@
+
+<PageTitle>@Title — @SiteName</PageTitle>
+
+@code {
+    /// <summary>What this page is, in a word or two — "Games", "New game", the match's name.</summary>
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+
+    public const string SiteName = "Spirit Island Companion";
+}

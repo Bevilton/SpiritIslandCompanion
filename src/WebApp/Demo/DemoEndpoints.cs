@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Infrastructure.Demo;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using WebApp.Auth;
 
 namespace WebApp.Demo;
 
@@ -22,7 +23,7 @@ public static class DemoEndpoints
 {
     public static WebApplication MapDemoEndpoints(this WebApplication app)
     {
-        app.MapGet("/demo", async (HttpContext context, DemoSandboxRegistry registry) =>
+        app.MapGet(AppRoutes.Demo, async (HttpContext context, DemoSandboxRegistry registry) =>
         {
             // A navigation, or a request this site's own pages made — never a request some other
             // site issued. This endpoint hands out the same cookie a real account signs in with,
@@ -48,7 +49,7 @@ public static class DemoEndpoints
             // be quietly signed out of their own account and into sample data. Leave the demo
             // first (or use a private window).
             if (context.User.Identity?.IsAuthenticated == true && !DemoClaims.IsDemo(context.User))
-                return Results.Redirect("/app/dashboard");
+                return Results.Redirect(AppRoutes.Dashboard);
 
             // Re-entering resets the island the visitor already has instead of minting a second
             // one: the cookie goes on naming the same sandbox, so a page they left open in
@@ -56,7 +57,7 @@ public static class DemoEndpoints
             if (DemoClaims.GetSandboxId(context.User) is { } existing)
             {
                 await registry.ResetSandboxAsync(existing, context.RequestAborted);
-                return Results.Redirect("/app/dashboard");
+                return Results.Redirect(AppRoutes.Dashboard);
             }
 
             var sandboxId = await registry.CreateSandboxAsync(context.RequestAborted);
@@ -65,37 +66,37 @@ public static class DemoEndpoints
                 [
                     new Claim(ClaimTypes.Name, DemoSandbox.DemoUserNickname),
                     new Claim(ClaimTypes.Email, DemoSandbox.DemoUserEmail),
-                    new Claim("db_user_id", DemoSandbox.DemoUserId.ToString()),
+                    new Claim(AppClaims.UserId, DemoSandbox.DemoUserId.ToString()),
                     new Claim(DemoClaims.SandboxId, sandboxId.ToString()),
                 ],
                 CookieAuthenticationDefaults.AuthenticationScheme);
 
             await context.SignInAsync(
                 CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity));
-            return Results.Redirect("/app/dashboard");
+            return Results.Redirect(AppRoutes.Dashboard);
         }).AllowAnonymous();
 
-        app.MapGet("/demo/reset", async (HttpContext context, DemoSandboxRegistry registry) =>
+        app.MapGet(AppRoutes.DemoReset, async (HttpContext context, DemoSandboxRegistry registry) =>
         {
             // Anonymous, not RequireAuthorization: an expired demo cookie or a stale link should
             // land on the landing page, and the default challenge scheme would send it to the
             // identity provider's login form instead.
             if (DemoClaims.GetSandboxId(context.User) is not { } sandboxId)
-                return Results.Redirect("/");
+                return Results.Redirect(AppRoutes.Home);
 
             await registry.ResetSandboxAsync(sandboxId, context.RequestAborted);
-            return Results.Redirect("/app/dashboard");
+            return Results.Redirect(AppRoutes.Dashboard);
         }).AllowAnonymous();
 
-        app.MapGet("/demo/exit", async (HttpContext context, DemoSandboxRegistry registry) =>
+        app.MapGet(AppRoutes.DemoExit, async (HttpContext context, DemoSandboxRegistry registry) =>
         {
             // Only a demo cookie is signed out — a real account reaching this URL keeps its session.
             if (DemoClaims.GetSandboxId(context.User) is not { } sandboxId)
-                return Results.Redirect("/");
+                return Results.Redirect(AppRoutes.Home);
 
             registry.Remove(sandboxId);
             await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-            return Results.Redirect("/");
+            return Results.Redirect(AppRoutes.Home);
         }).AllowAnonymous();
 
         return app;

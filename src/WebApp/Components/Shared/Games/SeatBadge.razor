@@ -1,0 +1,29 @@
+@* Which seat this is: a numbered disc in the spirit's own colour, and the word for it. The
+   recorded game's player card heads itself with one and so does the setup screen's seat dialog,
+   and they had a copy each — same disc, same type, one of them free to drift.
+
+   Untinted while the seat has no spirit yet, which only the setup screen can be: a coloured disc
+   there would be claiming a choice that has not been made. *@
+
+<span class="inline-flex items-center gap-2 text-xs font-medium text-ink-500">
+    <span class="disc h-6 w-6 text-[11px] font-semibold"
+          style="@DiscStyle">@Number</span>
+    <span class="uppercase tracking-wide">Player @Number@(Total is { } total ? $" of {total}" : null)</span>
+</span>
+
+@code {
+    /// <summary>The seat's place at the table, counting from one.</summary>
+    [Parameter, EditorRequired] public int Number { get; set; }
+
+    /// <summary>How many seats there are, where the badge is worn by a dialog opened on one of
+    /// them and "which of how many" is the thing being said. Omit on a card that sits among the
+    /// others, where the count is there to be seen.</summary>
+    [Parameter] public int? Total { get; set; }
+
+    /// <summary>The spirit's colour. Null while the seat is still empty.</summary>
+    [Parameter] public string? Color { get; set; }
+
+    private string DiscStyle => Color is { } color
+        ? $"background-color: {color}; color: white;"
+        : "background-color: var(--color-ink-100); color: var(--color-ink-600);";
+}

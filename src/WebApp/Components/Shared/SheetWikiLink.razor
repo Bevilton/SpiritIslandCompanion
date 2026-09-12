@@ -1,0 +1,17 @@
+@* The way out of a reference sheet to the Spirit Island wiki's page on the same subject — the
+   sheet summarises, the wiki has the full rules text. Sits last in the body on the three sheets
+   that offer it, each of which used to spell the row out itself. *@
+
+<div class="pt-2">
+    @* The tones are the base stylesheet's for any link, so only the layout is said here. *@
+    <a href="@GameLookups.WikiLink(Name)" target="_blank" rel="noopener"
+       class="inline-flex items-center gap-1 text-sm">
+        Read on the Spirit Island wiki
+        <Icon Name="arrow-right" Class="w-3.5 h-3.5"/>
+    </a>
+</div>
+
+@code {
+    /// <summary>The subject's display name, which is how the wiki names its pages.</summary>
+    [Parameter, EditorRequired] public string Name { get; set; } = "";
+}

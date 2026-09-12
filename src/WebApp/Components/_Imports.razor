@@ -1,22 +1,44 @@
-@using System.Net.Http
-@using System.Net.Http.Json
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
-@using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Components.Routing
 @using Microsoft.AspNetCore.Components.Web
-@using static Microsoft.AspNetCore.Components.Web.RenderMode
-@using Microsoft.AspNetCore.Components.Web.Virtualization
+@* JSInterop stays global: the playground is the one component that scripts the browser, but every
+   dialog that moves focus catches its JSDisconnectedException, and a using that three unrelated
+   files need is not one file's to carry. *@
 @using Microsoft.JSInterop
 @using MediatR
-@using ApexCharts
 @using Application.Abstractions
+@* Deliberately NOT here, each imported by its one user instead: ApexCharts (two chart components
+   draw with it, and imported globally it shadowed the catalogue's own type names — ApexCharts.Mode
+   against Domain.Models.Static.Mode, an adversary's level) and the static RenderMode (the render
+   root alone picks one). *@
+@* The feature namespaces are imported wholesale rather than per page: their type names are
+   unique across the application layer, and spelling them out inline had grown to a hundred
+   Application.Features.X.Y references that said nothing a using couldn't. *@
+@using Application.Features.Friendships
+@using Application.Features.Games
+@using Application.Features.Games.Dtos
+@using Application.Features.IslandLayouts
+@using Application.Features.People
+@using Application.Features.PlayerMerges
+@using Application.Features.Players
+@using Application.Features.Statistics
+@using Application.Features.Users
 @using Domain.Models.Static
 @using Domain.Models.Static.Data
 @using Domain.Models.Game
 @using Domain.Models.Game.Enums
 @using Domain.Models.IslandLayout
+@* The domain's namespaces are imported as a set for the same reason the feature ones are, and
+   the last two were the ones missing from it: Nickname was reached as the whole
+   Domain.Models.User.Nickname on both pages that cap a name field, while IslandLayoutName —
+   the identical value object one namespace over — was already a bare name, and the merge
+   status was a @@using on each of the two files that read it. *@
+@using Domain.Models.PlayerMerge
+@using Domain.Models.User
+@using Domain.Services
 @using WebApp
+@using WebApp.Auth
 @using WebApp.Components
 @using WebApp.Components.Layout
 @using WebApp.Components.Shared
@@ -26,4 +48,5 @@
 @using WebApp.Components.Shared.Stats
 @using WebApp.Components.Shared.Views
 @using WebApp.Demo
+@using WebApp.State
 @using WebApp.Validation

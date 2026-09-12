@@ -6,52 +6,39 @@
    Takes the same MatchupContext the pickers do, so the card and the picker a
    player opens next are reading one description of the table, not two. *@
 
-@using Application.Features.Statistics
-
 <section class="surface p-4">
-    <div class="mb-2 flex items-baseline justify-between gap-2">
-        <span class="text-xs font-medium uppercase tracking-wide text-ink-500">Your matchup</span>
-        @if (_record.LastPlayed is { } last)
-        {
-            <span class="text-[11px] text-ink-400">played @SetupInsights.Ago(last)</span>
-        }
-    </div>
+    <SectionHead Size="label" Class="mb-2" Title="Your matchup"
+                 Note="@(_record.LastPlayed is { } last ? $"played {SetupInsights.Ago(last)}" : null)"/>
 
     @if (!Context.HasHistory)
     {
-        <div class="flex items-start gap-2.5 rounded-xl border border-dashed border-accent-300 bg-accent-50/50 px-3 py-2.5">
+        @* .note, the register a remark inside a panel wears — the island card's three notes on
+           the same screen are read one after another with this one. *@
+        <div class="note flex items-start gap-2 border-dashed border-accent-300 bg-accent-50/50 text-ink-700">
             <Icon Name="sparkles" Class="w-4 h-4 text-accent-600 shrink-0 mt-0.5"/>
-            <div class="text-xs text-ink-700">
+            <div>
                 This will be your <strong>first recorded game</strong> — every stat starts here.
             </div>
         </div>
     }
     else
     {
-        <div class="text-sm font-semibold text-ink-900 leading-snug" style="font-family: var(--font-serif);">@Title</div>
+        <div class="card-title-sm">@Title</div>
 
         @if (_record.Played > 0)
         {
             <div class="mt-3 flex items-center gap-4">
-                @if (_record.Completed > 0)
-                {
-                    <WinRateRing Pct="_record.WinRate" Size="72" Stroke="7" Caption="wins"/>
-                }
-                else
-                {
-                    <div class="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-full border-2 border-dashed border-ink-200 text-center">
-                        <span class="text-[9px] uppercase tracking-wide text-ink-400 leading-tight px-2">no results yet</span>
-                    </div>
-                }
+                <WinRateRing Pct="_record.WinRate" Empty="@(_record.Completed == 0)"
+                             Size="72" Stroke="7" Caption="wins"/>
                 <div class="min-w-0 space-y-1 text-xs text-ink-700">
                     <div>Played <strong class="text-ink-900 tabular-nums">@(_record.Played)×</strong></div>
                     @if (_record.Completed > 0)
                     {
-                        <div>
-                            <strong class="text-accent-700 tabular-nums">@_record.Wins W</strong>
-                            <span class="text-ink-300">·</span>
-                            <strong class="text-red-600 tabular-nums">@_record.Losses L</strong>
-                        </div>
+                        @* WinLossTally, like every other place the app writes a record out
+                           longhand — this one had been left as a fifth hand-written copy and had
+                           drifted the way the other four had: <strong> rather than the family's
+                           medium, and a dot toned a step paler than the figures either side. *@
+                        <div><WinLossTally Wins="_record.Wins" Losses="_record.Losses"/></div>
                         <div>Best score <strong class="text-ink-900 tabular-nums">@_record.BestScore</strong></div>
                     }
                     else
@@ -60,7 +47,7 @@
                     }
                     @if (_record.LastWin is { } lastWin)
                     {
-                        <div class="@(lastWin ? "text-accent-700" : "text-red-600")">
+                        <div class="@WinTone.ForOutcome(lastWin)">
                             Last time you @(lastWin ? "won" : "lost").
                         </div>
                     }
@@ -69,11 +56,13 @@
         }
         else
         {
-            <div class="mt-3 flex items-start gap-2.5 rounded-xl border border-dashed border-amber-300 bg-amber-50/60 px-3 py-2.5">
+            <div class="note untried mt-3 flex items-start gap-2">
                 <Icon Name="sparkles" Class="w-4 h-4 text-amber-600 shrink-0 mt-0.5"/>
                 <div class="min-w-0">
-                    <div class="text-xs font-semibold text-amber-800">First encounter!</div>
-                    <div class="mt-0.5 text-[11px] leading-relaxed text-amber-700">@FallbackLine</div>
+                    @* The same two lines SetupProfileSection's empty record wears, at the note's own
+                       size — the two were called twins and had drifted a step apart. *@
+                    <div class="font-semibold text-amber-800">First encounter!</div>
+                    <div class="mt-0.5 leading-relaxed text-amber-700">@FallbackLine</div>
                 </div>
             </div>
         }
@@ -82,17 +71,22 @@
         @if (_levels is { } levels)
         {
             <div class="mt-3.5">
-                <div class="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-ink-500">@SingleAdversaryName by level</div>
+                <div class="micro-label mb-1.5">@SingleAdversaryName by level</div>
                 <div class="flex flex-wrap gap-1">
                     @foreach (var (level, rec) in levels)
                     {
                         var isPicked = Context.HighlightLevel == level;
-                        <span class="inline-flex flex-col items-center rounded-lg border px-1.5 py-1 min-w-[2.35rem]
-                                     @(isPicked ? "border-accent-400 bg-accent-50 ring-1 ring-accent-500/30" : "border-ink-200 bg-white")"
-                              title="@(rec.Played == 0
-                                        ? $"Level {level} — never played"
-                                        : $"Level {level} — played {rec.Played}×{(rec.Completed > 0 ? $", {rec.Wins} won / {rec.Losses} lost" : "")}")">
-                            <span class="text-[9px] uppercase tracking-wide text-ink-500">L@(level)</span>
+                        @* The fifth per-level tile in the app, and the one AdversaryLevelGrid
+                           can't draw: that strip is the whole ladder with what each level adds,
+                           and this is only the levels there is history at. What they can share
+                           is the state ladder (TileChrome) and the caption register, which is
+                           what had drifted here — a step paler on the ring, no tint at all on a
+                           level never faced, and its own spelling of .micro-label. *@
+                        <span @key="level"
+                              class="@TileChrome.For(rec.Played > 0, interactive: false, current: isPicked)
+                                     inline-flex min-w-[2.35rem] flex-col items-center rounded-lg px-1.5 py-1"
+                              title="@SetupInsights.RecordTooltip($"level {level}", rec, subjectName: null)">
+                            <span class="micro-label">L@(level)</span>
                             <span class="text-[11px] font-semibold tabular-nums @WinTone.ForRecord(rec)">@(rec.Played == 0 ? "—" : $"{rec.Played}×")</span>
                         </span>
                     }
@@ -105,7 +99,7 @@
             @* "at your table" rather than "yours": this card is the table's, so its per-spirit
                counts are every seat on the account and not only the reader's own (the seat
                pickers are where a record narrows to one person — see MatchupContext.SeatFilter). *@
-            <div class="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-ink-500">
+            <div class="micro-label mb-1.5">
                 @(Context.ExactLabel is { } scope ? $"Fielded {scope}" : "Go-to spirits at your table")
             </div>
             @if (_playedChips.Count > 0)
@@ -113,14 +107,13 @@
                 <div class="flex flex-wrap gap-1.5">
                     @foreach (var chip in _playedChips)
                     {
-                        <span class="inline-flex items-center gap-1.5 rounded-full border border-ink-200 bg-white px-2 py-0.5 text-[11px] text-ink-800"
-                              title="@chip.Tooltip">
-                            <span class="h-2 w-2 shrink-0 rounded-full" style="background-color: @chip.Color;"></span>
+                        <span class="chip chip-neutral" title="@chip.Tooltip">
+                            <ColorDot Color="@chip.Color"/>
                             <span class="max-w-40 truncate">@chip.Name</span>
                             <span class="tabular-nums text-ink-500">@(chip.Played)×</span>
                             @if (chip.Completed > 0)
                             {
-                                <span class="tabular-nums font-medium @WinTone.ForRate(chip.WinRate)">@($"{chip.WinRate:F0}")%</span>
+                                <WinRateFigure Value="chip.WinRate"/>
                             }
                         </span>
                     }
@@ -128,12 +121,12 @@
             }
             else
             {
-                <div class="text-[11px] text-ink-500">None yet — every spirit is a fresh pick.</div>
+                <div class="section-note">None yet — every spirit is a fresh pick.</div>
             }
 
             @if (_freshChips.Count > 0)
             {
-                <div class="mt-2.5 mb-1.5 flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-ink-500">
+                <div class="micro-label mt-2.5 mb-1.5 flex items-center gap-1">
                     <Icon Name="sparkles" Class="w-3 h-3 text-amber-500"/>
                     @FreshPicksLabel
                 </div>
@@ -143,18 +136,17 @@
                         @if (CanAssignSpirit)
                         {
                             <button type="button" @onclick="() => OnSuggestSpirit.InvokeAsync(chip.SpiritId)"
-                                    class="inline-flex items-center gap-1.5 rounded-full border border-dashed border-amber-300 bg-amber-50/60 px-2 py-0.5 text-[11px] text-amber-800 transition-colors hover:border-amber-400 hover:bg-amber-100"
+                                    class="chip untried"
                                     title="@chip.Tooltip — tap to assign to an open seat">
-                                <span class="h-2 w-2 shrink-0 rounded-full" style="background-color: @chip.Color;"></span>
+                                <ColorDot Color="@chip.Color"/>
                                 <span class="max-w-40 truncate">@chip.Name</span>
                                 <Icon Name="plus" Class="w-2.5 h-2.5"/>
                             </button>
                         }
                         else
                         {
-                            <span class="inline-flex items-center gap-1.5 rounded-full border border-dashed border-amber-300 bg-amber-50/60 px-2 py-0.5 text-[11px] text-amber-800"
-                                  title="@chip.Tooltip">
-                                <span class="h-2 w-2 shrink-0 rounded-full" style="background-color: @chip.Color;"></span>
+                            <span class="chip untried" title="@chip.Tooltip">
+                                <ColorDot Color="@chip.Color"/>
                                 <span class="max-w-40 truncate">@chip.Name</span>
                             </span>
                         }
@@ -167,20 +159,19 @@
         @if (_boardHabits.Count > 0)
         {
             <div class="mt-4 border-t border-ink-100 pt-3">
-                <div class="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-ink-500">Board habits</div>
+                <div class="micro-label mb-1.5">Board habits</div>
                 <div class="space-y-1.5">
                     @foreach (var habit in _boardHabits)
                     {
                         <div class="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-ink-700">
-                            <span class="h-2 w-2 shrink-0 rounded-full" style="background-color: @habit.Color;"></span>
+                            <ColorDot Color="@habit.Color"/>
                             <span class="max-w-36 truncate font-medium text-ink-900">@habit.SpiritName</span>
                             <span class="whitespace-nowrap text-ink-400">usually takes</span>
-                            <span class="inline-flex h-4 w-4 items-center justify-center rounded text-[9px] font-bold text-white"
-                                  style="background-color: @habit.BoardColor; font-family: var(--font-serif);">@habit.BoardLetter</span>
+                            <LetterTile Size="xs" Color="@habit.BoardColor" Text="@habit.BoardLetter"/>
                             <span class="whitespace-nowrap tabular-nums text-ink-500">@(habit.Count)× of @habit.Total</span>
                             @if (habit.Completed > 0)
                             {
-                                <span class="tabular-nums font-medium @WinTone.ForRate(habit.WinRate)">@($"{habit.WinRate:F0}")%</span>
+                                <WinRateFigure Value="habit.WinRate"/>
                             }
                         </div>
                     }
@@ -237,53 +228,56 @@
         _playedChips = BuildPlayedChips();
         _freshChips = BuildFreshChips();
         _boardHabits = BuildBoardHabits();
+        Title = BuildTitle();
+        // Only read when the exact selection was never played, so only built then.
+        FallbackLine = _record.Played == 0 ? BuildFallbackLine() : "";
     }
 
-    private string Title
+    /// What the card is about — the selection in words. Derived in OnParametersSet with the rest,
+    /// as the file's own rule says: a property read in the markup is a walk per read.
+    private string Title { get; set; } = "";
+
+    private string BuildTitle()
     {
-        get
+        var parts = new List<string>();
+        foreach (var pick in Context.Adversaries)
         {
-            var parts = new List<string>();
-            foreach (var pick in Context.Adversaries)
-            {
-                var adv = GameLookups.AdversaryFor(pick.AdversaryId);
-                if (adv is null) continue;
-                parts.Add(pick.Level is { } lvl ? $"{adv.Name} L{lvl}" : adv.Name);
-            }
-            var vs = parts.Count > 0 ? $"vs {string.Join(" + ", parts)}" : null;
-            var scen = GameLookups.ScenarioFor(Context.ScenarioId)?.Name;
-            return (vs, scen) switch
-            {
-                (null, null) => "All your games",
-                (null, _)    => $"Scenario: {scen}",
-                (_, null)    => vs!,
-                _            => $"{vs} · {scen}"
-            };
+            var adv = GameLookups.AdversaryFor(pick.AdversaryId);
+            if (adv is null) continue;
+            parts.Add(pick.Level is { } lvl ? $"{adv.Name} L{lvl}" : adv.Name);
         }
+        var vs = parts.Count > 0 ? $"vs {string.Join(" + ", parts)}" : null;
+        var scen = GameLookups.ScenarioFor(Context.ScenarioId)?.Name;
+        return (vs, scen) switch
+        {
+            (null, null) => "All your games",
+            (null, _)    => $"Scenario: {scen}",
+            (_, null)    => vs!,
+            _            => $"{vs} · {scen}"
+        };
     }
 
     /// Shown when the exact selection was never played — names the closest history there is.
-    private string FallbackLine
-    {
-        get
-        {
-            var anyLevel = Context.AnyLevelGames();
-            if (anyLevel.Count > 0)
-            {
-                var r = SetupInsights.Record(anyLevel);
-                return $"You've faced this foe at other levels — {r.Played} play{Plural(r.Played)}{WinPart(r)}.";
-            }
-            // _broadGames drops the scenario too, so it is the "same foe, any scenario" set.
-            if (!string.IsNullOrEmpty(Context.ScenarioId) && Context.Adversaries.Count > 0 && _broadGames.Count > 0)
-            {
-                var r = SetupInsights.Record(_broadGames);
-                return $"You've faced this foe, but never with this scenario — {r.Played} play{Plural(r.Played)}{WinPart(r)}.";
-            }
-            return "You've never played this setup. Uncharted waters!";
-        }
-    }
+    /// Two more passes over the history, which is exactly why it is not a property read from the
+    /// markup any more.
+    private string FallbackLine { get; set; } = "";
 
-    private static string Plural(int n) => n == 1 ? "" : "s";
+    private string BuildFallbackLine()
+    {
+        var anyLevel = Context.AnyLevelGames();
+        if (anyLevel.Count > 0)
+        {
+            var r = SetupInsights.Record(anyLevel);
+            return $"You've faced this foe at other levels — {Copy.Count(r.Played, "play")}{WinPart(r)}.";
+        }
+        // _broadGames drops the scenario too, so it is the "same foe, any scenario" set.
+        if (!string.IsNullOrEmpty(Context.ScenarioId) && Context.Adversaries.Count > 0 && _broadGames.Count > 0)
+        {
+            var r = SetupInsights.Record(_broadGames);
+            return $"You've faced this foe, but never with this scenario — {Copy.Count(r.Played, "play")}{WinPart(r)}.";
+        }
+        return "You've never played this setup. Uncharted waters!";
+    }
 
     private static string WinPart(SetupInsights.MatchupRecord r)
         => r.Completed > 0 ? $", {r.WinRate:F0}% wins" : "";
@@ -353,11 +347,11 @@
     {
         var spirit = GameLookups.SpiritFor(spiritId);
         if (spirit is null) return null;
-        var color = SpiritDetails.For(spirit.Id)?.ColorHex ?? GameLookups.NeutralColor;
-        var tooltip = vs.Played == 0
-            ? $"{spirit.Name} — never played yet"
-            : $"{spirit.Name} — {vs.Played} play{Plural(vs.Played)} {scope ?? "overall"}" +
-              (vs.Completed > 0 ? $", {vs.Wins} won / {vs.Losses} lost" : "");
+        var color = GameLookups.SpiritColor(spirit);
+        // The same sentence every other record tooltip in the app is — RecordTooltip, with the
+        // scope folded into the label so "Lightning vs England" reads as one subject.
+        var label = scope is null ? spirit.Name : $"{spirit.Name} {scope}";
+        var tooltip = SetupInsights.RecordTooltip(label, vs, subjectName: null);
         return new SpiritChip(spiritId, spirit.Name, color, vs.Played, vs.Completed, vs.WinRate, tooltip);
     }
 
@@ -377,12 +371,11 @@
             var top = records.MaxBy(kv => kv.Value.Played);
             var board = GameLookups.BoardFor(top.Key);
             if (board is null) continue;
-            var boardDetail = BoardDetails.For(board.Id);
             habits.Add(new BoardHabit(
                 spirit.Name,
-                SpiritDetails.For(spirit.Id)?.ColorHex ?? GameLookups.NeutralColor,
+                GameLookups.SpiritColor(spirit),
                 GameLookups.BoardLetter(board),
-                boardDetail?.ColorHex ?? GameLookups.NeutralColor,
+                GameLookups.BoardColor(board),
                 top.Value.Played,
                 records.Values.Sum(r => r.Played),
                 top.Value.Completed,

@@ -1,19 +1,26 @@
+@* What a recorded game's outcome is called wherever one is listed — the games list, the recent
+   strip, a game's own heading, the merge dialog's history. Three states, not two: a draft has no
+   outcome yet, which is a different thing from having lost.
+
+   A .badge with the dot in front, so it reads as one of the app's status pills rather than as a
+   control; the dot is what carries the colour at this size. *@
+
 @if (!IsCompleted)
 {
     <span class="badge badge-neutral">
-        <span class="h-1.5 w-1.5 rounded-full bg-ink-400"></span>Draft
+        <ColorDot Size="2xs" Class="bg-ink-400"/>Draft
     </span>
 }
 else if (Win == true)
 {
     <span class="badge badge-success">
-        <span class="h-1.5 w-1.5 rounded-full bg-accent-600"></span>Victory
+        <ColorDot Size="2xs" Class="bg-accent-600"/>Victory
     </span>
 }
 else
 {
     <span class="badge badge-danger">
-        <span class="h-1.5 w-1.5 rounded-full bg-red-500"></span>Defeat
+        <ColorDot Size="2xs" Class="bg-red-500"/>Defeat
     </span>
 }
 

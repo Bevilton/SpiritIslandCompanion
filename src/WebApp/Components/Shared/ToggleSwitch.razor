@@ -1,0 +1,48 @@
+@* The on/off switch itself: a track with a knob that slides across it. Purely the picture — the
+   thing actually clicked is always the row or label around it, because all three of these carry a
+   hint button or a caption that a real <button> could not contain.
+
+   Three were spelled out by hand in the setup form and had to agree on five numbers at once
+   (track 24×44, knob 20, its two offsets, and how far it travels). They already disagreed on
+   more than that: the outcome switch is built on a peer checkbox and the two setup switches on a
+   bool, so the same control was written two different ways a few hundred lines apart.
+
+   Both shapes survive, because the difference is real: the outcome switch's state lives in a
+   bound checkbox and is painted by CSS the instant it is ticked, with no round trip, while the
+   setup rows have no checkbox and read their bool. What they now share is the geometry, which is
+   the part that must never drift — hence the wrapper/fill/knob split, which the bool version did
+   not need but is what lets the checkbox sit as a sibling of both painted layers. *@
+
+<span class="relative inline-flex h-6 w-11 shrink-0 items-center">
+    @* The peer checkbox, in the one place `peer-checked:` can reach both layers below it. *@
+    @ChildContent
+    <span class="absolute inset-0 rounded-full transition-colors @Fill"></span>
+    <span class="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform @Slide"></span>
+</span>
+
+@code {
+    /// <summary>Whether it is on. Ignored when a peer checkbox is supplied — that says instead.</summary>
+    [Parameter] public bool On { get; set; }
+
+    /// <summary>
+    /// The bound <c>peer</c> checkbox, for a switch whose state is a checkbox rather than a bool
+    /// — it then flips under the finger instead of after the server answers. Pass the
+    /// <c>peer-checked:</c> form of <see cref="OnClass"/> along with it.
+    /// </summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>
+    /// The class that paints the track on — jade unless the switch belongs to something amber.
+    /// With a peer checkbox, pass the <c>peer-checked:</c> form of it, spelled out: Tailwind scans
+    /// the source for literal class names, so a variant this component composed would never be
+    /// emitted. (The variant also outranks the off fill on specificity, which is why both can sit
+    /// on the element at once.)
+    /// </summary>
+    [Parameter] public string OnClass { get; set; } = "bg-accent-500";
+
+    private bool Peered => ChildContent is not null;
+
+    private string Fill => Peered ? $"bg-ink-200 {OnClass}" : On ? OnClass : "bg-ink-200";
+
+    private string Slide => Peered ? "peer-checked:translate-x-5" : On ? "translate-x-5" : "";
+}

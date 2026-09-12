@@ -16,6 +16,13 @@ public static class GamesLink
 {
     public const string Path = "/app/games";
 
+    /// <summary>
+    /// The setup screen. Seven call sites across the shells, the dashboard, the games list, the
+    /// statistics page and the landing page were each spelling the path out — the one address in
+    /// the app that everything invites you to.
+    /// </summary>
+    public const string New = $"{Path}/new";
+
     public const string AdversaryKey = "adversary";
     public const string LevelKey = "level";
     public const string ScenarioKey = "scenario";
@@ -36,6 +43,14 @@ public static class GamesLink
     /// slice to go back to, which keeps a game's URL clean in the ordinary case.
     /// </summary>
     public const string BackKey = "back";
+
+    /// <summary>
+    /// Opens a draft straight in its result form — the "Finish" shortcut on the games list and on
+    /// the dashboard's attention panel. Written out at all three ends of that shortcut, once as a
+    /// hand-rolled <c>?</c>-or-<c>&amp;</c> concatenation, so the two that build the link and the
+    /// page that reads it had nothing keeping them in step.
+    /// </summary>
+    public const string FinishKey = "finish";
 
     /// <summary>How a status tab is written; the default tab is left out entirely.</summary>
     private static string StatusValue(GameStatusTab tab) => tab switch
@@ -141,10 +156,17 @@ public static class GamesLink
     public static string For(GamesFilter filter) => WithQuery(Query(filter));
 
     /// <summary>A game, with the way back to the slice it was opened from when there is one.</summary>
-    public static string Game(Guid id, string? backQuery) =>
+    public static string Game(Guid id, string? backQuery = null) =>
         string.IsNullOrEmpty(backQuery)
             ? $"{Path}/{id}"
             : $"{Path}/{id}?{BackKey}={Uri.EscapeDataString(backQuery)}";
+
+    /// <summary>The same game, landing in its result form — see <see cref="FinishKey"/>.</summary>
+    public static string Finish(Guid id, string? backQuery = null)
+    {
+        var href = Game(id, backQuery);
+        return $"{href}{(href.Contains('?') ? '&' : '?')}{FinishKey}=true";
+    }
 
     /// <summary>Where a game's "back" link goes — the slice it came from, or the whole history.</summary>
     public static string Back(string? backQuery) =>

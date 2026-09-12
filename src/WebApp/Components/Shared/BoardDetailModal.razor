@@ -1,117 +1,78 @@
-@* Board reference sheet — the board's letter, thematic position and, given Facts,
-   the record on it (which spirits get placed there, how those games went). Given
-   OnSelected the board can be chosen straight from here. Whose record it is belongs
-   to the host — see SpiritDetailModal.
-   z-60 keeps it above the picker modals (z-50) that open it. *@
-
-@using Application.Features.Statistics
+@* Board reference sheet — the board's letter, thematic position and, given Facts, the record on
+   it (which spirits get placed there, how those games went). Given OnSelected the board can be
+   chosen straight from here. Whose record it is belongs to the host — see DetailSheetBase. *@
+@inherits DetailSheetBase
 
 @if (_board is not null)
 {
     var detail = _detail;
-    var color = detail?.ColorHex ?? GameLookups.NeutralColor;
+    var color = GameLookups.BoardColor(detail);
     var letter = GameLookups.BoardLetter(_board);
 
-    <ModalShell OnClose="Close" ZIndex="z-[60]" MaxWidth="md:max-w-4xl">
-            <div class="px-6 md:px-8 pt-6 pb-5 relative" style="background: linear-gradient(135deg, @(color)18 0%, @(color)08 100%); border-bottom: 1px solid @(color)33;">
-                <button class="absolute top-4 right-4 inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-500 hover:bg-white/60 hover:text-ink-900 transition-colors" @onclick="Close" aria-label="Close">
-                    <Icon Name="x" Class="w-5 h-5"/>
-                </button>
+    <ModalShell OnClose="Close" ZIndex="@SheetZIndex" MaxWidth="@SheetWidth">
+        <DetailModalHeader Title="@_board.Name" OnClose="Close" TintStyle="@GameLookups.TintBandStyle(color)">
+            <Glyph>
+                <LetterTile Size="3xl" Color="@color" Text="@letter"/>
+            </Glyph>
+            <Badges>
+                <span class="badge badge-neutral">@GameLookups.ExpansionName(_board.ExpansionId)</span>
+                @if (detail is not null)
+                {
+                    @* G and H are standard-side stand-ins — saying they sit on the
+                       thematic island would contradict the island itself. *@
+                    <span>
+                        · @detail.ThematicName@(ThematicIslandBoards.Includes(_board.Id) ? " on the thematic island" : " — not part of the thematic island")
+                    </span>
+                }
+            </Badges>
+        </DetailModalHeader>
 
-                <div class="flex items-start gap-4 pr-10">
-                    <span class="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-2xl font-semibold text-white shadow-sm"
-                          style="background-color: @color; font-family: var(--font-serif);">@letter</span>
-                    <div class="min-w-0 flex-1">
-                        <h2 class="text-2xl font-semibold text-ink-900 leading-tight" style="font-family: var(--font-serif);">@_board.Name</h2>
-                        <div class="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
-                            <span class="badge badge-neutral">@GameLookups.ExpansionName(_board.ExpansionId)</span>
-                            @if (detail is not null)
-                            {
-                                @* G and H are standard-side stand-ins — saying they sit on the
-                                   thematic island would contradict the island itself. *@
-                                <span class="text-ink-600">
-                                    · @detail.ThematicName@(ThematicIslandBoards.Includes(_board.Id) ? " on the thematic island" : " — not part of the thematic island")
-                                </span>
-                            }
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            @* Nothing but the record goes in the body, so a sheet with no record to show has no
-               body at all rather than a band of padding. The public pages are a reference anyone
-               can read and say nothing about the reader — as the spirit and adversary sheets
-               don't either — so only a page that went looking for a record reports finding none. *@
-            @if (_profile is not null)
-            {
-                <div class="overflow-y-auto px-6 md:px-8 py-5">
-                    <SetupProfileSection Profile="_profile" Name="@_board.Name"
-                                         Scoped="@(SeatFilter is not null)" SubjectName="@SubjectName"
+        @* Nothing but the record goes in the body, so a sheet with no record to show has no
+           body at all rather than a band of padding. The public pages are a reference anyone
+           can read and say nothing about the reader — as the spirit and adversary sheets
+           don't either — so only a page that went looking for a record reports finding none. *@
+        @if (Profile is not null || !ReferenceOnly)
+        {
+            <div class="sheet-body">
+                @if (Profile is not null)
+                {
+                    <SetupProfileSection Profile="Profile" Name="@_board.Name"
+                                         Scoped="Scoped" SubjectName="@SubjectName"
                                          Title="record on this board"
                                          LinkGames="LinkGames"
-                                         AllGamesHref="@(LinkGames ? GamesLink.ForBoard(_board.Id.Value, who: ScopeWho) : null)"/>
-                </div>
-            }
-            else if (!ReferenceOnly)
-            {
-                <div class="px-6 md:px-8 py-5">
-                    <p class="text-sm text-ink-500 italic">No game history to show for this board yet.</p>
-                </div>
-            }
+                                         AllGamesHref="@GamesLink.ForBoard(_board.Id.Value, who: ScopeWho)"/>
+                }
+                else
+                {
+                    <SheetNoRecord Subject="board"/>
+                }
+            </div>
+        }
 
-            @if (OnSelected.HasDelegate)
-            {
-                <div class="flex items-center justify-between gap-3 border-t border-ink-100 bg-ink-50/40 px-6 md:px-8 py-3.5 md:rounded-b-2xl">
-                    <button type="button" class="btn btn-ghost btn-sm" @onclick="Close">
-                        <Icon Name="arrow-left" Class="w-3.5 h-3.5"/> Back to boards
-                    </button>
-                    <button type="button" class="btn btn-primary" @onclick="Select">
-                        <Icon Name="check" Class="w-4 h-4"/> Use @_board.Name
-                    </button>
-                </div>
-            }
+        @if (OnSelected.HasDelegate)
+        {
+            <SheetFooter BackLabel="boards" OnBack="Close">
+                <button type="button" class="btn btn-primary" @onclick="Select">
+                    <Icon Name="check" Class="w-4 h-4"/> Use @_board.Name
+                </button>
+            </SheetFooter>
+        }
     </ModalShell>
 }
 
 @code {
-    /// <summary>
-    /// Personal game history. When there is any, the modal profiles the player's record on
-    /// this board; empty or null shows a placeholder (boards carry no reference text).
-    /// </summary>
-    [Parameter] public IReadOnlyList<SetupGameFact>? Facts { get; set; }
-
-    /// <summary>
-    /// Set by a host that loads no history at all — the public reference pages. Without it an
-    /// empty <see cref="Facts"/> means "you have played nothing here", which is a claim about
-    /// the reader; a signed-in player browsing the public page has a record, just not one this
-    /// page went and fetched.
-    /// </summary>
-    [Parameter] public bool ReferenceOnly { get; set; }
-
-    /// <summary>Whether the record may link out to the games behind it — see AdversaryDetailModal.</summary>
-    [Parameter] public bool LinkGames { get; set; }
-
-    /// <summary>Narrows the record to one person's seats — see SpiritDetailModal.</summary>
-    [Parameter] public Func<SetupFactSeat, bool>? SeatFilter { get; set; }
-
-    /// <summary>Whose record it is when it isn't the reader's own, e.g. "Anna".</summary>
-    [Parameter] public string? SubjectName { get; set; }
-
-    /// <summary>The same scope as a games-list <c>who</c> key, so the links out stay narrowed.</summary>
-    [Parameter] public string? ScopeWho { get; set; }
-
     /// <summary>When set, a footer action picks this board — used when opened from the picker.</summary>
     [Parameter] public EventCallback<Board> OnSelected { get; set; }
 
     private Board? _board;
     private BoardDetail? _detail;
-    private SetupProfiles.Profile? _profile;
 
     public void Show(Board board)
     {
         _board = board;
         _detail = BoardDetails.For(board.Id);
-        _profile = Facts is { Count: > 0 }
+        // A board sits in a seat, so the scope narrows the seats rather than dropping games.
+        Profile = Facts is { Count: > 0 }
             ? SetupProfiles.Build(SetupSubjectKind.Board, board.Id.Value, Facts, SeatFilter)
             : null;
         StateHasChanged();
@@ -121,7 +82,7 @@
     {
         _board = null;
         _detail = null;
-        _profile = null;
+        Profile = null;
     }
 
     private async Task Select()

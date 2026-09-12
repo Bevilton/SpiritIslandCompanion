@@ -1,0 +1,20 @@
+@* One line in the People page's requests lists: who it is about, what it is, and what can be
+   done about it. Four lists show these — friend requests in and out, merge requests in and out
+   — and the row is the same in all four; only the trailing actions differ. *@
+
+<div class="surface flex flex-wrap items-center gap-3 px-5 py-3">
+    <PlayerAssigneeBadge Kind="Kind" Name="@Name" DetailLabel="@Detail"
+                         ContainerClass="@PlayerAssigneeBadge.RowLayout"/>
+    @ChildContent
+</div>
+
+@code {
+    [Parameter, EditorRequired] public AssigneeKind Kind { get; set; }
+    [Parameter, EditorRequired] public string Name { get; set; } = "";
+
+    /// <summary>The second line under the name — an email, whose guest they are, how many games.</summary>
+    [Parameter, EditorRequired] public string Detail { get; set; } = "";
+
+    /// <summary>What can be done about it: accept and decline, review, cancel, a pending badge.</summary>
+    [Parameter, EditorRequired] public RenderFragment ChildContent { get; set; } = default!;
+}

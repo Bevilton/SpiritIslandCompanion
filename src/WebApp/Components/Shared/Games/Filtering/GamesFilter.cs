@@ -20,9 +20,9 @@ public sealed class GamesFilter : FilterState
 {
     public GamesFilter() : base(Sorts, ByDate.Key) { }
 
-    public static readonly SortOption ByDate = new("date", "Date", "Oldest", "Newest", StartsDescending: true);
-    public static readonly SortOption ByScore = new("score", "Score", "Lowest", "Highest", StartsDescending: true);
-    public static readonly SortOption ByPlayers = new("players", "Players", "Fewest", "Most");
+    private static readonly SortOption ByDate = new("date", "Date", "Oldest", "Newest", StartsDescending: true);
+    private static readonly SortOption ByScore = new("score", "Score", "Lowest", "Highest", StartsDescending: true);
+    private static readonly SortOption ByPlayers = new("players", "Players", "Fewest", "Most");
 
     private static readonly IReadOnlyList<SortOption> Sorts = [ByDate, ByDifficulty, ByScore, ByPlayers];
 
@@ -64,8 +64,13 @@ public sealed class GamesFilter : FilterState
     /// <summary>The one-off hand-built islands, which have no shape of their own to name.</summary>
     public const string OneOffIsland = "one-off";
 
+    /// <summary>How a saved shape's facet key is spelled. Built and read back through the one
+    /// constant — the reader below used to carry its own literal, the split <c>SeatAssignee</c>
+    /// was written to stop.</summary>
+    private const string SavedIslandPrefix = "saved:";
+
     /// <summary>A shape from the player's library, as an island facet key.</summary>
-    public static string SavedIslandKey(Guid layoutId) => $"saved:{layoutId}";
+    public static string SavedIslandKey(Guid layoutId) => $"{SavedIslandPrefix}{layoutId}";
 
     /// <summary>
     /// Which island a game was played on, as one facet key: a published layout by its setup id,
@@ -79,7 +84,7 @@ public sealed class GamesFilter : FilterState
         : OneOffIsland;
 
     /// <summary>A seat with nobody named in it — the facet key for "unassigned".</summary>
-    public const string UnknownPlayer = "unassigned";
+    private const string UnknownPlayer = "unassigned";
 
     public static string WhoKeyOf(GamePlayerSummary player) => WhoKey(player.UserId, player.PlayerId);
 
@@ -130,7 +135,7 @@ public sealed class GamesFilter : FilterState
     }
 
     /// <summary>Whether the game survives the status tab above the bar.</summary>
-    public bool MatchesStatus(ListGamesResponse game) => Status switch
+    private bool MatchesStatus(ListGamesResponse game) => Status switch
     {
         GameStatusTab.Victories => game is { IsCompleted: true, Win: true },
         GameStatusTab.Defeats => game is { IsCompleted: true, Win: false },
@@ -180,21 +185,23 @@ public sealed class GamesFilter : FilterState
         return MatchesQuery(game);
     }
 
-    public bool Matches(ListGamesResponse game) => MatchesStatus(game) && MatchesFacets(game);
+    /// Private, as the sibling filters' own Matches are: Apply is the whole public surface, and a
+    /// second way in would be a second place the status and facet halves could be forgotten.
+    private bool Matches(ListGamesResponse game) => MatchesStatus(game) && MatchesFacets(game);
 
     public List<ListGamesResponse> Apply(IEnumerable<ListGamesResponse> games)
     {
         var kept = games.Where(Matches);
-        return SortKey switch
-        {
-            // Ties broken by date, newest first, so equal rows keep the reading order of the page.
-            "difficulty" => By(kept, g => g.Difficulty).ThenByDescending(g => g.StartedAt).ToList(),
-            "players" => By(kept, g => g.PlayerCount).ThenByDescending(g => g.StartedAt).ToList(),
-            // Drafts have no score; pin them after the scored games from either direction.
-            "score" => By(kept, g => g.Score ?? (Descending ? int.MinValue : int.MaxValue))
-                .ThenByDescending(g => g.StartedAt).ToList(),
-            _ => By(kept, g => g.StartedAt).ToList(),
-        };
+        // Ties broken by date, newest first, so equal rows keep the reading order of the page.
+        if (SortKey == ByDifficulty.Key)
+            return By(kept, g => g.Difficulty).ThenByDescending(g => g.StartedAt).ToList();
+        if (SortKey == ByPlayers.Key)
+            return By(kept, g => g.PlayerCount).ThenByDescending(g => g.StartedAt).ToList();
+        // Drafts have no score; pin them after the scored games from either direction.
+        if (SortKey == ByScore.Key)
+            return By(kept, g => g.Score ?? (Descending ? int.MinValue : int.MaxValue))
+                .ThenByDescending(g => g.StartedAt).ToList();
+        return By(kept, g => g.StartedAt).ToList();
     }
 
     /// <summary>Month sections only make sense while the list is in date order.</summary>
@@ -233,7 +240,7 @@ public sealed class GamesFilter : FilterState
 
         foreach (var id in Boards.OrderBy(b => b, StringComparer.Ordinal))
         {
-            var label = GameLookups.BoardFor(id) is { } board ? $"Board {GameLookups.BoardLetter(board)}" : id;
+            var label = GameLookups.BoardLetterFor(id) is { } letter ? $"Board {letter}" : id;
             facets.Add(new ActiveFacet(label, "Board", () => Boards.Remove(id)));
         }
 
@@ -259,7 +266,7 @@ public sealed class GamesFilter : FilterState
     public static string IslandLabel(string key, IReadOnlyList<ListGamesResponse> games)
     {
         if (key == OneOffIsland) return "One-off island";
-        if (key.StartsWith("saved:", StringComparison.Ordinal))
+        if (key.StartsWith(SavedIslandPrefix, StringComparison.Ordinal))
         {
             return games.FirstOrDefault(g => IslandKeyOf(g) == key)?.CustomLayoutName ?? "Saved island";
         }
@@ -269,7 +276,7 @@ public sealed class GamesFilter : FilterState
     }
 
     /// <summary>A person facet key as a name — resolved from the seats that carry it.</summary>
-    public static string WhoLabel(string key, IReadOnlyList<ListGamesResponse> games) =>
+    private static string WhoLabel(string key, IReadOnlyList<ListGamesResponse> games) =>
         games.SelectMany(g => g.Players).FirstOrDefault(p => WhoKeyOf(p) == key)?.Name
         ?? (key == UnknownPlayer ? "Unassigned" : "Unknown");
 

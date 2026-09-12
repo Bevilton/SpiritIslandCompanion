@@ -1,145 +1,130 @@
-@* Scenario picker modal. Filters by expansion + free-text. Selecting closes.
-   OwnedExpansions is read from the AppShell cascade — the modal is auth-agnostic. *@
+@* Scenario picker: a list to scan, ordered by what each scenario adds, with "no scenario" leading
+   it as a choice of its own. Opened imperatively, like every picker — see PickerModalBase, which
+   also owns the lifecycle and the owned-expansions cascade. *@
+@inherits PickerModalBase
 
-@if (_open)
+@* The catalogue this picker offers and the part of it the filter keeps, derived once per
+   render rather than from properties read all the way down it — see the note in SpiritsView. *@
+@if (IsOpen)
 {
+    var inScope = OwnedCatalogue.Scenarios(OwnedExpansions);
+    var visible = _filter.Apply(inScope);
+
     <ModalShell OnClose="Close">
-            <div class="px-6 pt-5 pb-4 border-b border-ink-200 flex items-start gap-4">
-                <div class="min-w-0 flex-1">
-                    <h2 class="text-xl font-semibold text-ink-900 leading-tight" style="font-family: var(--font-serif);">
-                        Choose a scenario
-                    </h2>
-                    <p class="text-xs text-ink-500 mt-1">
-                        Optional rules twist that adds difficulty@(_context.HasHistory ? " · a scenario's record opens its full history" : "").
-                    </p>
-                </div>
-                <input type="search" class="input md:w-56" placeholder="Search by name…" aria-label="Search by name"
-                       @bind="_filter.Query" @bind:event="oninput"/>
-                <button class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-500 hover:bg-ink-100 hover:text-ink-900 transition-colors shrink-0" @onclick="Close" aria-label="Close">
-                    <Icon Name="x" Class="w-5 h-5"/>
-                </button>
-            </div>
+        <PickerModalHeader Title="Choose a scenario" OnClose="Close" @bind-Query="_filter.Query">
+            <Subtitle>Optional rules twist that adds difficulty@(Context.HasHistory ? " · a scenario's record opens its full history" : "").</Subtitle>
+        </PickerModalHeader>
 
-            @* The same filter every catalogue and picker uses. *@
-            <div class="border-b border-ink-200 bg-ink-50/50 px-6 py-3">
-                <FilterBar Filter="_filter" OwnedExpansions="@OwnedExpansions"
-                           PresentExpansions="_filter.ExpansionsIn(_inScope)"
-                           ShowingCount="_visible.Count" TotalCount="_inScope.Count"
-                           UntestedLabel="Never played" UntestedHint="Scenarios nobody at your table has played"
-                           Changed="StateHasChanged"/>
-            </div>
+        @* The same filter every catalogue and picker uses. *@
+        <div class="picker-filters">
+            <FilterBar Filter="_filter" OwnedExpansions="@OwnedExpansions"
+                       PresentExpansions="_filter.ExpansionsIn(inScope)"
+                       ShowingCount="visible.Count" TotalCount="inScope.Count"
+                       UntestedLabel="Never played" UntestedHint="@Copy.Untried("Scenarios")"
+                       Changed="StateHasChanged"/>
+        </div>
 
-            <div class="overflow-y-auto px-6 py-5 flex-1 space-y-2">
-                <button type="button"
-                        @onclick="() => Pick(null)"
-                        class="@(_currentScenarioId is null ? "ring-2 ring-accent-500 border-accent-300" : "border-ink-200 hover:border-ink-300")
-                               w-full flex items-center justify-between gap-3 bg-white border rounded-xl p-3 transition-all hover:shadow-sm text-left">
-                    <div>
-                        <div class="text-sm font-semibold text-ink-900">No scenario</div>
-                        @if (_records.GetValueOrDefault("") is { Played: > 0 } noScen)
-                        {
-                            <div class="flex flex-wrap items-center gap-1 text-[11px] text-ink-500">
-                                <span>Standard game — you played</span>
-                                <span class="tabular-nums font-medium text-ink-700">@(noScen.Played)×</span>
-                                @if (noScen.Completed > 0)
-                                {
-                                    <span class="tabular-nums font-semibold @WinTone.ForRate(noScen.WinRate)">@($"{noScen.WinRate:F0}")% wins</span>
-                                }
-                            </div>
-                        }
-                        else
-                        {
-                            <div class="text-[11px] text-ink-500">Standard game</div>
-                        }
-                    </div>
-                    <span class="text-[10px] uppercase tracking-wider text-ink-400">Default</span>
-                </button>
-
-                @foreach (var s in _visible)
-                {
-                    var detail = ScenarioDetails.For(s.Id);
-                    var isSelected = _currentScenarioId == s.Id.Value;
-
-                    @* The record pill is a sibling of the pick button (a button may not contain
-                       a button) and doubles as the door to the scenario's full sheet. *@
-                    <div @key="s.Id.Value"
-                         class="@(isSelected ? "ring-2 ring-accent-500 border-accent-300" : "border-ink-200 hover:border-ink-300")
-                                flex flex-col bg-white border rounded-xl transition-all hover:shadow-sm">
-                        <button type="button"
-                                @onclick="() => Pick(s)"
-                                class="w-full flex flex-1 items-start justify-between gap-3 rounded-t-xl p-3 pb-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
-                            <div class="min-w-0">
-                                <div class="flex items-center gap-2">
-                                    <Icon Name="book" Class="w-4 h-4 text-accent-700 shrink-0"/>
-                                    <div class="text-sm font-semibold text-ink-900">@s.Name</div>
-                                </div>
-                                <div class="text-[11px] text-ink-500 mt-0.5">@GameLookups.ExpansionName(s.ExpansionId)</div>
-                                @if (detail is not null)
-                                {
-                                    <p class="mt-1.5 text-xs text-ink-600 leading-snug line-clamp-2">@detail.Summary</p>
-                                }
-                            </div>
-                            <span class="badge shrink-0 @(s.Difficulty >= 3 ? "badge-warn" : s.Difficulty >= 1 ? "badge-info" : "badge-neutral")">
-                                +@s.Difficulty
-                            </span>
-                        </button>
-                        <div class="px-3 pb-2.5">
-                            <RecordChip Record="_records.GetValueOrDefault(s.Id.Value)" HasHistory="_context.HasHistory"
-                                        Subject="@s.Name" OnClick="() => ShowDetails(s)"/>
+        <div class="picker-body space-y-2">
+            <button type="button"
+                    @onclick="() => Pick(null)"
+                    class="pick-card @(_currentScenarioId is null ? "is-selected" : null)
+                           flex w-full items-center justify-between gap-3 p-3 text-left focus-ring">
+                <div>
+                    <div class="row-title">No scenario</div>
+                    @if (_records.GetValueOrDefault(SetupInsights.NoScenarioKey) is { Played: > 0 } noScen)
+                    {
+                        <div class="row-sub flex flex-wrap items-center gap-1">
+                            <span>Standard game — you played</span>
+                            <span class="tabular-nums font-medium text-ink-700">@(noScen.Played)×</span>
+                            @if (noScen.Completed > 0)
+                            {
+                                <WinRateFigure Value="noScen.WinRate" Suffix=" wins"/>
+                            }
                         </div>
-                    </div>
-                }
+                    }
+                    else
+                    {
+                        <div class="row-sub">Standard game</div>
+                    }
+                </div>
+                <span class="micro-label text-ink-400">Default</span>
+            </button>
 
-                @if (_visible.Count == 0)
-                {
-                    <div class="text-center py-10 text-ink-500 text-sm">No scenarios match the current filters.</div>
-                }
-            </div>
+            @foreach (var s in visible)
+            {
+                var detail = ScenarioDetails.For(s.Id);
+                var isSelected = _currentScenarioId == s.Id.Value;
+
+                @* The record pill is a sibling of the pick button (a button may not contain
+                   a button) and doubles as the door to the scenario's full sheet. *@
+                <div @key="s.Id.Value"
+                     class="pick-card @(isSelected ? "is-selected" : null) flex flex-col">
+                    <button type="button"
+                            @onclick="() => Pick(s)"
+                            class="w-full flex flex-1 items-start justify-between gap-3 rounded-t-xl p-3 pb-2 text-left focus-ring">
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2">
+                                <Icon Name="book" Class="w-4 h-4 text-accent-700 shrink-0"/>
+                                @* h3 with the picker's other cards — see BoardPickerModal. *@
+                                <h3 class="row-title">@s.Name</h3>
+                            </div>
+                            <div class="row-sub mt-0.5">@GameLookups.ExpansionName(s.ExpansionId)</div>
+                            @if (detail is not null)
+                            {
+                                <p class="mt-1.5 text-xs text-ink-600 leading-snug line-clamp-2">@detail.Summary</p>
+                            }
+                        </div>
+                        <ScenarioDifficultyBadge Difficulty="s.Difficulty" Class="shrink-0"/>
+                    </button>
+                    <div class="px-3 pb-2.5">
+                        <RecordChip Record="_records.GetValueOrDefault(s.Id.Value)" HasHistory="Context.HasHistory"
+                                    Subject="@s.Name" OnClick="() => ShowDetails(s)"/>
+                    </div>
+                </div>
+            }
+
+            @if (visible.Count == 0)
+            {
+                <div class="no-matches">@Copy.NoMatches("scenarios")</div>
+            }
+        </div>
     </ModalShell>
 }
 
+@* The whole scope, as the other three pickers pass it — see AdversaryPickerModal. *@
 <ScenarioDetailModal @ref="_detailModal"
-                     Facts="_context.Facts"
+                     Facts="Context.Facts"
+                     SeatFilter="Context.SeatFilter"
+                     SubjectName="@Context.SubjectName"
                      OnSelected="Pick"/>
 
 @code {
     [Parameter] public EventCallback<Scenario?> OnSelected { get; set; }
 
-    private bool _open;
     private string? _currentScenarioId;
     private ScenarioDetailModal _detailModal = default!;
 
-    /// The setup this picker was opened for — supplies the history behind each
-    /// card's record and the detail profile.
-    private SetupInsights.MatchupContext _context = SetupInsights.MatchupContext.Empty;
-
-    // Snapshotted on open — the form behind the modal can't change while it is up.
-    // The empty-string key holds games played without a scenario.
+    // Snapshotted on open — the form behind the modal can't change while it is up. Games played
+    // without a scenario sit under SetupInsights.NoScenarioKey.
     private Dictionary<string, SetupInsights.PlayRecord> _records = [];
-
-    [CascadingParameter(Name = "OwnedExpansions")]
-    public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
 
     public void Show(string? currentScenarioId = null, SetupInsights.MatchupContext? context = null)
     {
-        _context = context ?? SetupInsights.MatchupContext.Empty;
+        BeginShow(context);
         _currentScenarioId = currentScenarioId;
-        _records = _context.HasHistory ? _context.ScenarioRecords() : [];
+        _records = Context.HasHistory ? Context.ScenarioRecords() : [];
 
         _filter.Reset();
-        _filter.UseHistory(_context.HasHistory ? _records : null);
+        _filter.UseHistory(Context.HasHistory ? _records : null);
 
-        _open = true;
-        StateHasChanged();
+        Open();
     }
-
-    private void Close() => _open = false;
 
     private void ShowDetails(Scenario s) => _detailModal.Show(s);
 
     private async Task Pick(Scenario? s)
     {
-        _open = false;
+        Close();
         await OnSelected.InvokeAsync(s);
     }
 
@@ -148,11 +133,5 @@
     private readonly CatalogueFilter<Scenario> _filter = new(
         s => s.Id.Value, s => s.Name, s => s.ExpansionId,
         numeric: (FilterState.ByDifficulty, s => s.Difficulty),
-        defaultSortKey: "difficulty");
-
-    /// Only what the player owns is on their table, so only that is offered.
-    private IReadOnlyList<Scenario> _inScope =>
-        GameData.Scenarios.Where(s => OwnedExpansions is null || OwnedExpansions.Contains(s.ExpansionId)).ToList();
-
-    private IReadOnlyList<Scenario> _visible => _filter.Apply(_inScope);
+        defaultSortKey: FilterState.ByDifficulty.Key);
 }

@@ -1,9 +1,9 @@
 @* Overlapping row of small colored dots, one per spirit, each wearing the spirit's two-letter
    monogram — the same abbreviation the landscape chart uses, from GameLookups.SpiritMonogram.
-   Shows up to <c>Max</c> and a "+N" overflow badge for the rest. Used in compact game listings. *@
+   Shows the first few and a "+N" overflow badge for the rest. Used in compact game listings. *@
 
 @{
-    var visible = SpiritIds.Take(Max).ToList();
+    var visible = SpiritIds.Take(MaxShown).ToList();
     var overflow = SpiritIds.Count - visible.Count;
 }
 
@@ -11,18 +11,20 @@
     @for (var i = 0; i < visible.Count; i++)
     {
         var spirit = GameLookups.SpiritFor(visible[i]);
-        var color = (spirit is null ? null : SpiritDetails.For(spirit.Id))?.ColorHex ?? GameLookups.NeutralColor;
-        var monogram = spirit is null ? "?" : GameLookups.SpiritMonogram(spirit);
+        var color = GameLookups.SpiritColor(spirit);
+        var monogram = GameLookups.SpiritMonogram(spirit);
 
-        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full ring-2 ring-white text-[9px] font-bold tracking-tight shrink-0 @(i > 0 ? "-ml-1.5" : "")"
-              style="background-color: @color; color: @GameLookups.InkOn(color);"
+        @* font-serif, as every other letter mark in the app is set — LetterTile, the profile's
+           board badge, the playground's board letters. This was the one monogram in the sans. *@
+        <span class="disc h-6 w-6 shrink-0 ring-2 ring-white font-serif text-[9px] font-bold tracking-tight @(i > 0 ? "-ml-1.5" : null)"
+              style="background-color: @color; color: @StatsTheme.InkOn(color);"
               title="@(spirit?.Name ?? "Unknown spirit")">
             @monogram
         </span>
     }
     @if (overflow > 0)
     {
-        <span class="inline-flex h-6 min-w-6 px-1.5 items-center justify-center rounded-full ring-2 ring-white text-[10px] font-semibold text-ink-700 bg-ink-100 -ml-1.5">
+        <span class="disc -ml-1.5 h-6 min-w-6 px-1.5 bg-ink-100 ring-2 ring-white text-[10px] font-semibold text-ink-700">
             +@overflow
         </span>
     }
@@ -30,5 +32,9 @@
 
 @code {
     [Parameter, EditorRequired] public IReadOnlyList<string> SpiritIds { get; set; } = [];
-    [Parameter] public int Max { get; set; } = 4;
+
+    /// <summary>How many dots before the overflow badge takes over. A constant rather than a
+    /// parameter: both hosts are one line of a list, both wanted four, and a cap either could
+    /// set is a second place to keep the number — a six-player table has to fold somewhere.</summary>
+    private const int MaxShown = 4;
 }

@@ -25,8 +25,14 @@ public sealed class UserSyncOidcEvents(IServiceProvider serviceProvider, IConfig
                    ?? principal.FindFirst("name")?.Value
                    ?? email;
 
+        // A principal with no account behind it must not be signed in: every page behind
+        // [Authorize] acts on the account's data and would fail on its first query, with nothing
+        // to say why. Failing the ticket here surfaces the problem at the sign-in instead.
         if (string.IsNullOrEmpty(email))
+        {
+            context.Fail("The identity provider supplied no email address, so no account can be matched.");
             return;
+        }
 
         using var scope = serviceProvider.CreateScope();
         // Accounts live in the real database, unconditionally. A visitor signing in from the
@@ -35,21 +41,18 @@ public sealed class UserSyncOidcEvents(IServiceProvider serviceProvider, IConfig
         scope.ServiceProvider.GetRequiredService<IDemoSessionLocator>().PinToRealDatabase();
         var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
 
-        var result = await mediator.Send(new SyncUserCommand(email));
+        var result = await mediator.Send(new SyncUserCommand(email), context.HttpContext.RequestAborted);
 
-        if (result.IsSuccess)
+        if (result.IsFailure)
         {
-            identity.AddClaim(new Claim("db_user_id", result.Value.UserId.ToString()));
-            // Only ever a suggestion for the name prompt — the account's own nickname is set by
-            // the user and lives in our database, never overwritten from the provider's claims.
-            if (!string.IsNullOrWhiteSpace(name))
-                identity.AddClaim(new Claim(SuggestedNameClaim, name));
+            context.Fail($"The account could not be synchronised: {result.Error.Message}");
+            return;
         }
-    }
 
-    /// <summary>Claim carrying the identity provider's guess at the user's name, used to
-    /// pre-fill the first-login name prompt.</summary>
-    public const string SuggestedNameClaim = "suggested_name";
+        identity.AddClaim(new Claim(AppClaims.UserId, result.Value.UserId.ToString()));
+        if (!string.IsNullOrWhiteSpace(name))
+            identity.AddClaim(new Claim(AppClaims.SuggestedName, name));
+    }
 
     public override Task RedirectToIdentityProviderForSignOut(RedirectContext context)
     {

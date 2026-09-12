@@ -1,11 +1,10 @@
 @page "/app/games/{Id:guid}"
 @attribute [Authorize]
-@using Application.Features.Games
 @inject IMediator Mediator
 @inject ICurrentUserService CurrentUser
 @inject NavigationManager Nav
 
-<PageTitle>@(_game is null ? "Game" : GameLookups.MatchTitle(_game.Adversaries, _game.ScenarioId))</PageTitle>
+<AppPageTitle Title="@(_game is null ? "Game" : GameLookups.MatchTitle(_game.Adversaries, _game.ScenarioId))"/>
 
 @if (_loading)
 {
@@ -13,43 +12,38 @@
 }
 else if (_game is null)
 {
-    <div class="alert alert-warn">
-        <Icon Name="x" Class="w-5 h-5"/>
-        <div>Game not found.</div>
-    </div>
+    <NotFound>Game not found.</NotFound>
 }
 else
 {
-    var isStandardGame = _game.Adversaries.Count == 0 && _game.ScenarioId is null;
+    var title = GameLookups.MatchTitle(_game.Adversaries, _game.ScenarioId);
 
-    <div class="page-head">
-        <div class="min-w-0">
-            @* Back to the list as it was left, filters and all, when the game was opened from a
-               slice of it — otherwise to the whole history. Same one link either way. *@
-            <a href="@GamesLink.Back(Back)" title="@(HasSlice ? "Back to the filtered list you came from" : "All your games")"
-               class="mb-2 flex w-fit items-center gap-1 text-sm text-ink-500 hover:text-ink-700">
-                <Icon Name="arrow-left" Class="w-3.5 h-3.5"/> @(HasSlice ? "Filtered games" : "Games")
-            </a>
-            <span class="eyebrow">@(_game.IsCompleted ? "Recorded match" : "Draft in progress")</span>
-            <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                <h1 class="page-title @(isStandardGame ? "italic" : "")">
-                    @GameLookups.MatchTitle(_game.Adversaries, _game.ScenarioId)
-                </h1>
-                <GameStatusBadge IsCompleted="_game.IsCompleted" Win="_game.Result?.Win"/>
-            </div>
-            @* StartedAt is read back as stored, not converted: it carries the wall clock the
-               player wrote down at offset zero, and converting it to server-local time would
-               shift a late-evening game onto the wrong day. *@
-            <p class="page-sub">
-                @_game.StartedAt.DateTime.ToString("MMMM d, yyyy · HH:mm")
-                · @_game.Players.Count player@(_game.Players.Count == 1 ? "" : "s")
-                · difficulty @_game.Difficulty
-            </p>
-        </div>
-        <div class="flex flex-wrap gap-2">
+    @* Back to the list as it was left, filters and all, when the game was opened from a slice of
+       it — otherwise to the whole history. Same one link either way.
+
+       TitleClass is italic alone, not the full .MatchTitleTone the lists wear: .page-title
+       already carries the heading's size and weight. Same question either way. *@
+    <PageHeader Eyebrow="@(_game.IsCompleted ? "Recorded match" : "Draft in progress")"
+                Title="@title"
+                TitleClass="@(GameLookups.IsStandardGame(title) ? "italic" : null)"
+                BackHref="@GamesLink.Back(Back)"
+                BackLabel="@(HasSlice ? "Filtered games" : "Games")"
+                BackTitle="@(HasSlice ? "Back to the filtered list you came from" : "All your games")">
+        <TitleSuffix>
+            <GameStatusBadge IsCompleted="_game.IsCompleted" Win="_game.Result?.Win"/>
+        </TitleSuffix>
+        @* StartedAt is read back as stored, not converted: it carries the wall clock the player
+           wrote down at offset zero, and converting it to server-local time would shift a
+           late-evening game onto the wrong day. *@
+        <Sub>
+            @GameFormat.Timestamp(_game.StartedAt.DateTime)
+            · @Copy.Count(_game.Players.Count, "player")
+            · difficulty @_game.Difficulty
+        </Sub>
+        <Actions>
             @if (IsOwner && !_game.IsCompleted && !_showCompleteForm)
             {
-                <button class="btn btn-primary" @onclick="StartComplete">
+                <button type="button" class="btn btn-primary" @onclick="StartComplete">
                     <Icon Name="check-circle" Class="w-4 h-4"/> Complete game
                 </button>
             }
@@ -57,21 +51,20 @@ else
                somebody else's record of the evening. *@
             @if (IsOwner)
             {
-                <button class="btn btn-danger-outline" @onclick="DeleteGame">
+                <button type="button" class="btn btn-danger-outline" @onclick="DeleteGame">
                     <Icon Name="trash" Class="w-4 h-4"/> Delete
                 </button>
             }
             else
             {
-                <span class="badge badge-neutral self-center" title="@($"{OwnerName} recorded this game and is the only one who can delete it")">
+                <span class="badge badge-neutral" title="@($"{OwnerName} recorded this game and is the only one who can delete it")">
                     <Icon Name="lock" Class="w-3 h-3"/> Recorded by @OwnerName
                 </span>
             }
-        </div>
-    </div>
+        </Actions>
+    </PageHeader>
 
-    <Alert Message="@_form.Message" Type="@_form.MessageType"/>
-    <FormErrorSummary Errors="@_form.Errors" Attempt="_form.Attempt"/>
+    <FormMessages Feedback="_form"/>
 
     <div class="lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-6">
         <div class="space-y-8 lg:min-w-0">
@@ -81,33 +74,19 @@ else
             <section>
                 @if (_showCompleteForm)
                 {
-                    <div class="rounded-2xl border border-amber-300 bg-gradient-to-br from-amber-50 via-white to-amber-50/40 p-5 shadow-sm md:p-6">
-                        <div class="mb-5 flex items-center gap-3">
-                            <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
-                                <Icon Name="trophy" Class="w-5 h-5"/>
-                            </span>
-                            <div>
-                                <div class="text-sm font-semibold text-ink-900">Record the result</div>
-                                <div class="text-xs text-ink-500">Save the outcome to turn this draft into a completed match.</div>
-                            </div>
-                        </div>
-                        <GameResultEditor
-                            Difficulty="_game.Difficulty"
-                            PlayerCount="_game.Players.Count"
-                            Errors="_form.Errors"
-                            Win="_resultWin" WinChanged="v => _resultWin = v"
-                            TerrorLevel="_resultTerror" TerrorLevelChanged="v => _resultTerror = v"
-                            DurationMinutes="_resultDurationMinutes" DurationMinutesChanged="v => _resultDurationMinutes = v"
-                            Dahan="_resultDahan" DahanChanged="v => _resultDahan = v"
-                            Blight="_resultBlight" BlightChanged="v => _resultBlight = v"
-                            Cards="_resultCards" CardsChanged="v => _resultCards = v"
-                            ScoreModifier="_resultScoreModifier" ScoreModifierChanged="v => _resultScoreModifier = v"/>
-                        <div class="mt-5">
-                            <label class="label">Note</label>
-                            <textarea class="textarea" rows="3" @bind="_resultNote"
-                                      placeholder="Optional — anything memorable from the match"></textarea>
-                            <FieldError For="Note" Errors="@_form.Errors"/>
-                        </div>
+                    <div class="panel-invite p-5 md:p-6">
+                        <InviteHeader Class="mb-5" Title="Record the result"
+                                      Sub="Save the outcome to turn this draft into a completed match."/>
+                        @* OnChanged is what pulls the action bar's live score along with the
+                           panel — the draft is this page's own object, so an edit inside the
+                           editor is not a parameter change the page would otherwise hear about. *@
+                        <GameResultEditor Result="_result"
+                                          Difficulty="_game.Difficulty"
+                                          PlayerCount="_game.Players.Count"
+                                          Errors="_form.Errors"
+                                          OnChanged="StateHasChanged"/>
+                        <NoteField Class="mt-5" @bind-Value="_resultNote" Errors="@_form.Errors"
+                                   Placeholder="Optional — anything memorable from the match"/>
                     </div>
                 }
                 else if (_game.Result is not null)
@@ -118,17 +97,10 @@ else
                 {
                     @* The same amber invitation the setup screen's "Did you finish this game?"
                        panel uses, so finishing a draft looks like the step it is. *@
-                    <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-300 bg-gradient-to-br from-amber-50 via-white to-amber-50/40 px-5 py-4 shadow-sm md:px-6">
-                        <div class="flex items-center gap-3">
-                            <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
-                                <Icon Name="trophy" Class="w-5 h-5"/>
-                            </span>
-                            <div>
-                                <div class="text-sm font-semibold text-ink-900">This match is still a draft</div>
-                                <div class="text-xs text-ink-500">Record the outcome and the score is computed for you.</div>
-                            </div>
-                        </div>
-                        <button class="btn btn-primary" @onclick="StartComplete">
+                    <div class="panel-invite flex flex-wrap items-center justify-between gap-3 px-5 py-4 md:px-6">
+                        <InviteHeader Title="This match is still a draft"
+                                      Sub="Record the outcome and the score is computed for you."/>
+                        <button type="button" class="btn btn-primary" @onclick="StartComplete">
                             <Icon Name="check-circle" Class="w-4 h-4"/> Complete game
                         </button>
                     </div>
@@ -137,26 +109,16 @@ else
                 {
                     @* Someone else's draft. The outcome is theirs to record — offering it here
                        would be an invitation the server refuses. *@
-                    <div class="flex flex-wrap items-center gap-3 rounded-2xl border border-ink-200 bg-ink-50/60 px-5 py-4 md:px-6">
-                        <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-ink-100 text-ink-500">
-                            <Icon Name="hourglass" Class="w-5 h-5"/>
-                        </span>
-                        <div>
-                            <div class="text-sm font-semibold text-ink-900">No outcome recorded yet</div>
-                            <div class="text-xs text-ink-500">
-                                @OwnerName recorded this match and is the only one who can finish it.
-                                It'll show up in your statistics once they do.
-                            </div>
-                        </div>
+                    <div class="panel-quiet flex flex-wrap items-center gap-3 px-5 py-4 md:px-6">
+                        <InviteHeader Lit="false" Icon="hourglass" Title="No outcome recorded yet"
+                                      Sub="@($"{OwnerName} recorded this match and is the only one who can finish it. It'll show up in your statistics once they do.")"/>
                     </div>
                 }
             </section>
 
             @* ============================== SETUP ============================== *@
             <section>
-                <div class="mb-3 flex items-end justify-between">
-                    <h2 class="text-xl font-semibold" style="font-family: var(--font-serif);">Setup</h2>
-                </div>
+                <SectionHead Size="lg" Title="Setup"/>
                 @* A recorded game links sideways: its foe, its scenario, and each seat's spirit,
                    board and player all reach the rest of the history that shares them. *@
                 <GameSetupSummary
@@ -175,15 +137,15 @@ else
 
             @* ============================== PLAYERS ============================== *@
             <section>
-                <div class="mb-3 flex items-end justify-between">
-                    <h2 class="text-xl font-semibold" style="font-family: var(--font-serif);">
-                        Players <span class="text-base font-normal text-ink-500">· @_game.Players.Count</span>
-                    </h2>
-                </div>
+                @* The count sits at the right-hand end of the band, where every other counted
+                   section in the app puts it. *@
+                <SectionHead Size="lg" Title="Players"
+                             Note="@Copy.Count(_game.Players.Count, "player")"/>
                 <div class="grid gap-3">
                     @for (var i = 0; i < _game.Players.Count; i++)
                     {
                         <GamePlayerCard
+                            @key="_game.Players[i]"
                             Player="_game.Players[i]"
                             Index="i"
                             LinkGames="true"
@@ -198,55 +160,42 @@ else
             @if (!_showCompleteForm && !string.IsNullOrWhiteSpace(_game.Note))
             {
                 <section>
-                    <div class="mb-3 flex items-end justify-between">
-                        <h2 class="text-xl font-semibold" style="font-family: var(--font-serif);">Notes</h2>
-                    </div>
-                    <div class="surface whitespace-pre-wrap px-5 py-4 text-ink-700 md:px-6">@_game.Note</div>
+                    <SectionHead Size="lg" Title="Notes"/>
+                    <div class="surface body-copy whitespace-pre-wrap px-5 py-4 md:px-6">@_game.Note</div>
                 </section>
             }
 
             @* ============================== ACTION BAR (complete flow) ============================== *@
             @if (_showCompleteForm)
             {
-                <div class="sticky bottom-3 z-10">
-                    <div class="surface flex flex-wrap items-center gap-3 px-4 py-3 shadow-lg md:px-5">
-                        <span class="inline-flex items-center gap-1.5 rounded-full border border-accent-200 bg-accent-50 px-3 py-1.5 text-sm font-semibold text-accent-900">
-                            <span class="text-[10px] font-semibold uppercase tracking-wider text-accent-700">Difficulty</span>
-                            <span class="tabular-nums" style="font-family: var(--font-serif);">@_game.Difficulty</span>
-                        </span>
-                        <span class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold @(_resultWin ? "border-accent-200 bg-accent-50 text-accent-900" : "border-red-200 bg-red-50 text-red-900")">
-                            <span class="text-[10px] font-semibold uppercase tracking-wider opacity-70">Score</span>
-                            <span class="tabular-nums" style="font-family: var(--font-serif);">@ProvisionalScore</span>
-                        </span>
-                        @* min-w-0 + truncate: the hint is the part that gives way on narrow
-                           screens — otherwise it pushes Cancel onto a second line. *@
-                        <div class="mr-auto hidden min-w-0 flex-1 truncate text-xs text-ink-500 sm:block">
-                            Saving will convert this draft into a <strong class="text-ink-800">completed game</strong>.
-                        </div>
-                        <button class="btn btn-primary" @onclick="CompleteGame" disabled="@_saving">
-                            <Icon Name="check-circle" Class="w-4 h-4"/> Save result
+                <ActionBar>
+                    <Stats>
+                        <ActionBarStat Label="Difficulty" Value="_game.Difficulty"/>
+                        <ActionBarStat Label="Score" Value="ProvisionalScore" Loss="!_result.Win"/>
+                    </Stats>
+                    <Hint>
+                        Saving will convert this draft into a <strong class="text-ink-800">completed game</strong>.
+                    </Hint>
+                    <Actions>
+                        <button type="button" class="btn btn-primary" @onclick="CompleteGame" disabled="@_saving">
+                            <ActionGlyph Icon="check-circle" Busy="_saving"/> Save result
                         </button>
-                        <button class="btn btn-ghost" @onclick="CancelComplete">Cancel</button>
-                    </div>
-                </div>
+                        <button type="button" class="btn btn-ghost" @onclick="CancelComplete">Cancel</button>
+                    </Actions>
+                </ActionBar>
             }
         </div>
 
         @* ============================== STICKY SUMMARY (lg+) ============================== *@
         <aside class="hidden lg:sticky lg:top-6 lg:block lg:self-start">
             <div class="surface overflow-hidden">
-                @{
-                    var headerWin = _game.Result?.Win == true;
-                    var headerLoss = _game.Result is not null && _game.Result.Win == false;
-                }
-                @* Neutral (a draft with no outcome yet) is the deep ramp, not ink: ink is the
-                   parchment family now, so from-ink-700 painted this panel dark brown beside a
-                   deep-teal sidebar. Won and lost keep their own colours. *@
-                <div class="@(headerWin ? "bg-gradient-to-br from-accent-700 to-accent-900 text-white" : headerLoss ? "bg-gradient-to-br from-red-700 to-red-900 text-white" : "bg-gradient-to-br from-deep-700 to-deep-900 text-white") px-5 py-4">
-                    <div class="text-[10px] font-semibold uppercase tracking-wider opacity-80">
+                @* Won, lost or not yet decided — WinTone.DeepPanel, the same three-way decision
+                   every other outcome tone in the app comes through. *@
+                <div class="@WinTone.DeepPanel(_game.Result?.Win) px-5 py-4">
+                    <div class="micro-label-strong text-inherit opacity-80">
                         @(_game.Result is null ? "Difficulty" : "Score")
                     </div>
-                    <div class="mt-1 text-3xl font-bold leading-none" style="font-family: var(--font-serif);">
+                    <div class="numeral-display mt-1 text-3xl">
                         @(_game.Result?.Score ?? _game.Difficulty)
                     </div>
                     <div class="mt-1.5 text-[11px] opacity-80">
@@ -263,26 +212,31 @@ else
 
                 @* Players quick list *@
                 <div class="px-5 py-4">
-                    <div class="mb-2 text-[10px] font-medium uppercase tracking-wider text-ink-500">
+                    <div class="micro-label mb-2">
                         Players · @_game.Players.Count
                     </div>
                     <ul class="space-y-2">
                         @foreach (var p in _game.Players)
                         {
                             var spirit = GameLookups.SpiritFor(p.SpiritId);
-                            var spiritDetail = spirit is null ? null : SpiritDetails.For(spirit.Id);
-                            var color = spiritDetail?.ColorHex ?? GameLookups.NeutralColor;
+                            var color = GameLookups.SpiritColor(spirit);
                             var board = GameLookups.BoardFor(p.BoardId);
-                            var boardDetail = board is null ? null : BoardDetails.For(board.Id);
+                            var boardDetail = GameLookups.DetailFor(board);
                             var aspect = GameLookups.AspectFor(p.AspectId);
 
-                            <li class="flex items-start gap-2 text-xs">
-                                <span class="mt-0.5 inline-block h-7 w-1 shrink-0 rounded-full" style="background-color: @color;"></span>
+                            <li @key="p" class="flex items-start gap-2 text-xs">
+                                <ColorBar Size="sm" Color="@color" Class="mt-0.5"/>
                                 <div class="min-w-0 flex-1">
-                                    <div class="truncate font-medium text-ink-900">
-                                        @(spirit?.Name ?? "Unknown spirit")@if (aspect is not null) { <span class="font-normal text-ink-500"> · @aspect.Name</span> }
+                                    @* The seat's spirit over its board is the .row-title / .row-sub pair, at the
+                                       sidebar's own smaller size. *@
+                                    <div class="row-title truncate text-xs">
+                                        @(spirit?.Name ?? "Unknown spirit")
+                                        @if (aspect is not null)
+                                        {
+                                            <span class="font-normal text-ink-500"> · @aspect.Name</span>
+                                        }
                                     </div>
-                                    <div class="truncate text-[11px] text-ink-500">
+                                    <div class="row-sub truncate">
                                         @if (board is not null)
                                         {
                                             <span>Board @GameLookups.BoardLetter(board)</span>
@@ -298,33 +252,33 @@ else
                     </ul>
                 </div>
 
-                <div class="border-t border-ink-100 px-5 py-4">
-                    <div class="mb-1 text-[10px] font-medium uppercase tracking-wider text-ink-500">Date played</div>
-                    <div class="text-xs text-ink-700">@_game.StartedAt.DateTime.ToString("MMMM d, yyyy · HH:mm")</div>
-                </div>
-
+                @SidebarFact("Date played", GameFormat.Timestamp(_game.StartedAt.DateTime))
                 @if (_game.Result is not null)
                 {
-                    <div class="border-t border-ink-100 px-5 py-4">
-                        <div class="mb-1 text-[10px] font-medium uppercase tracking-wider text-ink-500">Duration</div>
-                        <div class="text-xs text-ink-700">@FormatDuration(_game.Result.Duration)</div>
-                    </div>
+                    @SidebarFact("Duration", GameFormat.Duration(_game.Result.Duration))
                 }
             </div>
         </aside>
     </div>
 
-    <ConfirmDialog @ref="_confirmDialog" Title="Delete game" Message="Are you sure you want to delete this game? This cannot be undone."/>
+    <ConfirmDialog @ref="_confirmDialog" Title="Delete game"/>
 }
 
 @code {
+    /// <summary>One labelled line in the sticky summary panel — a band with a caption over it.</summary>
+    private static RenderFragment SidebarFact(string label, string value) =>
+        @<div class="border-t border-ink-100 px-5 py-4">
+            <div class="micro-label mb-1">@label</div>
+            <div class="text-xs text-ink-700">@value</div>
+        </div>;
+
     [Parameter] public Guid Id { get; set; }
 
     /// <summary>
     /// Opened from a draft's "Finish" shortcut in the games list — lands straight in the
     /// result form instead of asking for a second click on the same intent.
     /// </summary>
-    [SupplyParameterFromQuery(Name = "finish")]
+    [SupplyParameterFromQuery(Name = GamesLink.FinishKey)]
     public bool Finish { get; set; }
 
     /// <summary>
@@ -337,8 +291,8 @@ else
     private bool HasSlice => !string.IsNullOrWhiteSpace(Back);
 
     private GetGameResponse? _game;
-    private List<Application.Features.Friendships.FriendResponse> _friends = [];
-    private List<Application.Features.Players.ListPlayersResponse> _localPlayers = [];
+    private List<FriendResponse> _friends = [];
+    private List<ListPlayersResponse> _localPlayers = [];
 
     private bool _loading = true;
     private bool _saving;
@@ -346,13 +300,8 @@ else
     /// Field errors, the general alert and the failed-attempt count in one place — see FormFeedback.
     private readonly FormFeedback _form = new();
 
-    private bool _resultWin = true;
-    private TerrorLevel _resultTerror = TerrorLevel.First;
-    private int _resultDurationMinutes = 60;
-    private int _resultDahan;
-    private int _resultBlight;
-    private int _resultCards;
-    private int _resultScoreModifier;
+    /// The outcome being entered, while the "complete game" form is open.
+    private readonly GameResultDraft _result = new();
     private string? _resultNote;
 
     private ConfirmDialog _confirmDialog = default!;
@@ -365,14 +314,7 @@ else
         _friends.FirstOrDefault(f => f.FriendUserId == _game?.OwnerId)?.Name ?? "another player";
 
     private int ProvisionalScore =>
-        Domain.Services.ScoreCalculator.Compute(
-            win: _resultWin,
-            difficulty: _game?.Difficulty ?? 0,
-            dahan: _resultDahan,
-            cards: _resultCards,
-            blight: _resultBlight,
-            playerCount: _game?.Players.Count ?? 1,
-            scoreModifier: _resultScoreModifier);
+        _result.Score(_game?.Difficulty ?? 0, _game?.Players.Count ?? 1);
 
     protected override async Task OnInitializedAsync()
     {
@@ -381,10 +323,10 @@ else
             var gameResult = await Mediator.Send(new GetGameQuery(Id, uid));
             if (gameResult.IsSuccess) _game = gameResult.Value;
 
-            var friendsResult = await Mediator.Send(new Application.Features.Friendships.ListFriendsQuery(uid));
+            var friendsResult = await Mediator.Send(new ListFriendsQuery(uid));
             if (friendsResult.IsSuccess) _friends = friendsResult.Value;
 
-            var playersResult = await Mediator.Send(new Application.Features.Players.ListPlayersQuery(uid));
+            var playersResult = await Mediator.Send(new ListPlayersQuery(uid));
             if (playersResult.IsSuccess) _localPlayers = playersResult.Value;
         }
 
@@ -411,36 +353,23 @@ else
     private async Task CompleteGame()
     {
         _saving = true;
-        var dto = new Application.Features.Games.Dtos.GameResultDto(
-            _resultWin, TimeSpan.FromMinutes(_resultDurationMinutes),
-            _resultCards, _resultTerror, _resultBlight, _resultDahan, _resultScoreModifier);
-
-        var result = await Mediator.Send(new CompleteGameCommand(Id, CurrentUser.UserId!.Value, dto, _resultNote));
+        var result = await Mediator.Send(
+            new CompleteGameCommand(Id, CurrentUser.RequireUserId(), _result.ToDto(), _resultNote));
         _saving = false;
 
         if (!_form.Apply(result, "Game completed successfully!")) return;
 
         _showCompleteForm = false;
-        var reload = await Mediator.Send(new GetGameQuery(Id, CurrentUser.UserId!.Value));
+        var reload = await Mediator.Send(new GetGameQuery(Id, CurrentUser.RequireUserId()));
         if (reload.IsSuccess) _game = reload.Value;
     }
 
     private async Task DeleteGame()
     {
-        if (!await _confirmDialog.ShowAsync()) return;
+        if (!await _confirmDialog.ShowAsync(
+                "Are you sure you want to delete this game? This cannot be undone.")) return;
 
-        var result = await Mediator.Send(new DeleteGameCommand(Id, CurrentUser.UserId!.Value));
+        var result = await Mediator.Send(new DeleteGameCommand(Id, CurrentUser.RequireUserId()));
         if (_form.Apply(result)) Nav.NavigateTo(GamesLink.Back(Back));
-    }
-
-    private static string FormatDuration(TimeSpan d)
-    {
-        if (d.TotalHours >= 1)
-        {
-            return d.Minutes == 0
-                ? $"{(int)d.TotalHours} h"
-                : $"{(int)d.TotalHours} h {d.Minutes} min";
-        }
-        return $"{(int)d.TotalMinutes} min";
     }
 }

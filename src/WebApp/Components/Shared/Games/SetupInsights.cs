@@ -3,10 +3,13 @@ using Application.Features.Statistics;
 namespace WebApp.Components.Shared.Games;
 
 /// <summary>
-/// In-memory matchup math for the game-setup screen. Every function operates on
-/// the <see cref="SetupGameFact"/> history loaded once per page; the form simply
-/// recomputes on each selection change (a personal history is at most a few
-/// hundred rows, so there is no need to cache anything).
+/// In-memory tallies over the <see cref="SetupGameFact"/> history a page loads once: how often
+/// each spirit, foe, board, scenario and island was played and how those games went, plus the
+/// matchup views the setup screen's pickers read. Every surface that reports a record — the
+/// setup screen, the reference pages, the statistics page and the record sheets they open — counts
+/// through here, so "a draft counts as played but not as a result" is decided once. A personal
+/// history is at most a few hundred rows; the hosts that re-render often cache what they derive
+/// from it, and the rest recompute on the change that needs it.
 /// </summary>
 public static class SetupInsights
 {
@@ -61,6 +64,23 @@ public static class SetupInsights
         /// <summary>The level picked for a single adversary — highlighted in per-level strips.</summary>
         public int? HighlightLevel => Adversaries is [{ } single] ? single.Level : null;
 
+        /// <summary>
+        /// Who the untested pill's counts belong to — "«name» has never «played»", "you have
+        /// never…", or the whole table while the seat is still anyone's. The spirit and board
+        /// pickers each carried this three-way switch, differing only in the verb.
+        /// </summary>
+        public string UntestedIntro(string verb) =>
+            SubjectName is { } name ? $"{name} has never {verb}"
+            : SeatFilter is not null ? $"you have never {verb}"
+            : $"nobody at your table has {verb}";
+
+        /// <summary>The concession the untested pill makes — a spirit played twenty times but
+        /// never against these foes still passes it.</summary>
+        public string UntestedConcession(string verb) =>
+            SubjectName is { } name ? $"however often {name} has {verb} them otherwise"
+            : SeatFilter is not null ? $"however often you have {verb} them otherwise"
+            : $"however often they have been {verb} otherwise";
+
         /// <summary>Games matching the selection as it stands — picked levels and scenario included.</summary>
         public IReadOnlyList<SetupGameFact> ExactGames() => Filter(Facts, Adversaries, ScenarioId);
 
@@ -112,12 +132,90 @@ public static class SetupInsights
     public sealed record PlayRecord(int Played, int Wins, int Losses)
     {
         public int Completed => Wins + Losses;
-        public double WinRate => Completed > 0 ? (double)Wins / Completed * 100 : 0;
+        public double WinRate => Percent.Of(Wins, Completed);
     }
 
+    /// <summary>A server-side statistic in the shape every record pill, level strip and filter
+    /// reads. Private: every caller wants a whole set keyed for lookup, which is
+    /// <see cref="PlayRecordsBy"/>.</summary>
+    private static PlayRecord ToPlayRecord(IPlayTally tally) =>
+        new(tally.GamesPlayed, tally.Wins, tally.Losses);
+
     /// <summary>
-    /// How a record reads on hover wherever one is offered as a small tally — "Anna: Wind — 3
-    /// played, 2 won / 1 lost". One helper so the chips, the variant rows and anything else
+    /// A set of server-side statistics keyed for lookup — a filter's history, a strip's per-level
+    /// records, a spirit's per-aspect chips. The statistics page had spelled
+    /// <c>new PlayRecord(x.GamesPlayed, x.Wins, x.Losses)</c> out per stat type, six times over.
+    /// </summary>
+    public static Dictionary<TKey, PlayRecord> PlayRecordsBy<T, TKey>(
+        IEnumerable<T> tallies, Func<T, TKey> key)
+        where T : IPlayTally
+        where TKey : notnull =>
+        tallies.ToDictionary(key, t => ToPlayRecord(t));
+
+    /// <summary>
+    /// A record at figure size — "3× · 67%", the rate only once something has finished. What an
+    /// unplayed record says instead stays with the caller, which words it for its own space
+    /// ("—" on a level tile, "never played" on the wider aspect face).
+    /// </summary>
+    public static string RecordLine(PlayRecord record) =>
+        $"{record.Played}×{(record.Completed > 0 ? $" · {record.WinRate:F0}%" : "")}";
+
+    /// <summary>
+    /// Whether this record is the marked favourite of the set it belongs to — the starred board
+    /// in the picker, the starred tile in the inline strip.
+    /// <para>
+    /// A lead of one play is no lead: with everything at 1× every entry would be marked, which
+    /// marks nothing. The rule and that sentence were written out in both places that draw the
+    /// mark, so the two were free to start disagreeing about what a favourite is.
+    /// </para>
+    /// </summary>
+    /// <param name="mostPlayed">The highest play count in the set — see <see cref="Leader"/>.</param>
+    public static bool IsFavourite(PlayRecord? record, int mostPlayed) =>
+        record is { Played: > 0 } && record.Played == mostPlayed && mostPlayed > 1;
+
+    /// <summary>The highest play count across a tally, or nought where nothing has been played —
+    /// the figure <see cref="IsFavourite"/> measures against.</summary>
+    public static int Leader(IReadOnlyDictionary<string, PlayRecord> records) =>
+        records.Count == 0 ? 0 : records.Values.Max(r => r.Played);
+
+    /// <summary>
+    /// The results half of a record's tooltip: ", 2 won / 1 lost". Callers decide what an
+    /// all-drafts record says instead — ", no results yet", or nothing at all. Five tooltips
+    /// spelled this out and were one wording change from disagreeing.
+    /// </summary>
+    public static string WonLostSuffix(PlayRecord record) =>
+        $", {record.Wins} won / {record.Losses} lost";
+
+    /// <summary>
+    /// How a game contributes to a tally: whether it finished, and how. Every record below is
+    /// counted from a sequence of these, so "a draft counts as played but not as a result" is
+    /// decided once in <see cref="Tally"/> rather than in each of a dozen group-bys.
+    /// </summary>
+    private readonly record struct Outcome(bool IsCompleted, bool? Win);
+
+    private static PlayRecord Tally(IEnumerable<Outcome> outcomes)
+    {
+        var (played, wins, losses) = (0, 0, 0);
+        foreach (var (completed, win) in outcomes)
+        {
+            played++;
+            if (!completed) continue;
+            if (win == true) wins++;
+            else if (win == false) losses++;
+        }
+        return new PlayRecord(played, wins, losses);
+    }
+
+    /// <summary>Group a projection of seats or games by a key and tally each group.</summary>
+    private static Dictionary<TKey, PlayRecord> TallyBy<TSource, TKey>(
+        IEnumerable<TSource> source,
+        Func<TSource, TKey> key,
+        Func<TSource, Outcome> outcome) where TKey : notnull =>
+        source.GroupBy(key).ToDictionary(g => g.Key, g => Tally(g.Select(outcome)));
+
+    /// <summary>
+    /// How a record reads on hover wherever one is offered as a small tally — "Anna: Wind —
+    /// played 3×, 2 won / 1 lost". One helper so the chips, the variant rows and anything else
     /// that puts a <see cref="PlayRecord"/> on a control word it the same way.
     /// <paramref name="subjectName"/> names whose record it is when it isn't the reader's own;
     /// with <paramref name="hasHistory"/> false there is nothing to be never-played against, so
@@ -129,8 +227,8 @@ public static class SetupInsights
         if (!hasHistory) return label;
         var whose = subjectName is null ? "" : $"{subjectName}: ";
         if (record is not { Played: > 0 }) return $"{whose}never played {label}";
-        var wins = record.Completed > 0 ? $", {record.Wins} won / {record.Losses} lost" : ", no results yet";
-        return $"{whose}{label} — {record.Played} played{wins}";
+        var wins = record.Completed > 0 ? WonLostSuffix(record) : ", no results yet";
+        return $"{whose}{label} — played {record.Played}×{wins}";
     }
 
     /// <summary>Overall record against one adversary, regardless of level.</summary>
@@ -139,7 +237,12 @@ public static class SetupInsights
         int Wins,
         int Losses,
         int? MostPlayedLevel,
-        IReadOnlyDictionary<int, PlayRecord> Levels);
+        IReadOnlyDictionary<int, PlayRecord> Levels)
+    {
+        /// <summary>The record over every level at once — what a card's pill and a filter's
+        /// ordering read, where the per-level split is the strip's business.</summary>
+        public PlayRecord Overall => new(Played, Wins, Losses);
+    }
 
     /// <summary>
     /// Games matching the current selection. Each picked adversary must be at the
@@ -171,13 +274,17 @@ public static class SetupInsights
         var wins = completed.Count(g => g.Win == true);
         var last = games.MaxBy(g => g.StartedAt);
         var lastCompleted = completed.MaxBy(g => g.StartedAt);
+        // Over the games that carry a score, as SetupProfiles.Build counts it: a finished game
+        // recorded without one would otherwise make the best score null with results behind it,
+        // and the matchup card then printed "Best score" with nothing after the words.
+        var scored = completed.Where(g => g.Score is not null).ToList();
         return new MatchupRecord(
             games.Count,
             completed.Count,
             wins,
             completed.Count - wins,
-            completed.Count > 0 ? (double)wins / completed.Count * 100 : 0,
-            completed.Count > 0 ? completed.Max(g => g.Score) : null,
+            Percent.Of(wins, completed.Count),
+            scored.Count > 0 ? scored.Max(g => g.Score) : null,
             last?.StartedAt,
             lastCompleted?.Win);
     }
@@ -192,17 +299,11 @@ public static class SetupInsights
         IEnumerable<SetupGameFact> games,
         Func<SetupFactSeat, bool>? seatFilter = null)
     {
-        return games
-            .SelectMany(g => g.Seats
+        return TallyBy(
+            games.SelectMany(g => g.Seats
                 .Where(s => seatFilter is null || seatFilter(s))
-                .Select(s => (s.SpiritId, g.IsCompleted, g.Win)))
-            .GroupBy(x => x.SpiritId)
-            .ToDictionary(
-                g => g.Key,
-                g => new PlayRecord(
-                    g.Count(),
-                    g.Count(x => x.IsCompleted && x.Win == true),
-                    g.Count(x => x.IsCompleted && x.Win == false)));
+                .Select(s => (s.SpiritId, Outcome: new Outcome(g.IsCompleted, g.Win)))),
+            x => x.SpiritId, x => x.Outcome);
     }
 
     /// <summary>
@@ -228,18 +329,12 @@ public static class SetupInsights
         string? spiritId = null,
         Func<SetupFactSeat, bool>? seatFilter = null)
     {
-        return games
-            .SelectMany(g => g.Seats
+        return TallyBy(
+            games.SelectMany(g => g.Seats
                 .Where(s => seatFilter is null || seatFilter(s))
                 .Where(s => spiritId is null || s.SpiritId == spiritId)
-                .Select(s => (Key: s.AspectId ?? BaseAspectKey, g.IsCompleted, g.Win)))
-            .GroupBy(x => x.Key)
-            .ToDictionary(
-                g => g.Key,
-                g => new PlayRecord(
-                    g.Count(),
-                    g.Count(x => x.IsCompleted && x.Win == true),
-                    g.Count(x => x.IsCompleted && x.Win == false)));
+                .Select(s => (Key: s.AspectId ?? BaseAspectKey, Outcome: new Outcome(g.IsCompleted, g.Win)))),
+            x => x.Key, x => x.Outcome);
     }
 
     /// <summary>
@@ -254,21 +349,20 @@ public static class SetupInsights
         return games
             .SelectMany(g => g.Seats
                 .Where(s => seatFilter is null || seatFilter(s))
-                .Select(s => (s.SpiritId, Key: s.AspectId ?? BaseAspectKey, g.IsCompleted, g.Win)))
+                .Select(s => (s.SpiritId, Key: s.AspectId ?? BaseAspectKey, Outcome: new Outcome(g.IsCompleted, g.Win))))
             .GroupBy(x => x.SpiritId)
             .ToDictionary(
                 spirit => spirit.Key,
-                spirit => spirit
-                    .GroupBy(x => x.Key)
-                    .ToDictionary(
-                        a => a.Key,
-                        a => new PlayRecord(
-                            a.Count(),
-                            a.Count(x => x.IsCompleted && x.Win == true),
-                            a.Count(x => x.IsCompleted && x.Win == false))));
+                spirit => TallyBy(spirit, x => x.Key, x => x.Outcome));
     }
 
-    private static readonly IReadOnlyDictionary<int, PlayRecord> _noLevels = new Dictionary<int, PlayRecord>();
+    /// <summary>
+    /// No record at any level: a foe never faced, a spirit with no per-level history against the
+    /// picked foe. One shared empty map rather than one per caller — <c>AdversaryLevelGrid</c>
+    /// draws its record column as dashes from it, where a null would mean something else (no
+    /// reader to have a record at all).
+    /// </summary>
+    public static readonly IReadOnlyDictionary<int, PlayRecord> NoLevels = new Dictionary<int, PlayRecord>();
 
     /// <summary>
     /// One spirit's history against the current selection, at three zoom levels:
@@ -319,7 +413,7 @@ public static class SetupInsights
             id => new SpiritMatchup(
                 exact.GetValueOrDefault(id) ?? none,
                 broad.GetValueOrDefault(id) ?? none,
-                byLevel.GetValueOrDefault(id) ?? _noLevels));
+                byLevel.GetValueOrDefault(id) ?? NoLevels));
     }
 
     /// <summary>
@@ -332,43 +426,29 @@ public static class SetupInsights
         IEnumerable<SetupGameFact> facts,
         Func<SetupFactSeat, bool>? seatFilter = null)
     {
-        return facts
-            .SelectMany(g => g.Seats
+        return TallyBy(
+            facts.SelectMany(g => g.Seats
                 .Where(s => seatFilter is null || seatFilter(s))
                 .SelectMany(s => g.Adversaries
-                    .Select(a => (s.SpiritId, a.AdversaryId, g.IsCompleted, g.Win))))
-            .GroupBy(x => (x.SpiritId, x.AdversaryId))
-            .ToDictionary(
-                g => g.Key,
-                g => new PlayRecord(
-                    g.Count(),
-                    g.Count(x => x.IsCompleted && x.Win == true),
-                    g.Count(x => x.IsCompleted && x.Win == false)));
+                    .Select(a => (s.SpiritId, a.AdversaryId, Outcome: new Outcome(g.IsCompleted, g.Win))))),
+            x => (x.SpiritId, x.AdversaryId), x => x.Outcome);
     }
 
     public static Dictionary<string, AdversaryFacing> AdversaryRecords(IReadOnlyList<SetupGameFact> facts)
     {
         return facts
-            .SelectMany(g => g.Adversaries.Select(a => (a.AdversaryId, a.Level, Game: g)))
+            .SelectMany(g => g.Adversaries.Select(a => (a.AdversaryId, a.Level, Outcome: new Outcome(g.IsCompleted, g.Win))))
             .GroupBy(x => x.AdversaryId)
             .ToDictionary(
                 grp => grp.Key,
                 grp =>
                 {
-                    var completed = grp.Where(x => x.Game.IsCompleted).ToList();
-                    var wins = completed.Count(x => x.Game.Win == true);
-                    var levels = grp
-                        .GroupBy(x => x.Level)
-                        .ToDictionary(
-                            lg => lg.Key,
-                            lg => new PlayRecord(
-                                lg.Count(),
-                                lg.Count(x => x.Game.IsCompleted && x.Game.Win == true),
-                                lg.Count(x => x.Game.IsCompleted && x.Game.Win == false)));
+                    var overall = Tally(grp.Select(x => x.Outcome));
+                    var levels = TallyBy(grp, x => x.Level, x => x.Outcome);
                     return new AdversaryFacing(
-                        grp.Count(),
-                        wins,
-                        completed.Count - wins,
+                        overall.Played,
+                        overall.Wins,
+                        overall.Losses,
                         levels.Count > 0 ? levels.MaxBy(kv => kv.Value.Played).Key : null,
                         levels);
                 });
@@ -385,34 +465,28 @@ public static class SetupInsights
         string? spiritId = null,
         Func<SetupFactSeat, bool>? seatFilter = null)
     {
-        return facts
-            .SelectMany(g => g.Seats
+        return TallyBy(
+            facts.SelectMany(g => g.Seats
                 .Where(s => seatFilter is null || seatFilter(s))
                 .Where(s => spiritId is null || s.SpiritId == spiritId)
-                .Select(s => (s.BoardId, g.IsCompleted, g.Win)))
-            .GroupBy(x => x.BoardId)
-            .ToDictionary(
-                g => g.Key,
-                g => new PlayRecord(
-                    g.Count(),
-                    g.Count(x => x.IsCompleted && x.Win == true),
-                    g.Count(x => x.IsCompleted && x.Win == false)));
+                .Select(s => (s.BoardId, Outcome: new Outcome(g.IsCompleted, g.Win)))),
+            x => x.BoardId, x => x.Outcome);
     }
 
     /// <summary>
-    /// Per-scenario record across the whole history. The empty-string key holds
-    /// games played without a scenario ("standard game").
+    /// The key standing for "no scenario" in a scenario tally — the same empty-string convention
+    /// <see cref="BaseAspectKey"/> follows for a spirit played as printed. Named so the picker
+    /// that reads the row cannot spell the key differently from the tally that writes it.
+    /// </summary>
+    public const string NoScenarioKey = "";
+
+    /// <summary>
+    /// Per-scenario record across the whole history. Games played without a scenario ("standard
+    /// game") sit under <see cref="NoScenarioKey"/>.
     /// </summary>
     public static Dictionary<string, PlayRecord> ScenarioRecords(IEnumerable<SetupGameFact> facts)
     {
-        return facts
-            .GroupBy(g => g.ScenarioId ?? "")
-            .ToDictionary(
-                g => g.Key,
-                g => new PlayRecord(
-                    g.Count(),
-                    g.Count(x => x.IsCompleted && x.Win == true),
-                    g.Count(x => x.IsCompleted && x.Win == false)));
+        return TallyBy(facts, g => g.ScenarioId ?? NoScenarioKey, g => new Outcome(g.IsCompleted, g.Win));
     }
 
     /// <summary>
@@ -425,9 +499,7 @@ public static class SetupInsights
     /// <summary>The same tally for a caller already holding the per-level records.</summary>
     public static Dictionary<string, PlayRecord> AdversaryPlayRecords(
         IReadOnlyDictionary<string, AdversaryFacing> facing) =>
-        facing.ToDictionary(
-            kv => kv.Key,
-            kv => new PlayRecord(kv.Value.Played, kv.Value.Wins, kv.Value.Losses));
+        facing.ToDictionary(kv => kv.Key, kv => kv.Value.Overall);
 
     /// <summary>Record per island layout, keyed by setup id (hand-built one-offs group under
     /// their <c>custom-{n}p</c> placeholder ids).</summary>
@@ -444,15 +516,13 @@ public static class SetupInsights
             .GroupBy(g => g.CustomLayoutId!.Value)
             .ToDictionary(g => g.Key, GameRecord);
 
-    /// <summary>Whole-game tally — for subjects the whole table shares, unlike the per-seat ones.</summary>
-    private static PlayRecord GameRecord(IEnumerable<SetupGameFact> games)
-    {
-        var list = games.ToList();
-        return new PlayRecord(
-            list.Count,
-            list.Count(g => g.IsCompleted && g.Win == true),
-            list.Count(g => g.IsCompleted && g.Win == false));
-    }
+    /// <summary>
+    /// Whole-game tally — for subjects the whole table shares, unlike the per-seat ones: an
+    /// island, a scenario, the pool of one-off islands. The profile builder and the statistics
+    /// page each had a copy of the three counts.
+    /// </summary>
+    public static PlayRecord GameRecord(IEnumerable<SetupGameFact> games) =>
+        Tally(games.Select(g => new Outcome(g.IsCompleted, g.Win)));
 
     public static string Ago(DateTimeOffset when)
     {

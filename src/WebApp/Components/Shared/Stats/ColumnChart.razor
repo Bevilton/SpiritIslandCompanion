@@ -1,0 +1,58 @@
+@* One count per label, drawn as a column — the shape both distributions on the statistics page
+   are: games per difficulty, games per score band. The chrome is ChartOptions.Columns; this is
+   the markup and the empty state that go with it.
+
+   The two charts had a copy each of all of it — the guard, its sentence, the eight lines of
+   series, the plot height and the row type — which was about half of each file and none of it
+   anything either chart had decided for itself. They sit side by side on one tab, so the parts
+   that must agree are exactly the parts that were written twice. What legitimately differs is
+   the bucketing, and that is all either one does now.
+
+   Not MonthlyGamesChart, the third column chart on the page: two series stacked into one column
+   with a legend saying what the colours mean is a different picture, and it shares the chrome
+   that matters through ChartOptions already. *@
+
+@using ApexCharts
+
+@if (Bars.Count == 0)
+{
+    <div class="no-data">No completed games yet.</div>
+}
+else
+{
+    <ApexChart TItem="Bar" Options="_options">
+        <ApexPointSeries TItem="Bar"
+                         Items="Bars"
+                         Name="Games"
+                         SeriesType="SeriesType.Bar"
+                         XValue="@(b => b.Label)"
+                         YValue="@(b => b.Count)"/>
+    </ApexChart>
+}
+
+@code {
+    /// <summary>One column: what it is called, and how many games are in it.</summary>
+    public sealed record Bar(string Label, int Count);
+
+    /// <summary>The columns, in the order they are drawn. None of them draws the empty note
+    /// above instead — the sentence is the component's, since both charts are of the same
+    /// thing.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<Bar> Bars { get; set; } = [];
+
+    /// <summary>The bars' colour — a <see cref="StatsTheme"/> hex, since ApexCharts cannot read a
+    /// custom property.</summary>
+    [Parameter, EditorRequired] public string Color { get; set; } = "";
+
+    /// <summary>What the x axis is counting, where the labels alone don't say.</summary>
+    [Parameter] public string? XAxisTitle { get; set; }
+
+    /// <summary>The plot's height. A constant rather than a parameter, and this is the point of
+    /// the component: the two charts share a row on the statistics page, so a height either one
+    /// could set for itself is a height they can disagree about.</summary>
+    private const int PlotHeight = 220;
+
+    private ApexChartOptions<Bar> _options = new();
+
+    protected override void OnParametersSet() =>
+        _options = ChartOptions.Columns<Bar>(PlotHeight, [Color], XAxisTitle);
+}

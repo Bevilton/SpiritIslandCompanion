@@ -1,72 +1,50 @@
 @* Read-only summary of a completed game's result. Uses the same visual treatment
    as GameResultEditor's score preview so the page reads consistently before and
-   after the user records the outcome. *@
+   after the user records the outcome. Always given a result: the page shows it only once
+   there is one, so a nullable here was a guard for a state the host had already ruled out. *@
 
-@if (Result is not null)
-{
+@{
     var win = Result.Win;
-    <section class="rounded-2xl bg-gradient-to-br @(win ? "from-accent-50 to-accent-100/60 border-accent-200" : "from-red-50 to-red-100/40 border-red-200") border overflow-hidden">
-        <div class="px-5 md:px-6 py-5 flex flex-wrap items-center justify-between gap-4 border-b @(win ? "border-accent-200/60" : "border-red-200/60")">
-            <div class="flex items-center gap-3">
-                <span class="inline-flex h-12 w-12 items-center justify-center rounded-xl @(win ? "bg-accent-600 text-white" : "bg-red-500 text-white")">
-                    <Icon Name="@(win ? "trophy" : "x")" Class="w-6 h-6"/>
-                </span>
-                <div>
-                    <div class="text-[11px] uppercase tracking-wider @(win ? "text-accent-700" : "text-red-700") font-semibold">Outcome</div>
-                    <div class="text-2xl font-bold @(win ? "text-accent-900" : "text-red-900") leading-none mt-1" style="font-family: var(--font-serif);">@(win ? "Victory" : "Defeat")</div>
-                </div>
-            </div>
-            <div class="text-right">
-                <div class="text-[11px] uppercase tracking-wider @(win ? "text-accent-700" : "text-red-700") font-semibold">Score</div>
-                <div class="text-4xl font-bold @(win ? "text-accent-900" : "text-red-900") leading-none mt-1 tabular-nums" style="font-family: var(--font-serif);">@Result.Score</div>
-            </div>
-        </div>
-
-        <dl class="grid grid-cols-2 md:grid-cols-3 gap-x-5 gap-y-3 px-5 md:px-6 py-5 text-sm">
-            <div>
-                <dt class="text-[10px] uppercase tracking-wide text-ink-500 font-medium">Terror level</dt>
-                <dd class="mt-0.5 text-ink-900 font-medium">@Result.TerrorLevel</dd>
-            </div>
-            <div>
-                <dt class="text-[10px] uppercase tracking-wide text-ink-500 font-medium">Duration</dt>
-                <dd class="mt-0.5 text-ink-900 font-medium">@FormatDuration(Result.Duration)</dd>
-            </div>
-            <div>
-                <dt class="text-[10px] uppercase tracking-wide text-ink-500 font-medium">@(win ? "Cards remaining" : "Cards used")</dt>
-                <dd class="mt-0.5 text-ink-900 font-medium tabular-nums">@Result.Cards</dd>
-            </div>
-            <div>
-                <dt class="text-[10px] uppercase tracking-wide text-ink-500 font-medium">Dahan remaining</dt>
-                <dd class="mt-0.5 text-ink-900 font-medium tabular-nums">@Result.Dahan</dd>
-            </div>
-            <div>
-                <dt class="text-[10px] uppercase tracking-wide text-ink-500 font-medium">Blight on island</dt>
-                <dd class="mt-0.5 text-ink-900 font-medium tabular-nums">@Result.Blight</dd>
-            </div>
-            @if (Result.ScoreModifier != 0)
-            {
-                <div>
-                    <dt class="text-[10px] uppercase tracking-wide text-ink-500 font-medium">Score modifier</dt>
-                    <dd class="mt-0.5 text-ink-900 font-medium tabular-nums">@FormatSigned(Result.ScoreModifier)</dd>
-                </div>
-            }
-        </dl>
-    </section>
+    @* The outcome's two tones are WinTone's, shared with the score preview this panel becomes
+       once the result is saved — the two are one panel on two screens, and each had the ternary
+       spelled out at four points of its own band. *@
+    var caption = WinTone.OutcomeCaption(win);
+    var figure = WinTone.OutcomeFigure(win);
 }
 
-@code {
-    [Parameter, EditorRequired] public Application.Features.Games.Dtos.GameResultResponse? Result { get; set; }
+<section class="panel-result @(win ? "is-win" : "is-loss") rounded-2xl overflow-hidden">
+    <div class="px-5 md:px-6 py-5 flex flex-wrap items-center justify-between gap-4 border-b @(win ? "border-accent-200/60" : "border-red-200/60")">
+        <div class="flex items-center gap-3">
+            @* IconChip at its largest card rung — this was a hand-rolled tile a size off the
+               ladder, the only glyph box in the app not drawn by the component. *@
+            <IconChip Name="@(win ? "trophy" : "x")" Size="2xl" Tone="@(win ? "bg-accent-600 text-white" : "bg-red-500 text-white")"/>
+            <div>
+                <div class="micro-label-strong @caption">Outcome</div>
+                <div class="numeral-display mt-1 text-2xl @figure">@(win ? "Victory" : "Defeat")</div>
+            </div>
+        </div>
+        <div class="text-right">
+            <div class="micro-label-strong @caption">Score</div>
+            <div class="numeral-display mt-1 text-4xl @figure">@Result.Score</div>
+        </div>
+    </div>
 
-    private static string FormatSigned(int n) => n >= 0 ? $"+{n}" : n.ToString();
-
-    private static string FormatDuration(TimeSpan d)
-    {
-        if (d.TotalHours >= 1)
+    @* Every cell is the same label-over-figure pair — StatCell, shared with the record
+       sheet's headline, so the two readouts of one record cannot drift apart. The band is the
+       card's .surface-body, as every other card's body gutter is. *@
+    <dl class="surface-body grid grid-cols-2 md:grid-cols-3 gap-x-5 gap-y-3">
+        <StatCell Label="Terror level" Value="@Result.TerrorLevel.ToString()"/>
+        <StatCell Label="Duration" Value="@GameFormat.Duration(Result.Duration)"/>
+        <StatCell Label="@(win ? "Cards remaining" : "Cards used")" Value="@Result.Cards.ToString()"/>
+        <StatCell Label="Dahan remaining" Value="@Result.Dahan.ToString()"/>
+        <StatCell Label="Blight on island" Value="@Result.Blight.ToString()"/>
+        @if (Result.ScoreModifier != 0)
         {
-            return d.Minutes == 0
-                ? $"{(int)d.TotalHours} h"
-                : $"{(int)d.TotalHours} h {d.Minutes} min";
+            <StatCell Label="Score modifier" Value="@GameFormat.Signed(Result.ScoreModifier)"/>
         }
-        return $"{(int)d.TotalMinutes} min";
-    }
+    </dl>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public GameResultResponse Result { get; set; } = default!;
 }

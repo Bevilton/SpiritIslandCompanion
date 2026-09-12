@@ -14,10 +14,8 @@
        contain a button. So the disclosure is a full-size overlay behind the header content, and
        Clear is a real sibling button raised above it: both work by mouse and by keyboard. *@
     <div class="relative">
-        @* aria-expanded as literal "true"/"false": handed a bool, Blazor drops the attribute
-           for false, and a disclosure with no aria-expanded reads as a plain button. *@
-        <button type="button" aria-expanded="@(_open ? "true" : "false")" @onclick="() => _open = !_open"
-                class="absolute inset-0 w-full transition-colors hover:bg-ink-50/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40 @(_open ? "rounded-t-xl" : "rounded-xl")">
+        <button type="button" aria-expanded="@Aria.Flag(_open)" @onclick="() => _open = !_open"
+                class="absolute inset-0 w-full transition-colors hover:bg-ink-50/60 focus-ring @(_open ? "rounded-t-xl" : "rounded-xl")">
             <span class="sr-only">@(_open ? "Hide filters" : "Show filters")</span>
         </button>
         <div class="pointer-events-none relative flex items-center justify-between gap-3 px-4 py-3">
@@ -37,16 +35,16 @@
             <span class="flex shrink-0 items-center gap-2">
                 @if (ShowingCount is { } showing && TotalCount is { } total)
                 {
-                    <span class="text-xs tabular-nums text-ink-500">@showing of @total</span>
+                    <span class="block-note tabular-nums">@showing of @total</span>
                 }
                 @if (Filter.Any)
                 {
                     <button type="button" @onclick="ClearFilters"
-                            class="pointer-events-auto rounded text-xs text-accent-700 hover:text-accent-800 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                            class="section-link pointer-events-auto rounded focus-ring">
                         Clear
                     </button>
                 }
-                <Icon Name="chevron-down" Class="@($"w-4 h-4 text-ink-400 transition-transform {(_open ? "rotate-180" : "")}")"/>
+                <Chevron Open="_open"/>
             </span>
         </div>
     </div>
@@ -70,7 +68,7 @@
                 </FilterRow>
             }
 
-            @Facets
+            @Facets?.Invoke(this)
 
             @if (Filter.HasHistory)
             {
@@ -127,8 +125,14 @@
     /// </summary>
     [Parameter] public IReadOnlyCollection<ExpansionId>? PresentExpansions { get; set; }
 
-    /// <summary>Whatever this catalogue has to filter on beyond the shared questions.</summary>
-    [Parameter] public RenderFragment? Facets { get; set; }
+    /// <summary>
+    /// Whatever this catalogue has to filter on beyond the shared questions. Handed the bar
+    /// itself, so a facet row can report its change through <see cref="Set"/> — the host writes
+    /// <c>&lt;Facets Context="bar"&gt;</c> and passes <c>bar</c> down. Four hosts used to hold an
+    /// <c>@@ref</c> to this component and null-check it on the first render for the same purpose,
+    /// which is a workaround for a value the fragment can simply be given.
+    /// </summary>
+    [Parameter] public RenderFragment<FilterBar>? Facets { get; set; }
 
     /// <summary>How many items survive the filter, and how many there were — shown in the header.</summary>
     [Parameter] public int? ShowingCount { get; set; }
@@ -148,7 +152,7 @@
 
     private IReadOnlyList<Expansion> AvailableExpansions =>
         GameData.Expansions
-            .Where(e => OwnedExpansions is null || OwnedExpansions.Contains(e.Id))
+            .Where(e => OwnedExpansions.Owns(e.Id))
             .Where(e => PresentExpansions is null || PresentExpansions.Contains(e.Id))
             .ToList();
 

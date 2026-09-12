@@ -1,0 +1,21 @@
+@* The invisible catcher a dropdown lays over the page so a click anywhere else closes it.
+   Rendered only while the menu is open, and only ever beneath it — z-20 against the menu's
+   z-30 (see .field-menu).
+
+   The three menus that need one had two copies of it and one omission: the seat picker on the
+   setup screen had none at all, so the only way to shut it was to pick something or to open
+   another. A button rather than a div, so the catcher is a real control rather than a div with
+   a click handler — tabindex="-1" keeps it out of the tab order (there is nothing to do here
+   but dismiss, and Escape is the keyboard's way out) and aria-hidden keeps it out of the
+   accessibility tree, where a nameless full-page control would be noise.
+
+   Not ModalShell's backdrop: that one dims the page because a dialog takes it over. A dropdown
+   does not, so this paints nothing. *@
+
+<button type="button" class="fixed inset-0 z-20 cursor-default" aria-hidden="true" tabindex="-1"
+        @onclick="OnDismiss"></button>
+
+@code {
+    /// <summary>Raised when the click lands outside — the host closes its own menu.</summary>
+    [Parameter, EditorRequired] public EventCallback OnDismiss { get; set; }
+}

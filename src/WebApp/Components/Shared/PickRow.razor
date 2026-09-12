@@ -1,0 +1,29 @@
+@* One line of a list you pick from, with the mark that says which one is chosen. The row's
+   chrome is .pick-row (see site.css — the class the three RowClass helpers collapsed into);
+   this is the other half those call sites still spelled out separately: the button itself,
+   the is-active state, and the trailing check — which had already drifted between `ml-auto`
+   and `shrink-0` on rows that do the same job in three folders.
+
+   What the row shows stays with the caller, since one lists people with avatars and another
+   scope choices with badges. The check is pushed to the trailing edge whatever the content,
+   so a row body needn't be flex-1 for the mark to land in the same place on every list. *@
+
+@* focus-ring, as every button that is not a .btn wears — the rows had none, so three pickers
+   answered the keyboard with nothing. aria-pressed says in words what the check says in ink. *@
+<button type="button" class="pick-row focus-ring @(Active ? "is-active" : null)"
+        aria-pressed="@Aria.Flag(Active)" @onclick="OnClick">
+    @ChildContent
+    @if (Active)
+    {
+        <Icon Name="check" Class="w-4 h-4 text-accent-700 ml-auto shrink-0"/>
+    }
+</button>
+
+@code {
+    /// <summary>Whether this row is the current pick — tints the row and draws the check.</summary>
+    [Parameter] public bool Active { get; set; }
+
+    [Parameter] public EventCallback OnClick { get; set; }
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

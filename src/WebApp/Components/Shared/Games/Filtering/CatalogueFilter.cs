@@ -29,13 +29,19 @@ public sealed class CatalogueFilter<T> : FilterState
     /// render it, a set of pills — so "3 boards" and "sorted by boards" are the same axis rather
     /// than two things to keep in step.
     /// </param>
+    /// <param name="defaultSortKey">
+    /// Which ordering the catalogue opens in; expansion order unless the host says otherwise.
+    /// Always a <see cref="SortOption.Key"/> off one of the options above rather than the string
+    /// spelled out — a key that matches nothing silently falls back to the first option, so a
+    /// typo here would have been a filter quietly opening in the wrong order.
+    /// </param>
     public CatalogueFilter(
         Func<T, string> id,
         Func<T, string> name,
         Func<T, ExpansionId>? expansion = null,
         (SortOption Option, Func<T, int> Key)? numeric = null,
-        string defaultSortKey = "expansion")
-        : base(Options(expansion is not null, numeric?.Option), defaultSortKey)
+        string? defaultSortKey = null)
+        : base(Options(expansion is not null, numeric?.Option), defaultSortKey ?? ByExpansion.Key)
     {
         _id = id;
         _name = name;
@@ -92,16 +98,11 @@ public sealed class CatalogueFilter<T> : FilterState
     public IReadOnlyList<T> Apply(IEnumerable<T> items)
     {
         var matched = items.Where(Matches);
-        var ordered = SortKey switch
-        {
-            "expansion" when _expansion is not null => By(matched, i => ExpansionOrder(_expansion(i))),
-            "played" => By(matched, i => Played(_id(i))),
-            // An item with no finished game has no rate to compare, so it sits at the end whichever
-            // way round the rest is — reversing the order shouldn't promote a blank to the top.
-            "winrate" => Then(matched.OrderBy(i => Unrated(_id(i))), i => WinRate(_id(i))),
-            _ when SortKey == NumberSort?.Key && _number is not null => By(matched, _number),
-            _ => By(matched, _name, StringComparer.CurrentCulture),
-        };
+        var ordered =
+            SharedOrder(matched, _id, _expansion)
+            ?? (SortKey == NumberSort?.Key && _number is not null
+                ? By(matched, _number)
+                : By(matched, _name, StringComparer.CurrentCulture));
         return ordered.ThenBy(_name, StringComparer.CurrentCulture).ToList();
     }
 }

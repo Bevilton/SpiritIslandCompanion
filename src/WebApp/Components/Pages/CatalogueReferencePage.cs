@@ -1,8 +1,7 @@
-using Application.Abstractions;
 using Application.Features.Statistics;
-using Domain.Models.Static;
 using MediatR;
 using Microsoft.AspNetCore.Components;
+using WebApp.Auth;
 using WebApp.Components.Shared.Games;
 
 namespace WebApp.Components.Pages;
@@ -15,16 +14,14 @@ namespace WebApp.Components.Pages;
 /// <para>
 /// A page supplies only <see cref="Project"/>, naming which slice of the history its catalogue
 /// wants. The projection is done once on load rather than per render: it walks every recorded seat,
-/// and the page re-renders on every keystroke in its filter box.
+/// and the page re-renders on every keystroke in its filter box. The reader's shelf is not this
+/// page's to hand over — the view reads the same cascade the pickers do.
 /// </para>
 /// </summary>
 public abstract class CatalogueReferencePage : ComponentBase
 {
     [Inject] protected IMediator Mediator { get; set; } = default!;
     [Inject] protected ICurrentUserService CurrentUser { get; set; } = default!;
-
-    [CascadingParameter(Name = "OwnedExpansions")]
-    protected IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
 
     /// <summary>
     /// The account's record per catalogue item, or null when there is no history to show — which

@@ -4,6 +4,7 @@ using Application.Extensions;
 using Infrastructure.Database;
 using Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
+using WebApp;
 using WebApp.Auth;
 using WebApp.Components;
 using WebApp.Demo;
@@ -22,6 +23,9 @@ builder.Services.AddInfrastructure();
 builder.Services.AddApexCharts();
 builder.Services.AddOidcAuthentication(builder.Configuration, builder.Environment);
 builder.Services.AddCascadingAuthenticationState();
+
+// Who the circuit is: the account behind the auth cookie, and the account's own context.
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<CurrentUserState>();
 
 // The demo sandbox: how a scope learns it belongs to a demo session (the locator reads the
@@ -44,16 +48,19 @@ app.MapDefaultEndpoints();
 
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Error", createScopeForErrors: true);
+    app.UseExceptionHandler(AppRoutes.Error, createScopeForErrors: true);
     app.UseHsts();
 }
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
-app.UseAntiforgery();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// After authentication and authorization, as the antiforgery middleware requires: its tokens are
+// bound to the signed-in principal, which does not exist yet a step earlier in the pipeline.
+app.UseAntiforgery();
 
 app.MapAuthEndpoints();
 app.MapDemoEndpoints();

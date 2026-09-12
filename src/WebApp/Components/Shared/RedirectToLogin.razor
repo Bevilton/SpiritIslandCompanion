@@ -1,9 +1,19 @@
+@* What an anonymous visitor meets at an [Authorize] route: a bounce to the identity provider
+   with the address they were heading for kept, so signing in lands them where they meant to go
+   rather than on the dashboard.
+
+   Rendered by the router's NotAuthorized branch (see Routes) — inside the layout, which is why
+   AppShell's own AuthorizeView has a signed-out arm at all.
+
+   forceLoad because /login is an endpoint, not a Blazor route: it hands the request to the OIDC
+   challenge, which has to leave the circuit behind. *@
+
 @inject NavigationManager Nav
 
 @code {
     protected override void OnInitialized()
     {
         var current = new Uri(Nav.Uri).PathAndQuery;
-        Nav.NavigateTo($"/login?returnUrl={Uri.EscapeDataString(current)}", forceLoad: true);
+        Nav.NavigateTo(AppRoutes.LoginReturningTo(current), forceLoad: true);
     }
 }

@@ -1,0 +1,16 @@
+@* What a page says back after a form acts, both halves at once: the one general message (Alert)
+   and the list of field-bound errors (FormErrorSummary). See FormFeedback for which failure goes
+   where. Every page with a form renders the pair, and a page that rendered one without the other
+   would have a save that fails without saying how — so they are one component here, and the pair
+   cannot be split by forgetting half of it.
+
+   The dialogs render Alert alone on purpose: their fields are few and each carries its own
+   FieldError, so a summary there would say everything twice. *@
+
+<Alert Feedback="Feedback"/>
+<FormErrorSummary Feedback="Feedback"/>
+
+@code {
+    /// <summary>The form's voice — usually the page's <c>_form</c>.</summary>
+    [Parameter, EditorRequired] public FormFeedback Feedback { get; set; } = default!;
+}

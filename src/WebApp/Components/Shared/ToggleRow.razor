@@ -1,0 +1,56 @@
+@* One switchable option in the setup form's fine-tune panel: what it is, what it costs, a hint
+   explaining it, and the switch. The two — an extra board, thematic maps — were written out in
+   full twice, some fifty lines that differed in nothing but their words and whether the option
+   can be refused.
+
+   The row is the click target, not the switch, so it is a role="button" rather than a real one:
+   the hint inside it is a button of its own and a button may not contain a button. That also
+   means the keyboard has to be wired by hand — Space and Enter, as a native button would, and
+   the focus ring every other clickable thing in the app wears (a div gets none for free).
+
+   The row's chrome is .option-row, shared with the Settings page's owned-expansion rows — the
+   same on/off row with a checkbox where this one has a switch. The pointer comes from the base
+   layer's rule for [role="button"]; .is-disabled takes it away again.
+
+   The hint is anchored centre rather than to its own marker: the sidebar this panel lives in is
+   barely wider than the popover, and anchoring runs it off the card. *@
+
+<div role="button" tabindex="0" aria-pressed="@Aria.Flag(On)" aria-disabled="@(Disabled ? "true" : null)"
+     @onclick="Toggle" @onkeydown="OnKeyDown"
+     class="option-row focus-ring select-none @(On ? "is-on" : null) @(Disabled ? "is-disabled" : "hover:border-ink-300")">
+    <div class="flex min-w-0 items-start gap-1.5">
+        <div>
+            <div class="row-title">@Title</div>
+            <div class="row-sub">@Sub</div>
+        </div>
+        @* The hint is a control of its own inside a control — its clicks and keys are its own. *@
+        <span class="mt-0.5" @onclick:stopPropagation @onkeydown:stopPropagation>
+            <InfoHint Position="center">@Hint</InfoHint>
+        </span>
+    </div>
+    <ToggleSwitch On="On"/>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+
+    /// <summary>The line under the title — what it costs, or why it cannot be had.</summary>
+    [Parameter, EditorRequired] public RenderFragment Sub { get; set; } = default!;
+
+    /// <summary>What the option actually does, in the popover behind the marker.</summary>
+    [Parameter, EditorRequired] public RenderFragment Hint { get; set; } = default!;
+
+    [Parameter] public bool On { get; set; }
+
+    /// <summary>The option isn't available on this table — shown, faded, and inert, so it does
+    /// not come and go as the setup changes. <see cref="Sub"/> says why.</summary>
+    [Parameter] public bool Disabled { get; set; }
+
+    [Parameter] public EventCallback OnToggle { get; set; }
+
+    private Task Toggle() => Disabled ? Task.CompletedTask : OnToggle.InvokeAsync();
+
+    /// Space and Enter, as the native button this cannot be would do.
+    private Task OnKeyDown(KeyboardEventArgs e) =>
+        e.Key is " " or "Enter" ? Toggle() : Task.CompletedTask;
+}

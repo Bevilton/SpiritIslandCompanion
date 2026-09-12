@@ -2,11 +2,11 @@
 @attribute [Authorize]
 @inherits CatalogueReferencePage
 
-<PageTitle>Scenarios</PageTitle>
+<AppPageTitle Title="Scenarios"/>
 
-<ScenariosView OwnedExpansions="@OwnedExpansions" Records="Records" Facts="Facts"/>
+<ScenariosView Records="Records" Facts="Facts"/>
 
 @code {
     protected override IReadOnlyDictionary<string, SetupInsights.PlayRecord> Project(
-        IReadOnlyList<Application.Features.Statistics.SetupGameFact> facts) => SetupInsights.ScenarioRecords(facts);
+        IReadOnlyList<SetupGameFact> facts) => SetupInsights.ScenarioRecords(facts);
 }

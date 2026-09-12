@@ -8,18 +8,17 @@
 @if (Href is { } href)
 {
     <a href="@href" aria-current="@(Active ? "page" : null)" title="@Title" class="@CssClass">
-        @ChildContent
+        @Label
     </a>
 }
 else
 {
-    @* aria-pressed as literal "true"/"false": handed a bool, Blazor drops the attribute for false. *@
     <button type="button"
             @onclick="OnToggle"
-            aria-pressed="@(Active ? "true" : "false")"
+            aria-pressed="@Aria.Flag(Active)"
             title="@Title"
             class="@CssClass">
-        @ChildContent
+        @Label
     </button>
 }
 
@@ -33,11 +32,31 @@ else
 
     [Parameter] public string? Title { get; set; }
 
+    /// <summary>
+    /// How many things this pill would leave showing, set faintly after the label. Eight pills
+    /// across four rows were spelling the same tabular, half-lit span out; leave it null where
+    /// the pill has nothing to count, which is what the rows that hide a zero already meant.
+    /// </summary>
+    [Parameter] public int? Count { get; set; }
+
+    private RenderFragment Label => __builder =>
+    {
+        @ChildContent
+        @if (Count is { } count)
+        {
+            <span class="tabular-nums opacity-60">@count</span>
+        }
+    };
+
+    /// The tones are the chip family's (.chip.is-selected, .chip-neutral) — which is also what
+    /// keeps the link form from coming out jade among the switches, since a link would otherwise
+    /// inherit the accent from the base stylesheet. The hovers are a switch's own: it answers the
+    /// pointer in ink rather than in the jade a door (.chip-door) does. The ring and the
+    /// transition come with being drawn as a button or a link — see button.chip in site.css.
     private string CssClass =>
-        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors "
+        "chip chip-lg font-medium "
         + (Active
-            ? "bg-accent-100 text-accent-800 border-accent-300"
-            // A link inherits the accent colour from the base stylesheet, so the inactive pill
-            // has to say what colour its text is or it comes out jade among the switches.
-            : "bg-white text-ink-600 border-ink-200 hover:border-ink-300 hover:text-ink-800");
+            // An active pill is still the click that turns it off, so it answers the pointer too.
+            ? "is-selected hover:bg-accent-200"
+            : "chip-neutral hover:border-ink-300 hover:text-ink-800");
 }

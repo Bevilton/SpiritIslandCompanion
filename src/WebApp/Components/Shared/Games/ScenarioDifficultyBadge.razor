@@ -1,0 +1,21 @@
+@* What a scenario adds to the difficulty, as the badge every surface that names one wears — the
+   reference table, the picker card and the record sheet's header. The tone is
+   GameLookups.DifficultyBadge's, which the three had each read for themselves, and the figure is
+   spelled the one way: "+2", never "2" or "Difficulty +2" on one and bare on the next.
+
+   Layout stays with the caller, as it does for every badge: the picker pins it to the far end of
+   its card and the others let it sit in a row. *@
+
+<span class="badge @GameLookups.DifficultyBadge(Difficulty) @Class">@Prefix+@Difficulty</span>
+
+@code {
+    /// <summary>What the scenario adds — <c>Scenario.Difficulty</c>.</summary>
+    [Parameter, EditorRequired] public int Difficulty { get; set; }
+
+    /// <summary>A word before the figure, where the badge stands alone rather than in a column
+    /// headed "Difficulty" — the record sheet says "Difficulty +2".</summary>
+    [Parameter] public string? Prefix { get; set; }
+
+    /// <summary>How the host lays the badge out — <c>shrink-0</c> at the end of a flex row.</summary>
+    [Parameter] public string? Class { get; set; }
+}

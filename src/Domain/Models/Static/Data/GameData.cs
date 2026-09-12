@@ -17,35 +17,10 @@ public static class GameData
     /// </summary>
     public static IReadOnlyList<IslandSetup> PublishedIslandSetups => Static.Data.IslandSetups.Published;
 
-    public static IReadOnlyList<Spirit> GetSpiritsForExpansions(IEnumerable<ExpansionId> ownedExpansions)
-    {
-        var owned = ownedExpansions.ToHashSet();
-        return Spirits.Where(s => owned.Contains(s.ExpansionId)).ToList();
-    }
-
-    public static IReadOnlyList<Aspect> GetAspectsForExpansions(IEnumerable<ExpansionId> ownedExpansions)
-    {
-        var owned = ownedExpansions.ToHashSet();
-        return Aspects.Where(a => owned.Contains(a.ExpansionId)).ToList();
-    }
-
-    public static IReadOnlyList<Adversary> GetAdversariesForExpansions(IEnumerable<ExpansionId> ownedExpansions)
-    {
-        var owned = ownedExpansions.ToHashSet();
-        return Adversaries.Where(a => owned.Contains(a.ExpansionId)).ToList();
-    }
-
-    public static IReadOnlyList<Scenario> GetScenariosForExpansions(IEnumerable<ExpansionId> ownedExpansions)
-    {
-        var owned = ownedExpansions.ToHashSet();
-        return Scenarios.Where(s => owned.Contains(s.ExpansionId)).ToList();
-    }
-
-    public static IReadOnlyList<Board> GetBoardsForExpansions(IEnumerable<ExpansionId> ownedExpansions)
-    {
-        var owned = ownedExpansions.ToHashSet();
-        return Boards.Where(b => owned.Contains(b.ExpansionId)).ToList();
-    }
+    // Deliberately no "for these expansions" helpers here: narrowing a catalogue to a reader's
+    // shelf is the presentation layer's question, and its answer depends on what an unknown
+    // shelf means there ("show everything", not the empty set). The domain lists the catalogue;
+    // who owns what is decided above it.
 
     public static IReadOnlyList<Aspect> GetAspectsForSpirit(SpiritId spiritId)
     {

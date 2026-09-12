@@ -17,13 +17,13 @@
 
 @if (_hasImage)
 {
-    <img src="@_src" alt="@_label" class="@Class object-contain @(Setup!.IsThematic ? "-scale-x-100" : "")"
+    <img src="@_src" alt="@_label" class="@FitBox object-contain @(Setup!.IsThematic ? "-scale-x-100" : null)"
          loading="lazy"/>
 }
 else
 {
     <IslandLayoutDiagram Geometry="@Geometry" BoardCount="@(Setup?.NumberOfPlayers ?? BoardCount)"
-                         Label="@_label" Class="@Class"/>
+                         Label="@_label"/>
 }
 
 @code {
@@ -49,7 +49,14 @@ else
     /// </summary>
     [Parameter] public string? Label { get; set; }
 
-    [Parameter] public string Class { get; set; } = "h-16 w-auto";
+    /// <summary>
+    /// How the picture is fitted, on both diagrams. Every caller sits it in a box of its own — a
+    /// 48px tile, a 56px chip, a half-screen panel — and asks it to fill that box without
+    /// overflowing, so that is all it does. It was a <c>Class</c> parameter defaulting to this,
+    /// and once the last <c>h-16 w-auto</c> override had gone no caller set it: a parameter with
+    /// one value is a decision pretending to be a choice.
+    /// </summary>
+    internal const string FitBox = "max-h-full max-w-full";
 
     private string _src = "";
     private bool _hasImage;
@@ -65,6 +72,6 @@ else
         var name = Label ?? Setup?.Name;
         _label = name is null
             ? "Island layout"
-            : boards > 0 ? $"{name} layout, {boards} board{(boards == 1 ? "" : "s")}" : name;
+            : boards > 0 ? $"{name} layout, {Copy.Count(boards, "board")}" : name;
     }
 }

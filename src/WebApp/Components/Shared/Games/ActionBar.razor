@@ -1,0 +1,42 @@
+@* The bar that follows a game screen down the page: what the setup currently adds up to on the
+   left, a line saying what saving will do, and the save itself on the right.
+
+   Both screens that record something float one — the setup form and the game page's complete
+   flow — and each had written the whole thing out. They already disagreed about the order of the
+   hint's seven utilities, which is the state a shape reaches just before one of them loses one.
+
+   The hint keeps its own rule: it is the part that gives way on a narrow screen, so it truncates
+   rather than pushing the last button onto a second line, and below sm it is dropped entirely.
+   Its `mr-auto flex-1` is load-bearing even when it says nothing — it is what holds the actions
+   at the right-hand end. *@
+
+<div class="sticky bottom-3 z-10 @Class">
+    <div class="surface flex flex-wrap items-center gap-3 px-4 py-3 shadow-lg md:px-5">
+        @Stats
+        @* .block-note is the hint's register; a caller's HintClass is only ever a tone laid over it. *@
+        <div class="block-note mr-auto hidden min-w-0 flex-1 truncate sm:block @HintClass">
+            @Hint
+        </div>
+        @Actions
+    </div>
+</div>
+
+@code {
+    /// <summary>What the bar reports — one or more <see cref="ActionBarStat"/>.</summary>
+    [Parameter] public RenderFragment? Stats { get; set; }
+
+    /// <summary>The line between the figures and the actions: what saving will do, or why it
+    /// can't yet.</summary>
+    [Parameter] public RenderFragment? Hint { get; set; }
+
+    /// <summary>The hint's tone, where it is saying something other than what it usually says —
+    /// ember while the setup can't be saved. Ink otherwise.</summary>
+    [Parameter] public string? HintClass { get; set; }
+
+    /// <summary>The buttons, at the right-hand end.</summary>
+    [Parameter] public RenderFragment? Actions { get; set; }
+
+    /// <summary>Extra classes on the sticky wrapper — the space above it, where the bar follows
+    /// a page rather than a panel.</summary>
+    [Parameter] public string? Class { get; set; }
+}

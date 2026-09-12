@@ -1,112 +1,60 @@
-@* Scenario reference sheet. Given Facts it also profiles the record with the scenario,
-   and given OnSelected it can be chosen straight from here. A scenario is the whole
-   table's, so a host scopes it to a person by the games they sat in — see
-   AdversaryDetailModal. z-60 keeps it above the picker modals (z-50) that open it. *@
-
-@using Application.Features.Statistics
+@* Scenario reference sheet. Given Facts it also profiles the record with the scenario, and
+   given OnSelected it can be chosen straight from here. What the sheet is told about that
+   record — the history, whose it is, whether it may link out — is DetailSheetBase's. *@
+@inherits DetailSheetBase
 
 @if (_scenario is not null)
 {
     var detail = _detail;
 
-    <ModalShell OnClose="Close" ZIndex="z-[60]" MaxWidth="md:max-w-4xl">
-            <div class="px-6 md:px-8 pt-6 pb-5 relative bg-ink-50/60 border-b border-ink-200">
-                <button class="absolute top-4 right-4 inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-500 hover:bg-white/60 hover:text-ink-900 transition-colors" @onclick="Close" aria-label="Close">
-                    <Icon Name="x" Class="w-5 h-5"/>
-                </button>
+    <ModalShell OnClose="Close" ZIndex="@SheetZIndex" MaxWidth="@SheetWidth">
+        <DetailModalHeader Title="@_scenario.Name" OnClose="Close">
+            <Glyph><Icon Name="book" Class="w-6 h-6 text-accent-700 shrink-0 mt-1"/></Glyph>
+            <Badges>
+                <span class="badge badge-neutral">@GameLookups.ExpansionName(_scenario.ExpansionId)</span>
+                <ScenarioDifficultyBadge Difficulty="_scenario.Difficulty" Prefix="Difficulty "/>
+            </Badges>
+        </DetailModalHeader>
 
-                <div class="flex items-start gap-3 pr-10">
-                    <Icon Name="book" Class="w-6 h-6 text-accent-700 shrink-0 mt-1"/>
-                    <div class="min-w-0 flex-1">
-                        <h2 class="text-2xl font-semibold text-ink-900 leading-tight" style="font-family: var(--font-serif);">@_scenario.Name</h2>
-                        <div class="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
-                            <span class="badge badge-neutral">@GameLookups.ExpansionName(_scenario.ExpansionId)</span>
-                            <span class="badge @(_scenario.Difficulty >= 3 ? "badge-warn" : _scenario.Difficulty >= 1 ? "badge-info" : "badge-neutral")">
-                                Difficulty +@_scenario.Difficulty
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div class="sheet-body space-y-6">
+            <SheetSummary Text="@detail?.Summary"/>
 
-            <div class="overflow-y-auto px-6 md:px-8 py-5 space-y-6">
-                @if (detail is not null)
-                {
-                    @* Capped at prose width: the panel is wide for the record tables, not the text. *@
-                    <p class="max-w-prose text-ink-700 leading-relaxed">@detail.Summary</p>
-                }
-                else
-                {
-                    <p class="text-ink-500 italic">No additional information available.</p>
-                }
-
-                @if (_profile is not null)
-                {
-                    <SetupProfileSection Profile="_profile" Name="@_scenario.Name"
-                                         Scoped="@(SeatFilter is not null)" SubjectName="@SubjectName"
-                                         Title="record in this scenario"
-                                         LinkGames="LinkGames"
-                                         AllGamesHref="@(LinkGames ? GamesLink.ForScenario(_scenario.Id.Value, who: ScopeWho) : null)"/>
-                }
-
-                <div class="pt-2">
-                    <a href="@GameLookups.WikiLink(_scenario.Name)" target="_blank" rel="noopener"
-                       class="inline-flex items-center gap-1 text-sm text-accent-700 hover:text-accent-800">
-                        Read on the Spirit Island wiki
-                        <Icon Name="arrow-right" Class="w-3.5 h-3.5"/>
-                    </a>
-                </div>
-            </div>
-
-            @if (OnSelected.HasDelegate)
+            @if (Profile is not null)
             {
-                <div class="flex items-center justify-between gap-3 border-t border-ink-100 bg-ink-50/40 px-6 md:px-8 py-3.5 md:rounded-b-2xl">
-                    <button type="button" class="btn btn-ghost btn-sm" @onclick="Close">
-                        <Icon Name="arrow-left" Class="w-3.5 h-3.5"/> Back to scenarios
-                    </button>
-                    <button type="button" class="btn btn-primary" @onclick="Select">
-                        <Icon Name="check" Class="w-4 h-4"/> Play this scenario
-                    </button>
-                </div>
+                <SetupProfileSection Profile="Profile" Name="@_scenario.Name"
+                                     Scoped="Scoped" SubjectName="@SubjectName"
+                                     Title="record in this scenario"
+                                     LinkGames="LinkGames"
+                                     AllGamesHref="@GamesLink.ForScenario(_scenario.Id.Value, who: ScopeWho)"/>
             }
+
+            <SheetWikiLink Name="@_scenario.Name"/>
+        </div>
+
+        @if (OnSelected.HasDelegate)
+        {
+            <SheetFooter BackLabel="scenarios" OnBack="Close">
+                <button type="button" class="btn btn-primary" @onclick="Select">
+                    <Icon Name="check" Class="w-4 h-4"/> Play this scenario
+                </button>
+            </SheetFooter>
+        }
     </ModalShell>
 }
 
 @code {
-    /// <summary>
-    /// Personal game history. When there is any, the modal profiles the player's record
-    /// with this scenario; empty or null hides the section (plain reference sheet).
-    /// </summary>
-    [Parameter] public IReadOnlyList<SetupGameFact>? Facts { get; set; }
-
-    /// <summary>Whether the record may link out to the games behind it — see AdversaryDetailModal.</summary>
-    [Parameter] public bool LinkGames { get; set; }
-
-    /// <summary>
-    /// Narrows the record to the games one person sat in — a scenario is the whole table's, so
-    /// there are no seats to filter. See AdversaryDetailModal.
-    /// </summary>
-    [Parameter] public Func<SetupFactSeat, bool>? SeatFilter { get; set; }
-
-    /// <summary>Whose record it is when it isn't the reader's own, e.g. "Anna".</summary>
-    [Parameter] public string? SubjectName { get; set; }
-
-    /// <summary>The same scope as a games-list <c>who</c> key, so the links out stay narrowed.</summary>
-    [Parameter] public string? ScopeWho { get; set; }
-
     /// <summary>When set, a footer action picks this scenario — used when opened from the picker.</summary>
     [Parameter] public EventCallback<Scenario> OnSelected { get; set; }
 
     private Scenario? _scenario;
     private ScenarioDetail? _detail;
-    private SetupProfiles.Profile? _profile;
 
     public void Show(Scenario scenario)
     {
         _scenario = scenario;
         _detail = ScenarioDetails.For(scenario.Id);
-        var facts = Facts is { Count: > 0 } ? SetupProfiles.GamesWith(Facts, SeatFilter) : null;
-        _profile = facts is not null
+        var facts = ScopedFacts();
+        Profile = facts is not null
             ? SetupProfiles.Build(SetupSubjectKind.Scenario, scenario.Id.Value, facts)
             : null;
         StateHasChanged();
@@ -116,7 +64,7 @@
     {
         _scenario = null;
         _detail = null;
-        _profile = null;
+        Profile = null;
     }
 
     private async Task Select()

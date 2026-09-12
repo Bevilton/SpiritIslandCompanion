@@ -1,0 +1,23 @@
+@* "There is nothing here yet", the one way the app says it: a soft accent glyph, a serif
+   headline, a sentence of what would fill the space, and — where there is one — the action that
+   would. Four pages spelled this out by hand and had already drifted apart on the padding. *@
+
+<div class="surface px-6 py-16 text-center">
+    <IconChip Name="@Icon" Size="3xl" Class="mb-4"/>
+    <h2 class="dialog-title">@Title</h2>
+    <p class="body-note mx-auto mt-1 max-w-sm">@Body</p>
+    @if (Action is not null)
+    {
+        <div class="mt-5">@Action</div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Icon { get; set; } = "";
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter, EditorRequired] public string Body { get; set; } = "";
+
+    /// <summary>The one thing to do about it — a "Record your first game" button, say. Omit
+    /// where the page has nothing to offer beyond saying the list is empty.</summary>
+    [Parameter] public RenderFragment? Action { get; set; }
+}

@@ -1,11 +1,31 @@
-@* Fill colour follows WinTone's 50% threshold so bars and record pills turn together. *@
-<div class="flex items-center gap-3 min-w-[140px]">
-    <div class="flex-1 h-1.5 bg-ink-100 rounded-full overflow-hidden">
-        <div class="h-full rounded-full @(Pct >= 50 ? "bg-accent-500" : "bg-red-400")" style="width:@($"{Math.Clamp(Pct, 0, 100):F0}")%"></div>
+@* A win rate as a bar and a figure — the "Win rate" column of the three statistics tables.
+
+   The fill is WinTone's, not a threshold of its own: the class ladder here used to be a second
+   copy of "green from 50% up" with a comment promising it would be kept in step, and it had
+   already slipped a step lighter on the losing side than the same bar on the landing page.
+
+   The empty state is the component's rather than the caller's. All three tables gated the bar on
+   "has anything finished?" and wrote the dash out themselves, in three copies of the same three
+   lines; a rate over nothing but drafts is 0 by arithmetic, and a full-width ember bar would
+   report a run of defeats that never happened. *@
+
+@if (Completed > 0)
+{
+    <div class="flex min-w-[140px] items-center gap-3">
+        <Meter Value="Pct" FillColor="@WinTone.FillFor(Pct, Completed)" Class="flex-1"/>
+        <span class="w-9 text-right text-xs tabular-nums text-ink-700">@($"{Pct:F0}%")</span>
     </div>
-    <span class="text-xs text-ink-700 tabular-nums w-9 text-right">@($"{Pct:F0}%")</span>
-</div>
+}
+else
+{
+    <span class="no-figure text-xs">—</span>
+}
 
 @code {
     [Parameter, EditorRequired] public double Pct { get; set; }
+
+    /// <summary>
+    /// Finished games behind the rate. Zero draws the dash instead of the bar — see above.
+    /// </summary>
+    [Parameter, EditorRequired] public int Completed { get; set; }
 }

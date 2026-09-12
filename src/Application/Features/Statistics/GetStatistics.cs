@@ -52,12 +52,15 @@ public sealed record TerrorLevelStats(
     int GamesPlayed,
     int Wins);
 
+/// <summary>
+/// One of the latest finished games. Always finished — see <c>GetRecentGames</c> — so the
+/// outcome and the score are facts rather than possibilities.
+/// </summary>
 public sealed record RecentGameSummary(
     Guid Id,
     DateTimeOffset StartedAt,
-    bool IsCompleted,
-    bool? Win,
-    int? Score,
+    bool Win,
+    int Score,
     int Difficulty,
     int PlayerCount,
     List<string> AdversaryIds,
@@ -73,7 +76,7 @@ public sealed record SpiritStats(
     double AverageScore,
     int? BestScore,
     Dictionary<TerrorLevel, int> TerrorCounts,
-    List<AspectStats> Aspects);
+    List<AspectStats> Aspects) : IWinRateTally;
 
 /// <summary>
 /// One variant of a spirit as it was actually played. An aspect rewrites enough of a
@@ -86,7 +89,7 @@ public sealed record AspectStats(
     string? AspectId,
     int GamesPlayed,
     int Wins,
-    int Losses);
+    int Losses) : IPlayTally;
 
 public sealed record AdversaryStats(
     string AdversaryId,
@@ -95,9 +98,9 @@ public sealed record AdversaryStats(
     int Losses,
     double WinRate,
     double AverageLevel,
-    List<AdversaryLevelStats> Levels);
+    List<AdversaryLevelStats> Levels) : IWinRateTally;
 
-public sealed record AdversaryLevelStats(int Level, int GamesPlayed, int Wins, int Losses);
+public sealed record AdversaryLevelStats(int Level, int GamesPlayed, int Wins, int Losses) : IPlayTally;
 
 public enum PlayerKind { Me, Friend, Local }
 
@@ -113,7 +116,7 @@ public sealed record PlayerStats(
     double AverageScore,
     int? BestScore,
     List<string> MostPlayedSpirits,
-    string? FavouriteSpirit);
+    string? FavouriteSpirit) : IWinRateTally;
 
 public sealed record ScenarioStats(
     string ScenarioId,
@@ -121,20 +124,26 @@ public sealed record ScenarioStats(
     int Wins,
     int Losses,
     double WinRate,
-    double AverageScore);
+    double AverageScore) : IWinRateTally;
 
 public sealed record BoardStats(
     string BoardId,
     int GamesPlayed,
     int Wins,
     int Losses,
-    double WinRate);
+    double WinRate) : IWinRateTally;
 
+/// <param name="GamesPlayed">Every game started that month, drafts included.</param>
+/// <param name="Losses">
+/// Finished games that were lost — carried rather than left to be derived, because
+/// <c>GamesPlayed - Wins</c> counts the month's drafts as defeats.
+/// </param>
 public sealed record MonthlyStats(
     int Year,
     int Month,
     int GamesPlayed,
-    int Wins);
+    int Wins,
+    int Losses) : IPlayTally;
 
 internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<GetStatisticsQuery, StatisticsResponse>
 {
@@ -451,7 +460,8 @@ internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<Get
                 g.Key.Year,
                 g.Key.Month,
                 g.Count(),
-                g.Count(x => x.Result is not null && x.Result.Win)))
+                g.Count(x => x.Result is { Win: true }),
+                g.Count(x => x.Result is { Win: false })))
             .OrderByDescending(s => s.Year)
             .ThenByDescending(s => s.Month)
             .ToList();
@@ -470,9 +480,8 @@ internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<Get
             .Select(g => new RecentGameSummary(
                 g.Id.Value,
                 g.StartedAt,
-                g.Result is not null,
-                g.Result?.Win,
-                g.Result?.Score.Value,
+                g.Result!.Win,
+                g.Result.Score.Value,
                 g.Difficulty.Value,
                 g.Players.Count,
                 g.PlayedAdversaries.Select(a => a.AdversaryId.Value).ToList(),

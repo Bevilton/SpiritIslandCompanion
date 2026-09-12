@@ -69,27 +69,28 @@
         <span class="truncate">@label</span>
         @if (never)
         {
-            <span class="text-[9px] font-semibold uppercase">new</span>
+            <span class="untried-mark">new</span>
         }
         else if (record is { Played: > 0 })
         {
             <span class="tabular-nums opacity-70">@(record.Played)×</span>
             @if (record.Completed > 0)
             {
-                <span class="tabular-nums font-semibold @WinTone.ForRate(record.WinRate)">@($"{record.WinRate:F0}")%</span>
+                <WinRateFigure Value="record.WinRate"/>
             }
         }
     };
 
-    /// Same three states the record pills use everywhere else: chosen, never played, played.
+    /// Same three states the record pills use everywhere else: chosen, never played, played —
+    /// and the same .chip shape, a padding step tighter because a spirit's variants are a run of
+    /// them on one line. The tones are the chip family's own (.chip.is-selected, .chip-neutral,
+    /// .untried), and so is the answer to the pointer: a played chip that picks is a door
+    /// (.chip-door), .untried brings its own hover, and the ring comes with being a button.
     private string ChipClass(bool selected, bool never) =>
-        "inline-flex max-w-full items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium transition-colors "
+        "chip chip-sm max-w-full px-1.5 "
         + (selected
-            ? "border-accent-400 bg-accent-100 text-accent-800"
+            ? "is-selected"
             : never
-                ? "border-dashed border-amber-300 bg-amber-50/60 text-amber-700"
-                    + (OnPick.HasDelegate ? " hover:border-amber-400 hover:bg-amber-100" : "")
-                : "border-ink-200 bg-white text-ink-600"
-                    + (OnPick.HasDelegate ? " hover:border-accent-300 hover:text-ink-900" : ""))
-        + (OnPick.HasDelegate ? " focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40" : "");
+                ? "untried"
+                : "chip-neutral" + (OnPick.HasDelegate ? " chip-door" : ""));
 }

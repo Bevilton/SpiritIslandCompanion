@@ -1,0 +1,34 @@
+@* The head of a finish-this-game invitation: a glyph in its tile, what is being asked, and a
+   line of why. Four panels open with it — the setup form's outcome toggle, and the game page's
+   three draft states — and each had its own copy, which is how the two dim ones could have
+   drifted from the two lit ones.
+
+   Lit follows .panel-invite: amber while the panel is asking for something, ink while it is not
+   — the outcome toggle turned off, or somebody else's draft, which is theirs to finish. *@
+
+<div class="flex items-center gap-3 @Class">
+    <IconChip Name="@Icon" Size="xl" Tone="@(Lit ? "bg-amber-100 text-amber-700" : "bg-ink-100 text-ink-500")"/>
+    @* .row-title over .row-sub, the pair every other row in the app is set in — this was the one
+       that had written its second line out by hand, a size larger than the eleven that hadn't. *@
+    <div>
+        <div class="row-title">@Title</div>
+        <div class="row-sub">@Sub</div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+
+    /// <summary>The line under the ask — what saying yes gets the player.</summary>
+    [Parameter, EditorRequired] public string Sub { get; set; } = "";
+
+    /// <summary>Dimmed to ink while the invitation is not yet being taken up.</summary>
+    [Parameter] public bool Lit { get; set; } = true;
+
+    /// <summary>The glyph in the tile. The trophy is what an invitation to finish a game wears;
+    /// a draft that is waiting on somebody else shows the hourglass instead.</summary>
+    [Parameter] public string Icon { get; set; } = "trophy";
+
+    /// <summary>Extra classes on the row — a margin where the panel's body follows below.</summary>
+    [Parameter] public string? Class { get; set; }
+}

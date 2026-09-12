@@ -1,0 +1,22 @@
+@* What a page or a dialog says when the thing it was opened for cannot be shown: a game that
+   isn't there, a merge request already answered, a list that failed to load. The three of them
+   read as one dead end to a reader — "what I came here for is gone" — so they say it in one
+   voice rather than each picking its own.
+
+   The fourth of the app's dead ends, and the only one about a *subject* rather than a list:
+   .no-matches is a filtered list the reader emptied, .no-data a panel whose data hasn't happened
+   yet, EmptyState a page with nothing on it and the way to fill it. This one is amber because it
+   is the only one of the four that is a problem.
+
+   Distinct from Alert, which is a form's voice after it acts and takes the whole FormFeedback;
+   this says something the page already knows. *@
+
+<div class="alert alert-warn">
+    <Icon Name="alert" Class="w-5 h-5 shrink-0 mt-0.5"/>
+    <div>@ChildContent</div>
+</div>
+
+@code {
+    /// <summary>What is missing, in a sentence — "Game not found."</summary>
+    [Parameter, EditorRequired] public RenderFragment ChildContent { get; set; } = default!;
+}

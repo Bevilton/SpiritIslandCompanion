@@ -45,23 +45,22 @@ else
 
     private bool Never => HasHistory && Record is not { Played: > 0 };
 
-    private string Tooltip => $"{Subject} — details and full record";
+    private string Tooltip => Copy.SheetTooltip(Subject, HasHistory);
 
+    /// The ring and the transition come with being drawn as a button (see button.chip in site.css);
+    /// .untried carries the never-state's tone and its own hover, so only the played pill needs
+    /// naming as a door.
     private string Classes
     {
         get
         {
             var chrome = Never
-                ? "border-dashed border-amber-300 bg-amber-50/60 text-amber-700"
+                ? "untried"
                 : Starred
                     ? "border-accent-300 bg-accent-50/70 text-accent-800"
-                    : "border-ink-200 bg-white text-ink-600";
-            var interactive = !OnClick.HasDelegate
-                ? ""
-                : Never
-                    ? " hover:border-amber-400 hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40"
-                    : " hover:border-accent-400 hover:bg-accent-50 hover:text-ink-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40";
-            return $"inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors {chrome}{interactive}";
+                    : "chip-neutral";
+            var door = OnClick.HasDelegate && !Never ? " chip-door" : "";
+            return $"chip chip-sm {chrome}{door}";
         }
     }
 
@@ -83,7 +82,7 @@ else
             <span class="tabular-nums font-medium">@(Record!.Played)×</span>
             @if (Record.Completed > 0)
             {
-                <span class="tabular-nums font-semibold @WinTone.ForRate(Record.WinRate)">@($"{Record.WinRate:F0}")%</span>
+                <WinRateFigure Value="Record.WinRate"/>
             }
         }
         @if (OnClick.HasDelegate)

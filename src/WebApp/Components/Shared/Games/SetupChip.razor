@@ -1,0 +1,35 @@
+@* A note on how a game was set up, as a small chip: the scenario when the adversaries took the
+   match's title, a hand-built island, thematic maps, an extra board. Two surfaces say these
+   things — the games list beside a match's title and the recorded game's setup card under its
+   island — and each had a private fragment drawing the same .chip-sm with an optional glyph,
+   under a comment promising the other one looked the same. One chip, so it does.
+
+   The tone is one of the two setup tones in site.css: .chip-island (the default — most of these
+   are about the island) or .chip-scenario. Layout stays with the caller, as it does for every
+   chip: the games list drops these below sm, where the title is already sharing a row with the
+   date, the spirits and the result. *@
+
+<span class="chip chip-sm @Tone @Class" title="@Title">
+    @if (Icon is not null)
+    {
+        <Icon Name="@Icon" Class="w-3 h-3"/>
+    }
+    @Label
+</span>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+
+    /// <summary>The glyph before the word — "map" for an island, "book" for a scenario. Omit for
+    /// a chip that is only the word.</summary>
+    [Parameter] public string? Icon { get; set; }
+
+    /// <summary>Which of the two setup tones — <c>chip-island</c> (default) or <c>chip-scenario</c>.</summary>
+    [Parameter] public string Tone { get; set; } = "chip-island";
+
+    /// <summary>The tooltip, where the chip's word needs a sentence behind it.</summary>
+    [Parameter] public string? Title { get; set; }
+
+    /// <summary>How the host lays the chip out — the games list's <c>hidden shrink-0 sm:inline-flex</c>.</summary>
+    [Parameter] public string? Class { get; set; }
+}

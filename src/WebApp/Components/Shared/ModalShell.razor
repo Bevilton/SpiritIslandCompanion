@@ -5,7 +5,7 @@
 <div @ref="_container" tabindex="-1" role="dialog" aria-modal="true" @onkeydown="OnKeyDown"
      class="fixed inset-0 @ZIndex flex items-end md:items-center justify-center px-0 md:px-4 py-0 md:py-8 focus:outline-none">
     <div class="absolute inset-0 bg-ink-900/40 backdrop-blur-sm" @onclick="OnClose"></div>
-    <div class="@(Scrollable ? "overflow-hidden max-h-[92vh] flex flex-col" : "")
+    <div class="@(Scrollable ? "overflow-hidden max-h-[92vh] flex flex-col" : null) @PanelClass
                 relative bg-white w-full @MaxWidth md:rounded-2xl shadow-2xl border border-ink-200"
          style="@PanelStyle">
         @ChildContent
@@ -31,7 +31,13 @@
     /// short dialogs that manage their own height.
     [Parameter] public bool Scrollable { get; set; } = true;
 
-    /// Extra inline style for the panel — e.g. the player dialog's spirit-coloured top border.
+    /// Extra classes on the panel, and the values they read. The pair exists for one shape —
+    /// the player dialog wears .top-accent-lg in the seat's spirit colour, which is a class and
+    /// a custom property together — and they are two parameters rather than one because the
+    /// panel has classes of its own that the caller must not have to restate.
+    [Parameter] public string? PanelClass { get; set; }
+
+    /// <inheritdoc cref="PanelClass"/>
     [Parameter] public string? PanelStyle { get; set; }
 
     private ElementReference _container;

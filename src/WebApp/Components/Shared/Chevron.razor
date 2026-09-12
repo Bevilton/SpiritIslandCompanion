@@ -1,0 +1,18 @@
+@* The disclosure marker: a chevron that turns over when what it points at is open — the filter
+   bar's panel, the setup form's fine-tune card, the statistics scope menu and its folded aspect
+   rows, the seat picker, the spirit card's variants.
+
+   Six of them spelled the rotation out as the same interpolated ternary, and the pair of
+   utilities that make it turn *smoothly* had been written apart from it — so the marker was one
+   forgotten `transition-transform` away from snapping round instead. Size and tone stay with the
+   caller, since these run from a 12px mark inside a chip to the 16px one on a card's header. *@
+
+<Icon Name="chevron-down" Class="@($"shrink-0 transition-transform {Class}{(Open ? " rotate-180" : "")}")"/>
+
+@code {
+    /// <summary>Whether what this points at is showing — turns the mark over.</summary>
+    [Parameter] public bool Open { get; set; }
+
+    /// <summary>Size and tone. The default is the one a card header or a field button wears.</summary>
+    [Parameter] public string Class { get; set; } = "w-4 h-4 text-ink-400";
+}

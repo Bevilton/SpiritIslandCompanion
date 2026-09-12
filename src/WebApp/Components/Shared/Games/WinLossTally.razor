@@ -1,0 +1,25 @@
+@* A record written out longhand — "7 W · 3 L" — in the app's two outcome colours. It is what a
+   figure is shown *beside*: the caption under a win-rate tile, the line under an adversary card's
+   name, the run behind a form strip, the header of a scoped statistics page.
+
+   Four of these were spelled out in markup and had already drifted in two ways at once: the pair
+   of utilities was written `font-medium text-accent-700` in two places and `text-accent-700
+   font-medium` in the other two, and the separator was a bare "·" between two spans in three of
+   them and part of a third span in the fourth — so the dot inherited a different tone depending
+   on where you read it. The wording lives in one place now, with the separator inside it.
+
+   The figures are the caller's tone-free ones on purpose: jade for what was won and ember for
+   what was lost is the same decision WinTone makes about a rate, and the two have to agree. Size
+   and any surrounding punctuation are inherited from whatever the tally is set in, since these
+   sit in captions from 10px to 14px. *@
+
+<span class="tabular-nums"><span class="font-medium text-accent-700">@Wins W</span> · <span class="font-medium text-red-600">@Losses L</span></span>
+
+@code {
+    [Parameter, EditorRequired] public int Wins { get; set; }
+    [Parameter, EditorRequired] public int Losses { get; set; }
+
+    /// <summary>The same record as a plain string, for the callers that can only take one — a
+    /// tile's caption, a tooltip, a record sheet's summary row.</summary>
+    public static string Text(int wins, int losses) => $"{wins} W · {losses} L";
+}

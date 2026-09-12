@@ -1,11 +1,10 @@
 namespace Application.Abstractions;
 
 /// <summary>
-/// Which demo sandbox the current scope belongs to, if any. Follows the same layering as
-/// <see cref="ICurrentUserService"/>: the web host implements it (the sandbox id travels in
-/// the demo visitor's auth cookie), and the infrastructure reads it to decide whether the
-/// scope's <see cref="Application.Data.IAppDbContext"/> is the real database or that
-/// visitor's throwaway copy.
+/// Which demo sandbox the current scope belongs to, if any. The web host implements it (the
+/// sandbox id travels in the demo visitor's auth cookie), and the infrastructure reads it to
+/// decide whether the scope's <see cref="Application.Data.IAppDbContext"/> is the real database
+/// or that visitor's throwaway copy.
 /// </summary>
 public interface IDemoSessionLocator
 {

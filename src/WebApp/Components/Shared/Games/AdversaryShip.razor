@@ -1,0 +1,48 @@
+@* One adversary on the setup screen's sea: the ship, the name plate hanging under its hull, and
+   the × that sends it away. Tapping the ship changes the foe or its level; the × is a sibling of
+   that button, since a button may not contain a button.
+
+   It was the body of a loop in the setup form, ship drawing and all. The drawing is InvaderShip's
+   now, shared with the landing page's fleet; what is this component's is the plate and the two
+   controls. The ships bob out of step with each other — Index staggers the swell. *@
+
+<div class="si-bob group relative" style="animation-delay: -@(Index * 1700)ms;">
+    <button type="button" @onclick="OnOpen"
+            class="flex flex-col items-center rounded-xl px-1 pb-1 focus-ring-on-deep"
+            title="@Name — level @Level. Tap to change.">
+        <InvaderShip Class="h-14 w-16 drop-shadow-md"/>
+        @* The ship's name plate — the same glass the other chips on this water float in, squared
+           off: it hangs under a hull rather than floating on its own. *@
+        <span class="sea-chip -mt-1 flex flex-col items-center rounded-xl px-2.5 py-1 leading-tight">
+            <span class="max-w-28 truncate font-semibold text-ink-900">@(Adversary?.Name ?? "Adversary…")</span>
+            <span class="fine-note">Level @Level · +@Difficulty</span>
+        </span>
+    </button>
+    @* Fades in with the hull it hangs on — transition-all rather than the tone's transition-colors,
+       since two transition utilities on one element is a coin toss over which one wins. *@
+    <button type="button" @onclick="OnRemove" aria-label="@($"Remove {Name}")"
+            class="disc disc-remove absolute -right-1 -top-1 h-6 w-6 border border-ink-200 bg-white shadow-sm
+                   opacity-0 transition-all group-hover:opacity-100 focus:opacity-100">
+        <Icon Name="x" Class="w-3 h-3"/>
+    </button>
+</div>
+
+@code {
+    /// <summary>The foe, or null for one the catalogue no longer lists.</summary>
+    [Parameter, EditorRequired] public Adversary? Adversary { get; set; }
+
+    [Parameter, EditorRequired] public int Level { get; set; }
+
+    /// <summary>Where in the row this ship sails — staggers its bob so the fleet doesn't rise as one.</summary>
+    [Parameter] public int Index { get; set; }
+
+    /// <summary>Tapping the ship: change which foe this is, or its level.</summary>
+    [Parameter] public EventCallback OnOpen { get; set; }
+
+    /// <summary>The ×: take this foe off the table.</summary>
+    [Parameter] public EventCallback OnRemove { get; set; }
+
+    private string Name => Adversary?.Name ?? "Adversary";
+
+    private int Difficulty => Adversary?.Modes.FirstOrDefault(m => m.Level == Level)?.Difficulty ?? 0;
+}

@@ -11,24 +11,33 @@
 
    Games without an adversary aren't in this grid — it is a grid of matchups, and those games had
    nobody across the table. For the same reason a spirit played only in such games gets no row:
-   it has nothing to say here, and must not spend one of the capped rows saying it. *@
+   it has nothing to say here, and must not spend one of the capped rows saying it.
 
-@if (_rows.Count == 0)
+   Everything a cell shows — its colour, the ink that reads on it, its link and its tooltip — is
+   worked out once when the rows change, not per cell per render: the page re-renders on every
+   keystroke in its filter box, and this is up to twelve rows of them. *@
+
+@* Two dead ends, two registers: a filter that emptied the list is .no-matches, a history with no
+   matchup in it is .no-data — see site.css for why the two must not read alike. *@
+@if (SpiritIds.Count == 0)
 {
-    <div class="py-8 text-center text-sm text-ink-500">
-        @(SpiritIds.Count == 0 ? "No spirits match the current filters." : "No games against an adversary yet.")
-    </div>
+    <div class="no-matches">@Copy.NoMatches("spirits")</div>
+}
+else if (_rows.Count == 0)
+{
+    <div class="no-data">No games against an adversary yet.</div>
 }
 else
 {
     <div class="overflow-x-auto px-4 pb-2">
-        <table class="border-separate" style="border-spacing: 2px;">
+        <table class="border-separate border-spacing-0.5">
+            <caption class="sr-only">Win rate of each spirit against each adversary</caption>
             <thead>
             <tr>
-                <th></th>
+                <td></td>
                 @foreach (var c in _columns)
                 {
-                    <th scope="col" class="max-w-[5.5rem] px-1 pb-1 text-center align-bottom text-[10.5px] font-medium leading-tight text-ink-500">
+                    <th @key="c.Id" scope="col" class="max-w-[5.5rem] px-1 pb-1 text-center align-bottom text-[10.5px] font-medium leading-tight text-ink-500">
                         @c.Name
                     </th>
                 }
@@ -37,42 +46,40 @@ else
             <tbody>
             @foreach (var r in _rows)
             {
-                <tr>
+                <tr @key="r.Id">
                     <th scope="row" class="max-w-[11rem] pr-2 text-right align-middle">
                         <button type="button" @onclick="() => OnPickSpirit.InvokeAsync(r.Id)"
-                                title="@($"{r.Name} — details and full record")"
+                                title="@Copy.SheetTooltip(r.Name)"
                                 class="inline-flex max-w-full items-center gap-1.5 rounded text-[11.5px] font-medium text-ink-700
-                                       hover:text-accent-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                                       hover:text-accent-800 focus-ring">
                             <span class="truncate">@r.Name</span>
-                            <span class="h-2 w-2 shrink-0 rounded-full" style="background-color: @r.Color;"></span>
+                            <ColorDot Color="@r.Color"/>
                         </button>
                     </th>
                     @foreach (var c in _columns)
                     {
                         if (!_cells.TryGetValue((r.Id, c.Id), out var cell))
                         {
-                            <td class="h-9 w-14 rounded-md border border-dashed border-ink-200 text-center text-ink-300"
+                            <td @key="c.Id" class="h-9 w-14 rounded-md border border-dashed border-ink-200 text-center text-ink-300"
                                 title="@($"{r.Name} never faced {c.Name}")">·</td>
                             continue;
                         }
-                        var tip = SetupInsights.RecordTooltip($"{r.Name} vs {c.Name}", cell, null) + " · open those games";
                         if (cell.Completed == 0)
                         {
-                            <td class="h-9 w-14 rounded-md bg-ink-100 text-center">
-                                <a href="@GamesLink.ForMatchup(r.Id, c.Id, ScopeWho)" title="@tip"
+                            <td @key="c.Id" class="h-9 w-14 rounded-md bg-ink-100 text-center">
+                                <a href="@cell.Href" title="@cell.Tooltip"
                                    class="flex h-full w-full items-center justify-center rounded-md text-[11px] text-ink-500
-                                          focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">×@cell.Played</a>
+                                          focus-ring">×@cell.Played</a>
                             </td>
                             continue;
                         }
-                        var bg = DivergingColor(cell.WinRate);
-                        <td class="h-9 w-14 rounded-md text-center" style="background-color: @bg;">
-                            <a href="@GamesLink.ForMatchup(r.Id, c.Id, ScopeWho)" title="@tip"
+                        <td @key="c.Id" class="h-9 w-14 rounded-md text-center" style="background-color: @cell.Fill;">
+                            <a href="@cell.Href" title="@cell.Tooltip"
                                class="flex h-full w-full flex-col items-center justify-center rounded-md leading-none
-                                      focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40"
-                               style="color: @GameLookups.InkOn(bg);">
+                                      focus-ring"
+                               style="color: @cell.Ink;">
                                 <span class="text-[11.5px] font-semibold tabular-nums">@($"{cell.WinRate:F0}%")</span>
-                                <span class="mt-0.5 text-[9px] tabular-nums" style="opacity: 0.8;">×@cell.Played</span>
+                                <span class="mt-0.5 text-[9px] tabular-nums opacity-80">×@cell.Played</span>
                             </a>
                         </td>
                     }
@@ -81,7 +88,7 @@ else
             </tbody>
         </table>
     </div>
-    <div class="flex flex-wrap items-center gap-2.5 px-5 pb-4 pt-1 text-[11px] text-ink-500">
+    <div class="section-note flex flex-wrap items-center gap-2.5 px-5 pb-4 pt-1">
         <span>win rate</span>
         <span class="tabular-nums">0%</span>
         <span class="h-2 w-36 rounded-full"
@@ -91,7 +98,7 @@ else
     </div>
     @if (_hiddenSpirits > 0)
     {
-        <p class="px-5 pb-4 -mt-2 text-[11px] text-ink-500">
+        <p class="section-note px-5 pb-4 -mt-2">
             Showing the @_rows.Count most-played spirits with matchups — narrow the filter above to bring the other @_hiddenSpirits into the grid.
         </p>
     }
@@ -99,13 +106,13 @@ else
 
 @code {
     /// <summary>The per-game history, already narrowed to the page's player scope.</summary>
-    [Parameter, EditorRequired] public IReadOnlyList<Application.Features.Statistics.SetupGameFact> Facts { get; set; } = [];
+    [Parameter, EditorRequired] public IReadOnlyList<SetupGameFact> Facts { get; set; } = [];
 
     /// <summary>The spirits in view, most-played first — the filter's answer, so the grid follows it.</summary>
     [Parameter, EditorRequired] public IReadOnlyList<string> SpiritIds { get; set; } = [];
 
     /// <summary>Seat predicate for the picked player, so a friend's grid counts their seats only.</summary>
-    [Parameter] public Func<Application.Features.Statistics.SetupFactSeat, bool>? SeatFilter { get; set; }
+    [Parameter] public Func<SetupFactSeat, bool>? SeatFilter { get; set; }
 
     /// <summary>The page scope as a games-list who key, carried on every cell's link.</summary>
     [Parameter] public string? ScopeWho { get; set; }
@@ -113,20 +120,27 @@ else
     /// <summary>Opens the spirit's record sheet — the same handler the page's rows use.</summary>
     [Parameter] public EventCallback<string> OnPickSpirit { get; set; }
 
-    /// <summary>Rows are capped so twenty filtered spirits don't rebuild the wall this grid replaced.</summary>
-    [Parameter] public int MaxRows { get; set; } = 12;
+    /// <summary>
+    /// How many spirits the grid draws before it stops — the cap that keeps twenty filtered
+    /// spirits from rebuilding the wall this grid replaced. A constant rather than a parameter:
+    /// one page shows this grid, and a taller one stops being a grid you can read across.
+    /// </summary>
+    private const int MaxRows = 12;
 
     private sealed record Head(string Id, string Name, string Color = "");
 
+    /// <summary>One matchup as the grid draws it: the record, and everything derived from it once.</summary>
+    private sealed record Cell(int Played, int Completed, double WinRate, string Fill, string Ink, string Href, string Tooltip);
+
     private Dictionary<(string SpiritId, string AdversaryId), SetupInsights.PlayRecord> _matchups = [];
-    private IReadOnlyList<Application.Features.Statistics.SetupGameFact>? _tallied;
-    private Func<Application.Features.Statistics.SetupFactSeat, bool>? _talliedFilter;
+    private IReadOnlyList<SetupGameFact>? _tallied;
+    private Func<SetupFactSeat, bool>? _talliedFilter;
+    private string? _talliedWho;
     private List<string> _shownIds = [];
-    private int _shownMax;
 
     private List<Head> _rows = [];
     private List<Head> _columns = [];
-    private Dictionary<(string SpiritId, string AdversaryId), SetupInsights.PlayRecord> _cells = [];
+    private Dictionary<(string SpiritId, string AdversaryId), Cell> _cells = [];
     private int _hiddenSpirits;
 
     protected override void OnParametersSet()
@@ -135,18 +149,21 @@ else
         // the page hands both over by reference, unchanged until a reload or a scope change.
         // Everything else about a render (a keystroke in the search box, a sort click) must not
         // re-walk the whole game history.
-        if (!ReferenceEquals(Facts, _tallied) || !ReferenceEquals(SeatFilter, _talliedFilter))
+        var scopeMoved = !ReferenceEquals(Facts, _tallied)
+                         || !ReferenceEquals(SeatFilter, _talliedFilter)
+                         || ScopeWho != _talliedWho;
+        if (scopeMoved)
         {
             _matchups = SetupInsights.MatchupRecords(Facts, SeatFilter);
             _tallied = Facts;
             _talliedFilter = SeatFilter;
+            _talliedWho = ScopeWho;
         }
-        else if (MaxRows == _shownMax && _shownIds.SequenceEqual(SpiritIds))
+        else if (_shownIds.SequenceEqual(SpiritIds))
         {
             return; // Same history, same scope, same spirits in view — the grid stands.
         }
         _shownIds = SpiritIds.ToList();
-        _shownMax = MaxRows;
 
         var hasMatchup = _matchups.Keys.Select(k => k.SpiritId).ToHashSet();
         var candidates = SpiritIds.Where(hasMatchup.Contains).ToList();
@@ -154,22 +171,21 @@ else
         _hiddenSpirits = candidates.Count - wanted.Count;
         var wantedSet = wanted.ToHashSet();
 
-        _cells = _matchups
-            .Where(kv => wantedSet.Contains(kv.Key.SpiritId))
-            .ToDictionary(kv => kv.Key, kv => kv.Value);
-
         _rows = wanted
             .Select(id =>
             {
                 var spirit = GameLookups.SpiritFor(id);
-                var color = (spirit is null ? null : SpiritDetails.For(spirit.Id))?.ColorHex ?? GameLookups.NeutralColor;
+                var color = GameLookups.SpiritColor(spirit);
                 return new Head(id, spirit?.Name ?? id, color);
             })
             .ToList();
+        var rowNames = _rows.ToDictionary(r => r.Id, r => r.Name);
+
+        var shown = _matchups.Where(kv => wantedSet.Contains(kv.Key.SpiritId)).ToList();
 
         // Columns in play order (most-faced first), named without the parenthetical subtitle —
         // "France (Plantation Colony)" is a row in a reference table, not a 56px column header.
-        _columns = _cells
+        _columns = shown
             .GroupBy(kv => kv.Key.AdversaryId)
             .OrderByDescending(g => g.Sum(kv => kv.Value.Played))
             .Select(g =>
@@ -179,33 +195,20 @@ else
                 return new Head(g.Key, cut > 0 ? name[..cut] : name);
             })
             .ToList();
-    }
+        var columnNames = _columns.ToDictionary(c => c.Id, c => c.Name);
 
-    /// <summary>
-    /// The ramp's stops, parsed once from the shared <see cref="StatsTheme.WinRateRamp"/> the
-    /// legend is drawn from — one definition, so the legend can never advertise colours the
-    /// cells don't use. Equidistant, so index maps straight to a rate.
-    /// </summary>
-    private static readonly (double At, int R, int G, int B)[] RampStops =
-        StatsTheme.WinRateRamp
-            .Select((hex, i) => (
-                At: 100.0 * i / (StatsTheme.WinRateRamp.Count - 1),
-                R: Convert.ToInt32(hex.Substring(1, 2), 16),
-                G: Convert.ToInt32(hex.Substring(3, 2), 16),
-                B: Convert.ToInt32(hex.Substring(5, 2), 16)))
-            .ToArray();
-
-    /// <summary>
-    /// The diverging ramp: ember (losing) → parchment (even) → jade (winning). The anchors darken
-    /// monotonically away from the light midpoint, so depth of colour reads as distance from 50%.
-    /// </summary>
-    private static string DivergingColor(double rate)
-    {
-        rate = Math.Clamp(rate, 0, 100);
-        var hi = Array.FindIndex(RampStops, s => s.At >= rate);
-        if (hi <= 0) return $"#{RampStops[0].R:X2}{RampStops[0].G:X2}{RampStops[0].B:X2}";
-        var (a, b) = (RampStops[hi - 1], RampStops[hi]);
-        var t = (rate - a.At) / (b.At - a.At);
-        return $"#{(int)(a.R + (b.R - a.R) * t):X2}{(int)(a.G + (b.G - a.G) * t):X2}{(int)(a.B + (b.B - a.B) * t):X2}";
+        _cells = shown.ToDictionary(kv => kv.Key, kv =>
+        {
+            var (spiritId, adversaryId) = kv.Key;
+            var record = kv.Value;
+            var fill = StatsTheme.AlongWinRateRamp(record.WinRate);
+            var tip = SetupInsights.RecordTooltip($"{rowNames[spiritId]} vs {columnNames[adversaryId]}", record, null)
+                      + " · open those games";
+            return new Cell(
+                record.Played, record.Completed, record.WinRate,
+                fill, StatsTheme.InkOn(fill),
+                GamesLink.ForMatchup(spiritId, adversaryId, ScopeWho),
+                tip);
+        });
     }
 }

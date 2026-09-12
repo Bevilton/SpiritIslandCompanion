@@ -1,0 +1,24 @@
+@* A quiet line led by a glyph: what the record behind a step is, whose games a sheet counted,
+   whose numbers a scoped page is showing. The caption register (.section-note) with a 14px
+   ink-400 mark in front of it.
+
+   It began as three surfaces that had spelled the pair out — the seat dialog's notes, the record
+   sheet's scope line and the statistics page's scope banner — drifting a tone apart on the text
+   and a step apart on the alignment; the person cards' record lines wear it now too. What goes
+   in the line stays with the caller; spacing too, since one sits under a field and another
+   inside a banner row. *@
+
+<div class="section-note flex items-start gap-1.5 @Class">
+    <Icon Name="@Icon" Class="w-3.5 h-3.5 shrink-0 mt-px text-ink-400"/>
+    <span>@ChildContent</span>
+</div>
+
+@code {
+    /// <summary>The glyph — an <see cref="Shared.Icon"/> name saying what kind of remark this is.</summary>
+    [Parameter, EditorRequired] public string Icon { get; set; } = "";
+
+    [Parameter, EditorRequired] public RenderFragment ChildContent { get; set; } = default!;
+
+    /// <summary>Extra classes on the line — the space above it, where it hangs under a field.</summary>
+    [Parameter] public string? Class { get; set; }
+}

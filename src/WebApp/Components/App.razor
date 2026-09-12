@@ -1,3 +1,4 @@
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
 @inject IWebHostEnvironment Env
 
 <!DOCTYPE html>
@@ -42,6 +43,16 @@
 @* Blazor-ApexCharts ships its JS as an ES module and imports it itself on first chart render.
    Loading it here with a plain <script> only ever produced a 404 and a module syntax error. *@
 <Routes @rendermode="PageRenderMode"/>
+
+@* The bar Blazor unhides when the circuit dies. It belongs to the document, not to a layout —
+   both shells were carrying a copy, so a page rendered inside either one shipped the markup
+   twice and two elements answered to #blazor-error-ui. Blazor styles the one it finds. *@
+<div id="blazor-error-ui">
+    An unhandled error has occurred.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">🗙</a>
+</div>
+
 <script src="_framework/blazor.web.js"></script>
 </body>
 

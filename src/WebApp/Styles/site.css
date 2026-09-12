@@ -128,6 +128,16 @@
  *  ::after / ::before on the element rather than extra markup at every call site.            */
 @theme {
   --si-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.42'/%3E%3C/svg%3E");
+
+  /* Where .deep-sea's water ends at its brightest — the landing page's community band starts
+     its own gradient from this exact colour so the hero pours into it without a seam. A token
+     because the two are in different files and must never disagree. */
+  --si-sea-crest: #1a5b79;
+
+  /* The hairline on deep chrome. .on-deep-rule wears it as a class, but Tailwind v4 will not
+     @apply one component class inside another, so .figure needs the value itself — a token
+     rather than a second spelling. */
+  --si-on-deep-rule: rgb(from var(--color-deep-200) r g b / .14);
 }
 
 @layer base {
@@ -161,6 +171,52 @@
      can be clicked always says so. Disabled buttons keep the reset, and an explicit
      `cursor-*` utility still wins over this (utilities come after base). */
   button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
+}
+
+/*  ── The keyboard ring ────────────────────────────────────────────────────────────────────
+ *  Everything clickable that is not a .btn or an .input wears this: the catalogue cards, the
+ *  table rows, the record pills, the level tiles, the picker rows. It was spelled out as three
+ *  utilities at forty-nine call sites, which is forty-nine chances for a new clickable thing to
+ *  be given two of the three and quietly stop showing focus at all.
+ *
+ *  A @utility rather than a .focus-ring in @layer components, and this is load-bearing: several
+ *  of these elements already carry a plain `ring-1`/`ring-2` in their selected state, and a
+ *  utility beats a component class outright — layers outrank specificity — so a component-layer
+ *  version would have left every *selected* tile with no focus ring at all. As a utility it is
+ *  peer to those rings and its :focus-visible wins on specificity, which is the behaviour the
+ *  three inline utilities had.                                                                */
+@utility focus-ring {
+  @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40;
+}
+/* The same ring where jade would vanish: on the setup screen's pale sky the ghost ship answers
+   in the sea's own blue, and on the painted water a ship's plate answers in white. Both were the
+   three utilities spelled out longhand — the two clickable things in the app that .focus-ring's
+   own note says it exists to stop being spelled out, kept apart from it only by their colour. */
+@utility focus-ring-sea {
+  @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/50;
+}
+@utility focus-ring-on-deep {
+  @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80;
+}
+
+/*  ── The remove disc ──────────────────────────────────────────────────────────────────────
+ *  How anything that takes something off the setup screen's table answers the pointer: the
+ *  scenario's ×, an adversary ship's ×, the bin on a saved shape. Three discs doing one job,
+ *  and each had improvised it — one without the red edge, one without the enabled: guard — as
+ *  a constant on the page, where the ship's × could not follow once it became a component.
+ *
+ *  A @utility for the reason .focus-ring is one: two of the discs carry `border-ink-200` and
+ *  `bg-white` as utilities of their own, and only a peer utility with :enabled:hover's
+ *  specificity behind it can turn those red on hover — a component-layer rule would lose to
+ *  them outright. The enabled: guard is what lets the bin, the one of the three that can be
+ *  disabled, share the tone without lighting up when it can't be used.
+ *
+ *  Tone only, no transition: the ship's × fades in with the hull it hangs on and so wears
+ *  transition-all, the other two transition-colors, and two transition utilities on one element
+ *  is a coin toss over which property list wins. Each call site states its own.               */
+@utility disc-remove {
+  @apply text-ink-400 focus-ring
+         enabled:hover:border-red-200 enabled:hover:bg-red-50 enabled:hover:text-red-600;
 }
 
 @layer components {
@@ -288,13 +344,200 @@
   .label {
     @apply block text-xs font-medium uppercase tracking-wide text-ink-500 mb-1.5;
   }
+  /* The same label with its InfoHint beside it rather than under it — .label is a block, so a
+     marker inside one drops to a line of its own and pushes the field down. Six fields on the
+     result form wear it, and they had the three utilities spelled out six times. */
+  .label-hint { @apply flex items-center gap-1.5; }
+
+  /* ---------- Field button ----------
+     A control that reads as an input but is a button, because what it holds is richer than text:
+     the seat's assignee with their avatar, the seat's spirit with its colour bar and elements,
+     the statistics page's scope with the person's badge. All three drop a menu, and all three had
+     spelled the same eleven utilities out — the same border, fill, hover and focus ring .input
+     wears, so a row of these sits among real fields without looking like something else.
+
+     Display stays with the caller: two of them fill their column and the third sizes to its
+     content. So does the border *colour* where it says something — the setup screen's spirit
+     step is dashed until a spirit is chosen. */
+  .field-button {
+    @apply flex items-center gap-2 rounded-lg border border-ink-200 bg-white
+           px-3 py-2 text-left transition-colors;
+  }
+  .field-button:hover { @apply bg-ink-50; }
+  .field-button:focus { @apply border-accent-500 outline-none ring-2 ring-accent-500/30; }
+
+  /* The menu a .field-button drops: a raised sheet of rows, scrolling once it outgrows its
+     height. Width, side and height stay with the caller — one hangs the full width of its
+     field, another is pinned to the right-hand end of a page header. z-30 clears the
+     click-away catcher underneath it (see ClickAway). */
+  .field-menu {
+    @apply absolute z-30 mt-1 overflow-y-auto rounded-xl border border-ink-200
+           bg-white p-2 shadow-lg;
+  }
+
+  /* ---------- Micro label ----------
+     .label names an input; this names a *value* — the word over a figure on a stat tile, over a
+     seat's spirit, over a column of a record sheet, over each cell of a result grid. It is the
+     single most-repeated piece of typography in the app, and it had been written out by hand
+     about seventy times, drifting on five separate axes at once: 10px or 11px, no weight or
+     medium or semibold, wide or wider tracking, ink-500 or ink-400, and the utilities in any
+     order. Side by side — a player card's "Spirit" against the setup card's "Island setup" —
+     the disagreement was visible.
+
+     Colour is deliberately the one part a caller is expected to override, since a handful of
+     these are accent or ember to tie the label to what it captions; a utility on the element
+     wins over this. Spacing is the caller's too: these sit over a value, beside one, or in a
+     grid cell, and no single margin was ever right for all three.
+
+     The face is spelled out so the class reads the same wherever it is put — see .row-title for
+     what happens to a small-type register that leaves it to the element. */
+  .micro-label,
+  .micro-label-strong {
+    @apply text-[10px] font-medium uppercase tracking-wider text-ink-500;
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "cv11";
+  }
+  /* The same caption a weight up, where it heads a hero figure rather than a cell: the word over
+     the dial's total, over a result panel's score, over the setup card's difficulty. Six call
+     sites had written `micro-label font-semibold`, which is a second rung reached by overriding
+     the first — the drift .micro-label was named to stop, one step further on. (A selector list
+     with .micro-label rather than an @apply of it: Tailwind v4 will only @apply utilities.) */
+  .micro-label-strong { @apply font-semibold; }
+
+  /* ---------- Named subject ----------
+     The other pair of lines the app is built from: what a thing is called, and the phrase under
+     it that says which one it is — a spirit's name over its play style, a board's over its
+     thematic name, a match's over its players and difficulty, a lane's over how many layouts
+     are in it, a fine-tune option's over what it costs. Forty-odd rows and cards were spelling
+     the pair out, and it had come apart in the small ways this pairing always does when the two
+     halves are typed separately: `truncate` written before the colour in some and after it in
+     others, three of the picker headings carrying a `leading-snug` the identical rows beside
+     them didn't, and the same scenario name set a weight lighter on the reference table than on
+     the statistics one.
+
+     Not every name in the app is one of these: PlayerAssigneeBadge sets a person's name against
+     a .micro-label of what kind of person they are, which is a different pairing and stays its
+     own.
+
+     Truncation stays with the caller — the same title is clipped in a row and wraps in a card —
+     and so does spacing, since the sub sits directly under the title in some and a step below it
+     in others. .row-sub is spelled the same as .section-note and shares its declaration rather
+     than being a second copy of it; what differs is what they are for, which is why both have a
+     name. (The pair is also why .row-title carries no truncation of its own: a title given
+     `truncate` here would need `min-w-0` at every call site to sit in a flex row.)
+
+     The three declarations under the @apply are the body register spelled out, for the same
+     reason .card-title spells out the serif — and they are load-bearing here in a way they are
+     not there. The base layer dresses h1–h4 in the display face, tightens their tracking and
+     drops the body's cv11: a class that says nothing about those three inherits whichever set
+     the element it landed on happens to carry. Four of the picker cards name their subject on an
+     <h3>, which is right — they are headings — and were coming out in Fraunces at -0.35px
+     tracking while the identical rows beside them, written on a <div>, came out in Inter at
+     normal. The sans face *is* what .row-title means, so it says so, and the class now reads the
+     same on any element. Same for .section-label and .micro-label, which set their own tracking
+     and so need only the face and the figures.
+
+     The rule for anything added here later: a register that can head a block will end up on an
+     <h*> sooner or later, so it has to name its own face rather than inherit one. */
+  .row-title {
+    @apply text-sm font-semibold text-ink-900;
+    font-family: var(--font-sans);
+    letter-spacing: normal;
+    font-feature-settings: "ss01", "cv11";
+  }
+
+  /* The name on a tile that is mostly picture — an island layout's, under its thumbnail, in the
+     boards index, the setup form's island choice, the statistics page's layout row and the
+     record sheet's list of the boards a thematic island is cut into. A step below .row-title
+     because the tile is a step below a row: the picture is the point and the word only says
+     which one. Three tiles had spelled the trio out and were one edit from disagreeing on it —
+     and a fourth, the setup form's, had drifted a pixel smaller. Truncation stays with the
+     caller, as it does for .row-title and for the same reason. */
+  .tile-title { @apply text-xs font-medium text-ink-900; }
+
+  /* The same name a step up, where the subject *is* the card rather than a line in a list: a
+     spirit's or a board's browse card, a highlight card's subject, a foe's statistics card, the
+     island a recorded game was set out on, a reference tile on the landing page.
+
+     Six of these were spelled out and they had come apart on the one thing a title cannot afford
+     to: the typeface. Three were written on an <h3>, which the base layer already sets in the
+     serif, and three on a <div> or a <span>, which it does not — so half the cards in the app
+     named their subject in the serif and half in the body sans, and two of them sat side by side
+     on the statistics tabs. Written out here it is one face, and the leading is the one the
+     longest of these names needs when it wraps rather than whatever the element defaulted to.
+
+     Truncation stays with the caller, as .row-title's does and for the same reason.
+
+     The tracking is spelled out for the reason the face was, one step further on. Declaring the
+     face fixed half the split and left the other half: five of these are on an <h3>, which the
+     base layer also tracks in, and three are on a <div>, which it does not — so the same spirit's
+     name came out ten pixels wider on the statistics highlight card than on its browse card. The
+     answer cannot be "make them all headings": InsightCard's sits inside a <button>, whose
+     content model is phrasing only, so a heading there is invalid markup. The class has to stand
+     on any element, which means saying what it is. The value is the heading tracking the majority
+     already had — this is the app's card-heading register, and it should read like one. */
+  .card-title,
+  .card-title-sm {
+    @apply font-semibold leading-snug text-ink-900;
+    font-family: var(--font-serif);
+    letter-spacing: var(--tracking-tight);
+    font-feature-settings: "ss01";
+  }
+  .card-title { @apply text-base; }
+  /* The same title where the card it names is an aside rather than one of a grid: the setup
+     screen's matchup panel, the lane headings down the side of the layouts list. Both were
+     written by hand and neither said it was a .card-title — one of them reached for
+     `.row-title font-serif`, which quietly contradicts what .row-title is *for*, since the sans
+     face is the whole distinction between the two. */
+  .card-title-sm { @apply text-sm; }
+
+  /* ---------- Numeral ----------
+     How this app sets a number. Serif, tabular and heavier than the text around it — a score, a
+     difficulty, a play count, a tally, the figure in the middle of a win-rate ring.
+
+     Nineteen of these were spelled out by hand, and they had drifted on every axis the pairing
+     has. `font-serif` was written before the size in some and last in others; the weight was
+     `font-bold` and `font-semibold` at the *same* size on the same page; and — the part that
+     actually shows — four of them had no `tabular-nums` at all, including the three figures in
+     the app that recount as you work: the setup screen's difficulty dial, its live score preview,
+     and the same score on the saved game. Proportional digits mean those three change width as
+     they change value, so the number jitters under the pointer that is changing it.
+
+     Two members, because the app sets a number two ways. A .numeral rides in a row beside other
+     text — a score at the end of a games-list row, a count beside a band's label — and matches
+     the weight of the text it sits with. A .numeral-display *is* the block, over a .micro-label
+     saying what it is, and takes the extra weight and its own tight leading with it.
+
+     Size and tone stay with the caller, as they do for .chip and .micro-label and for the same
+     reason: the ladder runs from an 11px count in a strip to a 4xl score, and the tone is what
+     the figure is *saying* (jade for a win, ember for a loss, the caption's own colour on a
+     tinted band). Leading is the caller's on .numeral alone — most of those sit inline in a row
+     whose height is not theirs to set.
+
+     .figure-value is the one figure outside this family: display type on deep chrome, with its
+     own tracking, and a lighter weight because at 5xl it needs one. See the note there. */
+  .numeral,
+  .numeral-display,
+  .stat-tile-value {
+    font-family: var(--font-serif);
+    font-variant-numeric: tabular-nums;
+  }
+  .numeral { @apply font-semibold; }
+  .numeral-display,
+  .stat-tile-value { @apply font-bold leading-none; }
 
   /* ---------- Surfaces ----------
      A card is parchment lifted off the page, so it carries a shadow as well as a border. The
      shadow is warm (tinted with ink-900, not black) and very wide/very soft — on a warm ground
      a neutral drop shadow reads as grey dirt under the card. */
-  .surface {
+  .surface,
+  .panel {
     @apply bg-white border border-ink-200 rounded-xl;
+  }
+  /* The warm card shadow every raised surface wears — tinted with ink-900, not black, and very
+     wide/very soft. One definition for all three (a selector list, as .page-shell/.public-page
+     share theirs): .surface and .stat-tile each carried a copy and would have drifted apart. */
+  .surface, .stat-tile, .panel {
     box-shadow: 0 1px 2px rgb(from var(--color-ink-900) r g b / .05),
                 0 2px 5px -2px rgb(from var(--color-ink-900) r g b / .05),
                 0 16px 32px -22px rgb(from var(--color-ink-900) r g b / .28);
@@ -304,6 +547,81 @@
   }
   .surface-body { @apply p-5 md:p-6; }
   .surface-foot { @apply px-5 md:px-6 py-4 border-t border-ink-200; }
+
+  /* A card that *is* one block — its own gutters and nothing else, as opposed to a .surface cut
+     into a head / body / foot or laid out by hand. The statistics page and the dashboard are
+     built from ten of them and they had spelled the gutters out every time, which is how a page
+     of panels ended up with three: py-5 on most, pt-5 pb-3 on the charts, py-4 on two more, with
+     nothing to say which a new panel should take.
+
+     The rule now is: reach for .surface where the card has bands, .panel where it doesn't. */
+  .panel { @apply px-5 py-5; }
+  /* A panel whose body is a chart. ApexCharts draws its own gutter under the plot, so the
+     panel's own bottom step is shorter or the block ends in a band of nothing. */
+  .panel-chart { @apply pb-3; }
+
+  /* How a clickable card answers the pointer: a one-pixel rise, a firmer edge, a touch more
+     shadow. Eleven cards had improvised the trio and most dropped a different third of it —
+     the spirit cards never got the shadow, the adversary cards never firmed their edge. A
+     stateful border (a selected card's accent, the layout tiles' per-kind tints) still wins:
+     it is a utility on the element, and utilities outrank this layer. :not(:disabled) for the
+     tiles drawn as buttons, so a taken board does not stir. */
+  .card-lift { @apply transition-all; }
+  .card-lift:hover:not(:disabled) { @apply -translate-y-px border-ink-300 shadow-sm; }
+
+  /* ---------- Dialog bands ----------
+     The strips a dialog inside ModalShell is built from, named for the same reason
+     .surface-head / -body / -foot are: nine dialogs were each spelling the same padding out
+     by hand, and they had begun to disagree about it.
+
+     A picker is denser than a reference sheet — its body is a grid of things to choose from,
+     scanned rather than read — so it keeps its own narrower gutter and carries the filter bar
+     in a band of its own between the header and the list. */
+  .picker-filters { @apply border-b border-ink-200 bg-ink-50/50 px-6 py-3; }
+  /* The overflow is what makes .picker-body scroll *and* what lets it shrink: a flex item whose
+     overflow is anything but visible has an automatic minimum size of zero, so the `min-h-0`
+     three of the seven call sites had written beside this was a no-op the class already
+     guaranteed. Four of them omitted it and scroll perfectly well — the spirit picker holds
+     thirty-seven of them — which is what settled it. Anything added here later that scrolls
+     inside ModalShell needs the class and nothing else. */
+  .picker-body    { @apply flex-1 overflow-y-auto px-6 py-5; }
+
+  /* A reference sheet: wider gutters from md up, since it is prose and record tables. */
+  .sheet-body { @apply overflow-y-auto px-6 md:px-8 py-5; }
+
+  /* The band a dialog whose body scrolls ends with: a top rule, a tinted step, and the panel's
+     own bottom corners from md up, where the dialog stops being a bottom sheet. The two wear the
+     gutter of the body above them, which is the same pairing .picker-body and .sheet-body make —
+     the seat dialog on the setup screen had the six utilities written out by hand, so the one
+     footer in the app that is not a reference sheet's was also the one free to drift from it.
+
+     What goes in them is the caller's: a sheet leads with the way back, the seat dialog puts an
+     action at each end (see .dialog-foot for the unbordered version, whose actions are all at
+     one end). */
+  .picker-foot,
+  .sheet-foot {
+    @apply flex items-center gap-3 border-t border-ink-100 bg-ink-50/40
+           px-6 py-3.5 md:rounded-b-2xl;
+  }
+  .sheet-foot { @apply md:px-8; }
+
+  /* What a workflow dialog ends with: its actions, right-aligned. Three dialogs had spelled it
+     out and drifted a padding step apart. Unbordered by default — the short prompts sit close
+     over their band — and a dialog whose body scrolls adds the border-t itself, since there the
+     edge marks where the scrolling stops. */
+  .dialog-foot { @apply flex justify-end gap-2 px-6 py-4; }
+
+  /* The bands a dialog *opens* with, named as the feet above are. The foot family had names and
+     the head family did not, so the four header bands in the app had four vertical paddings —
+     py-5 on the workflow dialogs, pt-5 pb-4 on the pickers, pt-4 pb-3 on the seat dialog, pt-6
+     pb-5 on the sheets — under comments in two of them promising they were the same band.
+
+     .dialog-head is the workflow dialog's and the picker's, which are the same band: a player
+     moves between the two on the setup screen. .sheet-head is a reference sheet's, wider from md
+     up like .sheet-body, and relative because the close button floats in its corner; its border
+     colour is the tint's to set, so it is not spelled here. Layout inside stays with the caller. */
+  .dialog-head { @apply border-b border-ink-200 px-6 py-5; }
+  .sheet-head  { @apply relative border-b px-6 md:px-8 pt-6 pb-5; }
 
   /* ---------- Deep chrome ----------
      The sidebar, the public top nav, the hero, the footer. `.deep` is the flat night; `.deep-sea`
@@ -320,7 +638,7 @@
       radial-gradient(66% 46% at 16% 4%,   rgb(from var(--color-accent-300) r g b / .11) 0%,
                                            rgb(from var(--color-accent-300) r g b / 0) 62%),
       linear-gradient(180deg, var(--color-deep-950) 0%, #072230 32%, #0c3247 60%,
-                              #134a63 82%, #1a5b79 100%);
+                              #134a63 82%, var(--si-sea-crest) 100%);
   }
   /* Grain, on its own layer above the gradients and below the content. Content inside a .deep
      surface therefore needs no z-index of its own — but anything that must sit above the grain
@@ -338,7 +656,15 @@
   .on-deep-title { @apply text-ink-50; font-family: var(--font-serif); }
   .on-deep-body  { color: rgb(from var(--color-deep-100) r g b / .80); }
   .on-deep-muted { color: rgb(from var(--color-deep-200) r g b / .58); }
-  .on-deep-rule  { border-color: rgb(from var(--color-deep-200) r g b / .14); }
+  .on-deep-rule  { border-color: var(--si-on-deep-rule); }
+  /* A link on deep chrome that is not one of the nav's own: the sidebar's sign-out, the mobile
+     header's way home, the footer's row. Five of them spelled the pair out by hand, and the
+     sign-out had started from .on-deep-muted while the other four started from .on-deep-body —
+     so the one link in the sidebar you actually need was the faintest of them. The colour is
+     .on-deep-body's own value rather than an @apply of it: Tailwind v4 will only @apply
+     utilities. Size stays with the caller. */
+  .link-on-deep { @apply transition-colors; color: rgb(from var(--color-deep-100) r g b / .80); }
+  .link-on-deep:hover { @apply text-ink-50; }
 
   /* ---------- Tables ---------- */
   .table-wrap { @apply overflow-x-auto; }
@@ -365,6 +691,130 @@
   .badge-danger  { @apply bg-red-100 text-red-800; }
   .badge-info    { @apply bg-sky-100 text-sky-800; }
   .badge-warn    { @apply bg-amber-100 text-amber-800; }
+  /* The same badge a step down, where a run of them annotates something rather than labelling
+     it: the fine-tune card's summary of what is switched on, a seat's aspect, a spirit's
+     complexity beside its name in the picker. The other two round-pill families already had
+     their small rung (.btn-sm, .chip-sm) and this one didn't, so six call sites had each
+     improvised it as a bare `text-[10px]` — which is a size decided six times rather than once,
+     and the one thing a family of pills sitting side by side cannot disagree about. */
+  .badge-sm { @apply text-[10px]; }
+
+  /* ---------- Chip ----------
+     A bordered round token naming one thing among several: a spirit already fielded, a fresh
+     pick to try, a match's scenario, the variants folded behind a table row, the record on a
+     catalogue card. The third member of the round-pill family and the one the other two are
+     defined against — a .badge reports a state and carries its own fill, a .pill-action is the
+     thing to click, and a chip is a token whose *tone the caller sets*, because the tone is what
+     the chip is saying (jade for a lead, .untried's amber for something never tried, plain ink
+     for the rest).
+
+     Eight of these were spelled out — three of them within one file — and the geometry had begun
+     to drift: gap-1 against gap-1.5 on chips that sit side by side, and two sizes reached by
+     seven separate spellings of the same six utilities. Fill, border colour and text colour stay
+     with the caller; only the shape is here, and a padding step is the one part of it a dense
+     run of chips overrides. */
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px];
+  }
+  /* The same chip a step down, where it rides beside a name rather than standing on its own —
+     a record pill on a catalogue card, the note beside a match's title. */
+  .chip-sm { @apply gap-1 text-[10px] font-medium; }
+  /* And a step up, where the chip is the thing being clicked rather than a token beside
+     something else: a filter pill, a statistics tab, a coverage panel's "not yet played" entry.
+     A chip at reading size with a real hit area, in other words — FilterPill and MissingPill
+     had each built the same six utilities in C#, one of them in a different order, and being in
+     two folders they were never going to be read side by side. Weight stays with the caller, as
+     the tone does: the filter pills are medium and the coverage entries set the weight on the
+     half of the label that is the name. */
+  .chip-lg { @apply px-2.5 py-1 text-xs; }
+  /* The two tones a chip takes more often than any other, named so the callers that mean them
+     cannot spell them differently. .chip-neutral is the resting chip — a record pill with a
+     record, a variant already played, a filter pill that is off. `.is-selected` is the one that
+     is chosen or switched on: a filter pill that is on, the seat's current aspect. Any other
+     tone is still the caller's — .untried, a scenario's amber, an island's sky — since the tone
+     is what a chip is saying. */
+  .chip-neutral      { @apply border-ink-200 bg-white text-ink-600; }
+  .chip.is-selected  { @apply border-accent-300 bg-accent-100 text-accent-800; }
+  /* A chip that is a control wears the keyboard ring and eases its colours, whatever else it
+     is: hung off the element rather than a modifier, as .untried's hover is, because whether a
+     chip can be clicked is already settled by what it is drawn as. Six chip components had each
+     spelled `transition-colors focus-ring` beside their chrome, and the seventh had not — so a
+     new chip button has nothing to remember here. */
+  button.chip, a.chip { @apply transition-colors focus-ring; }
+  /* How a chip that *opens* something answers the pointer — the record pill's sheet, an aspect
+     chip's pick, the fold of variants under a statistics row. A switch answers in ink (see
+     FilterPill) and a door in jade; the doors had come apart on which jade, accent-400 with a
+     wash on the record pill against accent-300 and no wash on the aspect chips beside it. One
+     answer, the same one TileChrome gives a tappable tile. */
+  .chip-door:hover   { @apply border-accent-400 bg-accent-50 text-ink-900; }
+  /* The two tones a chip takes when it says how a game was set up, named because two surfaces say
+     the same two things — the games list beside a match's title, the recorded game's setup card
+     under its island — and had each spelled them out: the list bordered and 800-toned, the card
+     borderless and 700-toned, and the card's "Thematic" and "Extra board" jade where its own
+     "Custom island" and the fine-tune summary's badges for those same two were sky. A scenario is
+     amber, as its picker badge is; anything about the island — a shape built by hand, the thematic
+     map, an extra board — is sky, the family the fine-tune summary and the thematic tiles already
+     draw it in. */
+  .chip-scenario     { @apply border-amber-200/70 bg-amber-50 text-amber-800; }
+  .chip-island       { @apply border-sky-200/70 bg-sky-50 text-sky-800; }
+
+  /* ---------- Pill row ----------
+     A row of chips that slice a page: the tab strip, the games list's status tabs and the facets
+     it is narrowed by, the layouts index's kind pills. Four rows of the very same FilterPill, and
+     they had two gaps between them — which, on a page where two of the rows sit one above the
+     other, is a difference you can see. The space under the row stays with the caller: a tab
+     strip heads a page and a status row heads a panel. */
+  .pill-row { @apply flex flex-wrap items-center gap-2; }
+
+  /* ---------- Disc ----------
+     The round tile one small thing is centred in: a seat number, an avatar's initials, a rank,
+     the × that removes a ship, the bin on a saved shape, the tick on the chosen card, a
+     stepper's handle, an InfoHint's ⓘ. What LetterTile settled for the square tiles, named for
+     the round ones — the four utilities under it were spelled out at sixteen call sites, from a
+     10px step marker to a 32px avatar.
+
+     Size, tone and position stay with the caller, exactly as they do for .chip and for the same
+     reason: the ladder runs h-4 to h-8 and the fill is what the disc is saying (ink for a rank,
+     jade for a pick, white going red for a remove). A disc that is a button carries focus-ring
+     and its own hover, as every button that is not a .btn does. */
+  .disc { @apply inline-flex items-center justify-center rounded-full; }
+
+  /* ---------- Over the water ----------
+     The setup screen is a painted sea, and everything laid on top of it that has to be *read*
+     rather than looked at floats in the same frosted bubble: the scenario chip, the ghost ship's
+     label, the island legend, the player-count stepper, and — inside the playground itself — each
+     board's label, the layout badge and the two tool clusters. Parchment over water is a hole
+     punched in the picture; glass is what lets the sea keep going underneath.
+
+     Nine of these, and they had drifted on all three of the things that make it one material:
+     the tint (white/85 against white/90), the rim (white/70 against white/60) and the blur
+     (backdrop-blur against backdrop-blur-sm). Named once, they are one bubble at nine sizes.
+
+     Padding and layout stay with the caller, since these run from a 6px-tall board label to a
+     stepper the width of a sentence. So does the fill where the bubble is deliberately emptier —
+     the extra board's dashed chip, which is an invitation rather than a label — and the radius,
+     which is round for all but the ship's name plate, and that one hangs off a hull rather than
+     floating on its own.
+
+     The type is the bubble's too: 11px, medium, ink-800 — what a label floating on water is set
+     in. The legend chips, the extra-board chip and the playground's own badge had each spelled
+     the trio out, and a fourth chip on the same water would have been the one to spell it
+     differently. A bubble that says something else (the ship's name plate in semibold ink-900,
+     the ghost ship's fainter caption) still says so with a utility, which outranks this.
+
+     The three .island-pg-* selectors are the playground's, drawn by wwwroot/js — they carry the
+     material here and keep their own position and padding below, outside this layer. */
+  .sea-chip,
+  .island-pg__chip,
+  .island-pg-badge,
+  .island-pg-tools {
+    @apply rounded-full border border-white/70 bg-white/85 text-[11px] font-medium text-ink-800
+           shadow-sm backdrop-blur;
+  }
+  /* A bubble that is a control — the legend's seat chips, the extra-board chip — wears the ring
+     and eases its fill, by the same rule as button.chip: the two had spelled the pair out and a
+     third would have been the one to forget it. The bubbles are white, so the jade ring reads. */
+  button.sea-chip { @apply transition-colors focus-ring; }
 
   /* ---------- Alert ---------- */
   .alert {
@@ -374,6 +824,22 @@
   .alert-danger  { @apply bg-red-50 border-red-200 text-red-900; }
   .alert-info    { @apply bg-sky-50 border-sky-200 text-sky-900; }
   .alert-warn    { @apply bg-amber-50 border-amber-200 text-amber-900; }
+
+  /* ---------- Inset note ----------
+     A remark *inside* a panel, as opposed to an .alert, which is a page answering something the
+     reader just did and stands at the top of the form. The setup screen's island card says three
+     of these in the same slot as the setup changes — no layout is published for this board count,
+     no thematic island exists for it, or the island is hand-built and can be named — so they are
+     read one after another and have to be one register.
+
+     They were not: the box was spelled out three times, and two of the three sentences came out
+     at 12px and the third at 11px, which is the app's caption rung and a different kind of remark
+     (see .block-note and .section-note). The size belongs to the register, so it is here.
+
+     Tone stays with the caller, as it does for .chip and for the same reason — jade, amber and
+     ember are what these three notes are respectively saying. So does the layout inside: two are
+     a glyph beside a sentence and the third carries a field. */
+  .note { @apply rounded-lg border px-3 py-2.5 text-xs; }
 
   /* ---------- Eyebrow ----------
      accent-700 has the contrast for parchment; on deep chrome it disappears into the water, so
@@ -393,6 +859,20 @@
   }
 
   /* ---------- Page header ---------- */
+  /* The one column everything in the app is measured in: the signed-in shell's <main>, the
+     public top bar and footer, the landing page's bands, and the four public reference pages.
+     PublicShell cannot own it for the pages inside it — the landing page shares that shell and
+     runs its bands full-bleed — so the chrome and the pages each apply it themselves, from one
+     definition. They had drifted to md:px-6 on the chrome and md:px-8 on the reference pages,
+     which left the public nav's logo eight pixels adrift of the heading directly under it.
+
+     .public-page is the same column plus the vertical air a reference page opens with. (Tailwind
+     v4 will only @apply utilities, not another component class, so the two share a selector list
+     rather than one being built on the other — as .section-title / -lg do below.) */
+  .page-shell,
+  .public-page { @apply mx-auto w-full max-w-6xl px-4 md:px-8; }
+  .public-page { @apply py-10 md:py-14; }
+
   .page-head  { @apply flex flex-wrap items-end justify-between gap-4 mb-6; }
   .page-title {
     @apply text-2xl md:text-3xl font-semibold text-ink-900;
@@ -401,20 +881,346 @@
   /* FocusOnNavigate lands focus on the h1 so a new page announces itself to a screen
      reader; the ring Chrome draws with it dresses the title up as a control it isn't. */
   .page-title:focus { outline: none; }
-  .page-sub   { @apply text-sm text-ink-500 mt-1; }
+  /* .page-sub is the line under the heading. Declared with .body-note at the top of the quiet
+     ladder rather than here, because it is that rung plus a margin — the same arrangement
+     .row-sub has with .section-note, and for the same reason. */
+
+  /* The heading of one band of the landing page, under its eyebrow. Not .page-title: that is the
+     name of a page inside the app's chrome, and this is one of four voices a visitor scrolls
+     past. Four bands were spelling the same three utilities out, `mt-2` included — which only
+     exists because there is always an eyebrow above it, and so belongs to the heading rather
+     than to whoever remembers it. The colour is the band's: parchment bands inherit the base
+     layer's, and the two over water add .on-deep-title. */
+  .band-title { @apply mt-2 text-2xl md:text-3xl; }
 
   /* ---------- Section header ----------
      The heading over one block within a page, with an optional note or link sharing its
      baseline at the right-hand end. The base layer already sets the serif on h1–h4, but
      .section-title carries it too so the class stands on its own element. */
   .section-head  { @apply mb-3 flex flex-wrap items-baseline justify-between gap-2; }
-  .section-title {
-    @apply text-base font-semibold text-ink-900;
+  /* Two sizes of the same heading. .section-title is a panel's, .section-title-lg one of the
+     page's own divisions — a recorded game's Setup / Players / Notes, a catalogue cut into
+     expansions. The larger one used to be spelled out by hand wherever it appeared, so a
+     section heading had two definitions and only one of them had a name. (Tailwind v4 cannot
+     @apply one component class inside another, so what they share is a selector list rather
+     than .section-title-lg being built on top of .section-title.) */
+  .section-title,
+  .section-title-lg {
+    @apply font-semibold text-ink-900;
     font-family: var(--font-serif);
   }
-  .section-note  { @apply text-[11px] text-ink-500; }
-  .section-link  { @apply text-xs text-accent-700; }
-  .section-link:hover { @apply underline; }
+  .section-title    { @apply text-base; }
+  .section-title-lg { @apply text-xl; }
+
+  /* ---------- Dialog title ----------
+     What a dialog calls itself. The same heading at three depths: a prompt's (a confirmation, the
+     nickname question, an empty page's headline), a workflow dialog's or a picker's, and a
+     reference sheet's, which is the one a whole panel of record is read under.
+
+     Six dialogs were spelling the four utilities out and the family had already come apart at its
+     middle: DialogHeader and PickerModalHeader are the same band at the same size, and one of them
+     carried `leading-tight` while the other didn't — so the two dialogs a player moves between on
+     the setup screen set their titles on different baselines. Named here, the leading belongs to
+     the family rather than to whichever of the six was edited last. */
+  .dialog-title,
+  .dialog-title-lg,
+  .dialog-title-xl {
+    @apply font-semibold leading-tight text-ink-900;
+    font-family: var(--font-serif);
+  }
+  .dialog-title    { @apply text-lg; }
+  .dialog-title-lg { @apply text-xl; }
+  .dialog-title-xl { @apply text-2xl; }
+  /* The same job as .section-title, in the register the app uses when the heading is a caption
+     rather than a voice: the divisions of a record sheet's body (the level ladder, the variant
+     strip, the record profile), the block over the island shape on the setup screen, a terror
+     band's tile, the matchup panel. Bigger than .micro-label — that names a single value, this
+     heads a block that is read on its own — and small-caps rather than serif, which is what
+     keeps a caption from competing with the page's real headings.
+
+     It was .sheet-section-title while only the record sheets used it. The three blocks outside
+     them that wanted the same caption had each written the utilities out by hand — and all three
+     had landed on text-xs, so a caption over a panel was a step smaller than the same caption
+     over a sheet's section for no reason either could have named. One definition settles it at
+     the sheets' size, which is the one the class was measured for.
+
+     Spacing stays with the caller: some sit alone over their block, others share a baseline row
+     with a note. The face is spelled out because it is the whole point of the register — see
+     .row-title, which was drifting the same way and for the same reason. Four of these were
+     written on an <h3> and coming out in the serif they exist to avoid. */
+  .section-label {
+    @apply text-sm font-medium uppercase tracking-wide text-ink-500;
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "cv11";
+  }
+  /* .section-note is the aside beside a heading; .row-sub is the line under a .row-title (see
+     there). One declaration, two names, because the two are the same size for a reason — a
+     caption is a caption — and must not be talked into disagreeing later. */
+  .section-note,
+  .row-sub       { @apply text-[11px] text-ink-500; }
+  /* The rung below them, and the bottom of the quiet ladder: the sub-line inside a dense tile —
+     a ship chip's level, a layout tile's board count, a picker card's expansion or "In use", the
+     record line under a leaderboard bar. Eleven call sites spelled the pair out and the tone had
+     already split 500/400 within one picker family, which is the same drift that named the rungs
+     above. Not .micro-label, which is this size in small caps and captions a value; this is
+     plain text that is read, one step too small for .row-sub's contexts. */
+  .fine-note     { @apply text-[10px] text-ink-500; }
+  /* The rung above them, and the one the app writes most: everything a block of content says
+     quietly about itself. That covers three things at one register — the sentence explaining how
+     to work the block (the instruction under the setup scene, the "tap a level" line under a
+     sheet's ladder), the caption naming what it holds (a stat tile's, a picker's subtitle, the
+     players under a match title), and a figure set so as not to compete (a filter's "12 of 37",
+     a coverage tally).
+
+     Eighteen call sites had the pair spelled out in eleven arrangements — one of which had
+     quietly picked up its own leading — because there was nothing to reach for between the 11px
+     caption above and the 14px rung below. Naming the middle rung is what stops a nineteenth
+     landing on text-[11px] or ink-400 and reading as a different kind of remark.
+
+     Spacing stays with the caller: most of these hang under something and two sit inside a
+     dialog's footer row, where a margin of their own is wrong. */
+  .block-note    { @apply text-xs text-ink-500; }
+  /* And the top of the ladder: a whole sentence or two the reader is meant to *read*, set
+     quietly — the paragraph a settings panel opens with, the line under a dialog's title, what
+     an empty page says it is for, the note a panel puts where its data would be.
+
+     .page-sub was the only member of this rung with a name, and it carries a margin, so it
+     could only ever be a page's own subtitle. Everything else at this size — eight call sites
+     across seven files, among them the two halves of one pair (the nickname prompt's
+     explanation and the same explanation on the Settings page) — spelled the two utilities out.
+     That is how the rung below it came to be reached for by a dialog subtitle at 12px while an
+     identical dialog subtitle stayed at 14: with nothing to name the larger one, the choice was
+     made per call site.
+
+     The distinction against .block-note is what the text is doing, not how long it is: a
+     .block-note captions or instructs *about* a block and is read past, a .body-note is prose
+     addressed to the reader. Spacing stays with the caller, as it does one rung down. */
+  .body-note,
+  .page-sub      { @apply text-sm text-ink-500; }
+  /* The page's own subtitle: the rung above plus the step under the heading, which only exists
+     because there is always a heading above it. */
+  .page-sub      { @apply mt-1; }
+  /* Prose the reader is meant to read in full, set to be read rather than set quietly: a
+     sheet's summary of its subject, a variant's blurb, a feature's description on the landing
+     page, a hint's explanation, the note a game was saved with. Not .body-note, which is the
+     same kind of sentence a step fainter — an aside about a block, read past; this is the
+     block. Six sites had spelled it out and split two ways on the one thing prose cannot: the
+     tone, ink-600 on three and ink-700 on the other three, the same paragraph register a shade
+     apart between a sheet and the tiles inside it. Size stays with the caller, since the ladder
+     runs from a 12px blurb on a tile to the base size of a sheet's summary. */
+  .body-copy     { @apply text-ink-700 leading-relaxed; }
+  /* The way onward at the right-hand end of a .section-head — "View all →", "What's missing →",
+     "Clear". Six of these wore the class and two didn't: the setup sheet's "All games" link,
+     written by hand a pixel smaller than the six it sits among, and the filter bar's Clear, which
+     had to spell the register out because the class could not carry it.
+
+     That second one is why the hover colour is here rather than left to the base layer. `a` is
+     dressed in accent-700/800 by the base stylesheet, so a class that named only the resting
+     colour worked on a link and quietly came out ink on a <button> — and one of these two is a
+     button. Named here it reads the same on either, which is the same argument .row-title makes
+     for spelling out its typeface. A button form still needs `focus-ring`, as every button that
+     is not a .btn does. */
+  .section-link  { @apply text-xs text-accent-700 transition-colors; }
+  .section-link:hover { @apply text-accent-800 underline; }
+
+  /* ---------- Linked count ----------
+     A number that is also the way into the games behind it: a statistics table's play count, an
+     adversary card's, a person card's games tally. The row or card around it already opens the
+     subject's record sheet, so a second control per row would be one button too many — the
+     figure itself is the link, and a dotted rule under it is what says so. Not the accent
+     colour: in these tables jade means won and ember means lost, and a green count would join a
+     conversation it isn't in.
+
+     The tone is deliberately the caller's — the tables' counts are ink-900, the adversary card's
+     smaller line is ink-600 — which is exactly why this was three hand-written copies and a
+     comment reading "cannot share because the tone differs". A utility on the element beats this
+     layer, so the tone is now the only part a caller has to say.
+
+     The second selector is for the shape where the rule is on a figure *inside* the link rather
+     than on the link itself, as on the person card, so the whole cell still lights on hover. */
+  .linked-count {
+    @apply rounded underline decoration-dotted decoration-ink-300 underline-offset-4 transition-colors;
+  }
+  .linked-count:hover,
+  a:hover .linked-count { @apply text-accent-800 decoration-accent-500; }
+
+  /* ---------- Nothing matched, nothing yet ----------
+     Two dead ends that read almost the same and must not drift apart. .no-matches is what a
+     filtered list says once the filters have left it with nothing — a dead end the reader made
+     and can undo by widening them. .no-data is a panel whose data simply has not happened yet:
+     a chart with no completed games, a candidate list with nobody in it. Both are distinct from
+     EmptyState, which is a *page* with nothing on it yet and offers the way to fill it.
+
+     Thirteen call sites were spelling one or the other out — six at two sizes and three
+     paddings, seven more with the same four utilities in three different orders. The one
+     difference worth keeping is the padding: .no-matches sits in a surface of its own on a
+     page, .no-data inside a panel that already has gutters. The surface around either is still
+     the caller's, since some of them sit in one that already has its own. */
+  .no-matches,
+  .no-data    { @apply text-center text-sm text-ink-500; }
+  .no-matches { @apply py-10; }
+  .no-data    { @apply py-8; }
+
+  /* The third dead end and the smallest: a single value that isn't there — a seat whose spirit
+     the catalogue no longer lists, a board that was never recorded, a sheet with no reference
+     text of its own. Not a block like the two above; it stands where the value would.
+
+     Italic because the words are the app describing an absence rather than quoting a name, which
+     is the same distinction GameLookups.MatchTitleTone draws over a match with neither foe nor
+     scenario. Four call sites had the pair written out; the size stays with the caller, since
+     one of them sits in a prose block and the other three in small type. */
+  .no-value   { @apply text-ink-500 italic; }
+  /* The same absence where a figure would stand rather than a word: the dash in a win-rate column
+     with nothing finished, in a score column on a draft, in an aspects column with none played.
+     A tone fainter than .no-value's, because a dash is already the quietest mark on a row and
+     the words around it are what say something is missing. Four sites wrote the tone out. Size
+     stays with the caller, since the dash takes the size of the figure it stands in for. */
+  .no-figure  { @apply text-ink-400; }
+
+  /* ---------- Chooser row ----------
+     One line of a list you pick from: the seat's assignee dropdown, the statistics scope picker,
+     the "which friend is this guest?" list. Each of the three had grown its own `RowClass(bool
+     active)` helper in C#, two of them byte-identical and the third off by a padding step, all
+     three building a class string that no longer belonged in a component at all. */
+  .pick-row {
+    @apply w-full flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors;
+  }
+  .pick-row:hover           { @apply bg-ink-50; }
+  .pick-row.is-active       { @apply bg-accent-50; }
+  .pick-row.is-active:hover { @apply bg-accent-100; }
+
+  /* ---------- Option row ----------
+     One switchable option in a list of them: what it is over what it costs, and the control that
+     switches it at the far end — the setup form's fine-tune rows and the Settings page's owned
+     expansions. The two were written apart and had drifted a step on the one thing an on/off row
+     cannot: the "on" wash was accent-50/50 on one and /40 on the other, the corner rounded-xl
+     against rounded-lg, the padding p-3 against px-3.5 py-3.
+
+     The control differs — a painted switch on one, a native checkbox on the other — and the hover
+     stays with the caller, since a row that cannot be switched (the base game, always owned) must
+     not answer the pointer. `.is-disabled` is the option that isn't available on this table:
+     shown, faded and inert, so it does not come and go as the setup changes. */
+  .option-row {
+    @apply flex items-center justify-between gap-3 rounded-xl border border-ink-200 bg-white
+           px-3.5 py-3 transition-colors;
+  }
+  .option-row.is-on       { @apply border-accent-300 bg-accent-50/50; }
+  .option-row.is-disabled { @apply cursor-not-allowed opacity-50; }
+
+  /* ---------- Pick card ----------
+     One choice in a picker's grid — the card itself; layout stays with the caller. The four
+     pickers each spelled the selected/hover ladder out, and it had come apart twice over: the
+     spirit card had lost its hover border, and only two of the four lifted a shadow on hover —
+     so the same grid of choices answered the pointer differently depending on what was in it.
+
+     `.is-open` is the adversary card holding its level ladder open — the softer ring says
+     "being looked at", the full ring "chosen". A taken card fades but keeps its hover, since
+     the record pill inside stays live. */
+  .pick-card             { @apply bg-white border border-ink-200 rounded-xl transition-all; }
+  .pick-card:hover       { @apply border-ink-300 shadow-sm; }
+  .pick-card.is-open     { @apply border-accent-300 ring-2 ring-accent-500/30; }
+  .pick-card.is-selected { @apply border-accent-300 ring-2 ring-accent-500; }
+  .pick-card.is-taken    { @apply opacity-40; }
+
+  /* ---------- Action pill ----------
+     "Finish" on an unfinished game, "Review" on a request waiting for an answer: the small
+     bordered call to action at the end of a row. Not a .badge — a badge reports a state and is
+     inert, this one is the thing to click, so it is heavier, bordered, and lights on hover.
+
+     The element it is drawn as varies (the games list uses a button; the dashboard uses a span
+     inside a row that is already a link) and so does the hover target, which is why the hover
+     fill stays with the caller. The eleven utilities under it should not have: they were spelled
+     out three times in two tones. */
+  .pill-action {
+    @apply inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1
+           text-[11px] font-semibold transition-colors;
+  }
+  .pill-warn { @apply border-amber-300 bg-amber-50 text-amber-800; }
+  .pill-info { @apply border-sky-300 bg-sky-50 text-sky-800; }
+
+  /* ---------- Attention row ----------
+     One line of the dashboard's "needs you" panel: a bordered white row ending in the
+     .pill-action that is the thing to do about it, lighting on hover in the pill's own family.
+     The two tones are the row's half of the .pill-warn / .pill-info pair above — a draft of
+     yours is amber, a request waiting on your answer is sky — and had been built as class
+     strings in C#, which is where .pick-row and .option-row were before they were named.
+
+     The row is a link and the pill inside it answers the row's hover (`group-hover:`), so the
+     caller still writes `group` and `focus-ring` beside these: Tailwind will not @apply a
+     variant marker, and the ring is every clickable thing's to declare. */
+  .attention-row {
+    @apply flex items-center gap-3 rounded-lg border bg-white px-3 py-2.5 transition-colors;
+  }
+  .attention-row.is-warn       { @apply border-amber-200; }
+  .attention-row.is-warn:hover { @apply border-amber-300 bg-amber-50/70; }
+  .attention-row.is-info       { @apply border-sky-200; }
+  .attention-row.is-info:hover { @apply border-sky-300 bg-sky-50/70; }
+
+  /* ---------- Untried ----------
+     The dashed-amber tone anything the record has nothing to say about wears: a spirit never
+     taken, an aspect never tried, a board never placed, a level never faced, and the panels
+     that say so in words. Nine of these were spelled out by hand and had come apart in every
+     direction — bg-amber-50 at 50% in one place and at 60% in the other eight, the word itself
+     amber-700 in two and amber-800 in three — which is exactly the drift that stops "untried"
+     reading as one state. Shape stays with the caller: these run from a 10px chip to a
+     full-width note.
+
+     The lit half hangs off the element rather than a modifier class, because whether an untried
+     thing can be clicked is already settled by what it is drawn as — RecordChip and AspectChips
+     were each carrying a C# ternary that said the same thing a second time. */
+  .untried { @apply border-dashed border-amber-300 bg-amber-50/60 text-amber-800; }
+  button.untried:hover:not(:disabled),
+  a.untried:hover { @apply border-amber-400 bg-amber-100; }
+
+  /* The word an untried row is marked with — "new" beside a variant never taken. Not every
+     untried thing wears the tone above: the spirit picker's variant rows are plain until they
+     are hovered, and only this one word in them is amber. Two of these were written out and had
+     landed on two different ambers and two different trackings, which is the same drift .untried
+     itself was named to stop, one register down. */
+  .untried-mark { @apply text-[9px] font-semibold uppercase tracking-wide text-amber-800; }
+
+  /* ---------- Island kind ----------
+     Which kind of island a surface is about, worn as a tint: sky for a published thematic island,
+     jade for a shape from the player's own library. A standard layout has no tint of its own and
+     wears whatever its surface does. The index tile and the record sheet's header band carry the
+     same pair — the tile's comment promised "the same three the tiles use" while the two had
+     drifted a step apart on both the border and the wash. Written once, they cannot.
+
+     The hover is only for the lifted form: a tile answers the pointer by firming its edge in its
+     own colour, as .card-lift does in ink for everything else, and a header band answers nothing. */
+  .tint-thematic { @apply border-sky-200 bg-sky-50/50; }
+  .tint-saved    { @apply border-accent-200 bg-accent-50/40; }
+  .tint-thematic.card-lift:hover:not(:disabled) { @apply border-sky-300; }
+  .tint-saved.card-lift:hover:not(:disabled)    { @apply border-accent-300; }
+
+  /* ---------- Result and invitation panels ----------
+     The two gradient panels the game screens are built from, each drawn in three places and
+     each having to agree with itself across them: the score preview while a result is being
+     entered has to look like the result once saved, and the "still a draft" invitation on a
+     game's page like the one on the setup screen.
+
+     .panel-result is jade or ember by outcome; the radius and padding stay with the caller,
+     since the same panel is a whole section on one page and an inset block on another. */
+  .panel-result         { @apply border bg-gradient-to-br; }
+  .panel-result.is-win  { @apply from-accent-50 to-accent-100/60 border-accent-200; }
+  .panel-result.is-loss { @apply from-red-50 to-red-100/40 border-red-200; }
+
+  /* Something is unfinished and only you can finish it. Amber, and the only panel in the app
+     that is lit from the middle rather than a corner — it is asking for something, so it should
+     not read as one more card. */
+  .panel-invite {
+    @apply rounded-2xl border border-amber-300 shadow-sm bg-gradient-to-br
+           from-amber-50 via-white to-amber-50/40;
+  }
+  /* The same panel with nothing being asked: the outcome toggle before it is switched on, and
+     somebody else's draft, which is theirs to finish rather than yours. Recessed rather than
+     raised, so an invitation that isn't one doesn't compete with the cards around it.
+
+     It was written out at both call sites and they had already picked two different tints —
+     ink-50/40 on the setup screen and ink-50/60 on the game page — which is a difference nobody
+     could see and nobody could defend, in the one pairing that has to switch cleanly between two
+     states. Its own class, so .panel-invite has a counterpart rather than an improvisation. */
+  .panel-quiet { @apply rounded-2xl border border-ink-200 bg-ink-50/60; }
 
   /* ---------- Stat tile ----------
      Carries a colour bar down its leading edge. The bar is jade by default and is what lets a
@@ -423,9 +1229,6 @@
   .stat-tile {
     --tile-accent: var(--color-accent-400);
     @apply relative overflow-hidden bg-white border border-ink-200 rounded-xl p-5 transition-all;
-    box-shadow: 0 1px 2px rgb(from var(--color-ink-900) r g b / .05),
-                0 2px 5px -2px rgb(from var(--color-ink-900) r g b / .05),
-                0 16px 32px -22px rgb(from var(--color-ink-900) r g b / .28);
   }
   .stat-tile::before {
     content: "";
@@ -433,17 +1236,29 @@
     background-color: var(--tile-accent);
   }
   .stat-tile:hover { @apply border-ink-300; }
-  .stat-tile-value {
-    @apply text-3xl font-semibold text-ink-900 leading-none;
-    font-family: var(--font-serif);
-    font-variant-numeric: tabular-nums;
-  }
-  .stat-tile-label {
-    @apply mt-2 text-xs font-medium uppercase tracking-wide text-ink-500;
-  }
+  /* The headline figure. Values here are what StatHero actually renders — the class and the
+     component had been maintained separately and disagreed on the size, the weight and the
+     mobile step, with the component spelling its own out and this going unused. The label above
+     it is .micro-label, like every other caption in the app.
+
+     A .numeral-display that keeps its own name because it is the only one with a mobile step:
+     the face, the weight, the leading and the tabular figures are the family's (see there), and
+     only the size and the tone are this tile's. */
+  .stat-tile-value { @apply text-2xl md:text-3xl text-ink-900; }
   .tile-sun   { --tile-accent: var(--color-sun-400); }
   .tile-ember { --tile-accent: var(--color-ember-500); }
   .tile-deep  { --tile-accent: var(--color-deep-400); }
+
+  /* ---------- Meter ----------
+     The thin proportion bar under a label: a row's win rate, a catalogue's coverage, games per
+     terror level. Six were hand-rolled and disagreed on whether a width change animates; the
+     fill's colour stays with the caller, since the colour is what the bar is saying. Height and
+     track are the defaults here — the two panel-scale meters set h-2 on top.
+
+     The track and the fill are one pair and are drawn as one component: reach for Meter rather
+     than nesting these two by hand, and the clamp on the width comes with it. */
+  .meter      { @apply h-1.5 overflow-hidden rounded-full bg-ink-100; }
+  .meter-fill { @apply h-full rounded-full transition-all; }
 
   /* ---------- Nav link (sidebar) ----------
      The sidebar is deep chrome now, so these are light-on-dark. The active item is a jade wash
@@ -480,12 +1295,13 @@
      A number on deep chrome, as on the landing page's community band. Deliberately not a
      .stat-tile: boxing four figures on top of the hero would put four parchment cards over the
      sea, and the point of the band is that the numbers themselves are the surface. */
-  /* the rule colour is spelled out rather than @apply-ing .on-deep-rule: Tailwind v4 will only
-     @apply utilities, not other component classes */
   .figure {
     @apply px-6 first:pl-0 border-l first:border-l-0;
-    border-color: rgb(from var(--color-deep-200) r g b / .14);
+    border-color: var(--si-on-deep-rule);
   }
+  /* Deliberately outside the .numeral family, which is the same idea on parchment: this is
+     display type at 5xl over water, so it is tracked in and set a weight lighter — at that size
+     bold closes the counters up. Everything else about it is the family's. */
   .figure-value {
     @apply block text-4xl md:text-5xl font-semibold leading-none text-ink-50;
     font-family: var(--font-serif);
@@ -497,6 +1313,45 @@
     @apply mt-3 block text-[11px] font-semibold uppercase tracking-[.14em];
     color: rgb(from var(--color-deep-200) r g b / .62);
   }
+}
+
+/*  ── The top accent ───────────────────────────────────────────────────────────────────────
+ *  A card whose subject has a colour of its own, worn as a band across its top edge: a spirit's
+ *  and a board's browse card, a spirit in the picker's grid, a seat on a recorded game, and the
+ *  dialog that fills that seat. The colour is the subject's, so it arrives as a value rather
+ *  than a class — the same shape .stat-tile's --tile-accent takes, and for the same reason.
+ *
+ *  Five of these were spelled out inline and had settled the width twice over: 3px on the three
+ *  that sit in a grid, 4px on the two that are a surface of their own, with nothing anywhere to
+ *  say which a sixth should take. Both survive, because the difference is real — a band sized
+ *  for a card in a grid of twenty is a hairline on a dialog — but it is now a step on a ladder
+ *  rather than a number typed at each call site.
+ *
+ *  Deliberately outside every layer, which is the one thing that makes this work. Two of the
+ *  five sit on an element that also carries `border border-ink-200`, and a layered rule cannot
+ *  beat those: @layer components loses the width to `border`, and even as a @utility it loses
+ *  the *colour* to `border-ink-200`, because Tailwind orders custom utilities itself and emits
+ *  the colour utilities last — so the seat's card and the seat's dialog came out with a 4px
+ *  parchment edge where the spirit's colour should have been. Unlayered declarations outrank
+ *  every layer, which is what the inline style used to buy. (See .focus-ring for the milder
+ *  version of the same fight, which a @utility does win.)
+ *
+ *  The two are alternatives, not a base and a modifier: each states all three longhands, so
+ *  wearing one, the other, or both reads the same way round. Longhands rather than the
+ *  `border-top` shorthand so neither can silently reset the other's colour.
+ *
+ *  The fallback is the parchment neutral: the seat dialog is topped before a spirit is chosen,
+ *  and an unset property must not leave the panel with a black edge.                          */
+.top-accent {
+  border-top-style: solid;
+  border-top-width: 3px;
+  border-top-color: var(--top-accent, var(--color-ink-300));
+}
+/* The same band on a surface of its own rather than one of a grid: a seat's card, a dialog. */
+.top-accent-lg {
+  border-top-style: solid;
+  border-top-width: 4px;
+  border-top-color: var(--top-accent, var(--color-ink-300));
 }
 
 /* ---------- Form error summary ----------
@@ -670,10 +1525,11 @@
   filter: drop-shadow(0 0 4px rgb(from var(--color-sun-300) r g b / .9));
 }
 
-/* per-board chip in the HTML overlay, so labels stay crisp at any zoom */
+/* Per-board chip in the HTML overlay, so labels stay crisp at any zoom. Its material — rim,
+   tint, blur — is .sea-chip's, shared with the chips the setup screen floats on the same water;
+   position and padding are this one's. Same for the badge and the tool clusters below. */
 .island-pg__chip {
-  @apply absolute flex items-center gap-1 rounded-full border border-white/70
-         bg-white/85 px-1.5 py-0.5 shadow-sm backdrop-blur-sm;
+  @apply absolute flex items-center gap-1 px-1.5 py-0.5;
   top: 0; left: 0;
   will-change: transform;
 }
@@ -690,23 +1546,23 @@
 
 /* overlays: the layout badge and the two tool clusters */
 .island-pg-badge {
-  @apply pointer-events-none absolute left-3 top-3 flex items-center gap-1.5 rounded-full
-         border border-white/60 bg-white/85 px-2.5 py-1 text-[11px] font-medium
-         text-ink-800 shadow-sm backdrop-blur;
+  @apply pointer-events-none absolute left-3 top-3 flex items-center gap-1.5 px-2.5 py-1;
 }
 .island-pg-badge__count { @apply text-ink-500; }
 
 .island-pg-tools {
-  @apply absolute flex items-center gap-1 rounded-full border border-white/60
-         bg-white/85 p-1 shadow-sm backdrop-blur;
+  @apply absolute flex items-center gap-1 p-1;
 }
 .island-pg-tools--view  { @apply right-3 top-3; }
 /* One row, always — wrapped tool text reads as broken text in a bubble. The hint is the
    part that gives way on narrow screens. */
 .island-pg-tools--piece { @apply bottom-3 left-1/2 -translate-x-1/2 max-w-[calc(100%-1.5rem)] flex-nowrap justify-center; }
+/* The ring is the app's, not the browser's. These ten are the largest cluster of clickable
+   things .focus-ring was written for that never got it — they answered the keyboard in Chrome's
+   own outline while everything around them answered in jade. */
 .island-pg-tools button {
-  @apply inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-1 text-[11px]
-         font-medium text-ink-700 transition-colors;
+  @apply focus-ring inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-1
+         text-[11px] font-medium text-ink-700 transition-colors;
 }
 .island-pg-tools button:hover:not(:disabled) { @apply bg-ink-100 text-ink-900; }
 .island-pg-tools button:disabled { @apply opacity-40; }
@@ -717,18 +1573,31 @@
 .island-pg-tools__sep:first-child { @apply hidden; }
 .island-pg-tools__hint { @apply hidden truncate whitespace-nowrap px-2 py-1 text-[11px] text-ink-500 sm:block; }
 
-/* Blazor scaffolding. These shipped with the template in stock Tailwind red and were the last
-   place in the app still painting one — ember is the invaders' colour and therefore what every
-   other failure state here is drawn in. ember-700 rather than 500 so white text on the error
-   boundary and ember-on-parchment validation text both clear WCAG AA. */
-.blazor-error-boundary {
-  background: var(--color-ember-700);
-  padding: 1rem;
-  color: white;
-}
-.blazor-error-boundary::after { content: "An error has occurred."; }
-#blazor-error-ui { display: none; }
+/* ---------- Circuit died ----------
+   The bar in App.razor. Hidden until Blazor's own script sets `display: block` on it, which is
+   why the rule below has to be `display: none` on the element rather than anything cleverer —
+   an inline style is what un-hides it.
 
-.valid.modified:not([type=checkbox]) { outline: 1px solid var(--color-accent-500); }
-.invalid { outline: 1px solid var(--color-ember-500); }
-.validation-message { color: var(--color-ember-700); font-size: 0.875rem; }
+   It is the one piece of the project template's error scaffolding still in use: the app's own
+   validation runs through FormFeedback / FormErrorSummary / Alert, so .blazor-error-boundary,
+   .validation-message and friends had no callers and are gone. This one had lost its styles with
+   them, which left the last thing a reader sees before the page stops responding as a line of
+   unstyled browser text shoving the layout down. It is dressed as an ember bar across the foot of
+   the window instead — over the page rather than in it, since by then nothing else on the page
+   works either. */
+#blazor-error-ui {
+  @apply fixed inset-x-0 bottom-0 z-[100] border-t border-red-700 bg-red-600
+         px-4 py-3 text-center text-sm text-white;
+  box-shadow: 0 -8px 24px -12px rgb(from var(--color-ink-900) r g b / .45);
+  /* Last, and not a display utility: `@apply flex` would win over a `display: none` written
+     above it, and the bar would then stand across the foot of every page from first paint.
+     Blazor's own script un-hides it with an inline `display: block`, which beats this. The
+     contents are one centred line, so block is all the layout it needs. */
+  display: none;
+}
+#blazor-error-ui .reload,
+#blazor-error-ui .dismiss {
+  @apply ml-3 cursor-pointer font-medium text-white underline underline-offset-2;
+}
+#blazor-error-ui .dismiss { @apply no-underline opacity-80; }
+#blazor-error-ui .dismiss:hover { @apply opacity-100; }

@@ -7,15 +7,17 @@
    the thematic islands, accent for the player's own, plain white for the published standards.
 
    The whole tile is the button that opens the layout's record sheet, so the record pill inside
-   it is passive: a button may not contain a button. *@
+   it is passive: a button may not contain a button.
 
-@using Application.Features.IslandLayouts
+   Which island it shows, and everything read off that, is IslandTileBase — shared with the tile
+   the setup form picks an island with. *@
+@inherits IslandTileBase
 
 <button type="button" @onclick="OnClick" title="@Title" class="@Classes">
     <div class="flex h-20 w-full items-center justify-center">
         @* Setup or geometry — the diagram picks whichever the layout has. *@
         <IslandSetupDiagram Setup="Setup" Geometry="@Saved?.LayoutJson" BoardCount="BoardCount"
-                            Label="@Name" Class="max-h-full max-w-full"/>
+                            Label="@Name"/>
     </div>
 
     <div class="mt-1.5 flex w-full items-center justify-center gap-1">
@@ -23,12 +25,12 @@
         {
             <Icon Name="user" Class="w-3 h-3 shrink-0 text-accent-600"/>
         }
-        <span class="truncate text-xs font-medium text-ink-900">@Name</span>
+        <span class="tile-title min-w-0 truncate">@Name</span>
     </div>
 
     @if (ShowBoardCount)
     {
-        <div class="w-full truncate text-[10px] text-ink-500">@Boards</div>
+        <div class="fine-note w-full truncate">@Boards</div>
     }
 
     @if (ShowRecord)
@@ -38,13 +40,6 @@
 </button>
 
 @code {
-    /// <summary>A published layout, whose picture ships with the app.</summary>
-    [Parameter] public IslandSetup? Setup { get; set; }
-
-    /// <summary>A shape from the player's library, drawn from its saved geometry. Ignored when
-    /// <see cref="Setup"/> is given — a tile is one layout or the other.</summary>
-    [Parameter] public IslandLayoutResponse? Saved { get; set; }
-
     /// <summary>The player's record on this layout, shown when <see cref="ShowRecord"/> is set.</summary>
     [Parameter] public SetupInsights.PlayRecord? Record { get; set; }
 
@@ -60,22 +55,11 @@
 
     [Parameter] public EventCallback OnClick { get; set; }
 
-    private bool IsSaved => Setup is null && Saved is not null;
-    private bool IsThematic => Setup?.IsThematic == true;
-
-    private string Name => Setup?.Name ?? Saved?.Name ?? "Island layout";
-    private int BoardCount => Setup?.NumberOfPlayers ?? Saved?.BoardCount ?? 0;
-    private string Boards => $"{BoardCount} board{(BoardCount == 1 ? "" : "s")}";
-
-    /// The tile fills its cell — the grid it sits in decides how wide that is.
+    /// The tile fills its cell — the grid it sits in decides how wide that is. The kind's tint is
+    /// IslandTileBase.KindTint, a class from site.css; a standard layout is plain parchment, and
+    /// .card-lift answers its hover in ink as it does for every other card.
     private string Classes =>
-        "flex w-full flex-col items-center rounded-xl border p-2 text-center transition-all " +
-        "hover:-translate-y-px hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40 " +
-        (IsSaved
-            ? "border-accent-200 bg-accent-50/40 hover:border-accent-300"
-            : IsThematic
-                ? "border-sky-200 bg-sky-50/50 hover:border-sky-300"
-                : "border-ink-200 bg-white hover:border-ink-300");
+        $"card-lift flex w-full flex-col items-center rounded-xl border p-2 text-center focus-ring {KindTint ?? "border-ink-200 bg-white"}";
 
     /// <summary>What the tile can't fit: the board count, the kind, and when a saved shape was kept.</summary>
     private string Title

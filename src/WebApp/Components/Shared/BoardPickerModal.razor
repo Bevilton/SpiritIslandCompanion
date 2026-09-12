@@ -1,112 +1,107 @@
-@* Board picker. Shows boards as colored letter tiles grouped by expansion, with the
-   player's record on each — scoped to the spirit being placed when ForSpiritId is set.
-   OwnedExpansions is read from the AppShell cascade — the modal is auth-agnostic. *@
+@* Board picker: boards as coloured letter tiles grouped by expansion, with the player's record on
+   each — narrowed to the spirit being placed when Show is given one. Opened imperatively, like
+   every picker — see PickerModalBase, which also owns the lifecycle and the owned-expansions
+   cascade. *@
+@inherits PickerModalBase
 
-@if (_open)
+@* The catalogue this picker offers and the part of it the filter keeps, derived once per
+   render rather than from properties read all the way down it — see the note in SpiritsView. *@
+@if (IsOpen)
 {
+    var inScope = OwnedCatalogue.Boards(OwnedExpansions);
+    var visible = _filter.Apply(inScope);
+
     <ModalShell OnClose="Close">
-            <div class="px-6 pt-5 pb-4 border-b border-ink-200 flex items-start gap-4">
-                <div class="min-w-0 flex-1">
-                    <h2 class="text-xl font-semibold text-ink-900 leading-tight" style="font-family: var(--font-serif);">
-                        Choose a board
-                    </h2>
-                    <p class="text-xs text-ink-500 mt-1">
-                        Pick the board this player will use.@(_recordsLabel is null ? "" : $" Records show {WhoseGames} {_recordsLabel}.")
-                        @if (BoardsTaken.Count > 0)
-                        {
-                            <text> Boards picked by other players are marked.</text>
-                        }
-                    </p>
-                </div>
-                <button class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-500 hover:bg-ink-100 hover:text-ink-900 transition-colors shrink-0" @onclick="Close" aria-label="Close">
-                    <Icon Name="x" Class="w-5 h-5"/>
-                </button>
-            </div>
-
-            @* The same filter every catalogue and picker uses. *@
-            <div class="border-b border-ink-200 bg-ink-50/50 px-6 py-3">
-                <FilterBar Filter="_filter" OwnedExpansions="@OwnedExpansions"
-                           PresentExpansions="_filter.ExpansionsIn(_inScope)"
-                           ShowingCount="_visible.Count" TotalCount="_inScope.Count"
-                           UntestedLabel="@UntestedLabel" UntestedHint="@UntestedHint"
-                           Changed="StateHasChanged"/>
-            </div>
-
-            <div class="overflow-y-auto px-6 py-5 flex-1 space-y-6">
-                @* Grouped into expansions only while that is the order — see SpiritsView. *@
-                @foreach (var grp in _filter.GroupsByExpansion
-                    ? _visible.GroupBy(b => b.ExpansionId).Select(g => (Label: (string?)GameLookups.ExpansionName(g.Key), Boards: g.ToList()))
-                    : [(Label: (string?)null, Boards: _visible.ToList())])
+        <PickerModalHeader Title="Choose a board" OnClose="Close">
+            <Subtitle>
+                Pick the board this player will use.@(_recordsLabel is null ? "" : $" Records show {WhoseGames} {_recordsLabel}.")
+                @if (BoardsTaken.Count > 0)
                 {
-                    <div>
-                        @if (grp.Label is { } label)
-                        {
-                            <div class="text-[11px] font-medium uppercase tracking-wider text-ink-500 mb-2">@label</div>
-                        }
-                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                            @foreach (var b in grp.Boards)
-                            {
-                                var detail = BoardDetails.For(b.Id);
-                                var color = detail?.ColorHex ?? GameLookups.NeutralColor;
-                                var letter = GameLookups.BoardLetter(b);
-                                var isSelected = _currentBoardId == b.Id.Value;
-                                var isTaken = BoardsTaken.Contains(b.Id.Value) && !isSelected;
-                                var rec = _records.GetValueOrDefault(b.Id.Value);
-                                @* A lead of one play is no lead — with everything at 1× every board
-                                   would be starred, which marks nothing. *@
-                                var isFavourite = rec is not null && rec.Played == MostPlayed && MostPlayed > 1;
+                    <text> Boards picked by other players are marked.</text>
+                }
+            </Subtitle>
+        </PickerModalHeader>
 
-                                @* The record pill is a sibling of the pick button, so it stays live
-                                   even for a taken board — its record is still worth a look. *@
-                                <div @key="b.Id.Value"
-                                     class="@(isSelected ? "ring-2 ring-accent-500 border-accent-300" : "border-ink-200 hover:border-ink-300")
-                                            @(isTaken ? "opacity-40" : "")
-                                            flex flex-col bg-white border rounded-xl transition-all hover:shadow-sm">
-                                    <button type="button"
-                                            @onclick="() => Pick(b)"
-                                            disabled="@isTaken"
-                                            class="@(isTaken ? "cursor-not-allowed" : "")
-                                                   flex w-full flex-1 items-center gap-3 rounded-t-xl p-3 pb-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
-                                        <span class="inline-flex h-11 w-11 items-center justify-center rounded-lg text-white text-lg font-semibold shrink-0 shadow-sm"
-                                              style="background-color: @color; font-family: var(--font-serif);">
-                                            @letter
-                                        </span>
-                                        <div class="min-w-0 flex-1">
-                                            <div class="text-sm font-semibold text-ink-900 truncate">@b.Name</div>
-                                            @if (detail is not null)
-                                            {
-                                                <div class="text-[11px] text-ink-500 truncate">@detail.ThematicName</div>
-                                            }
-                                            @if (isTaken)
-                                            {
-                                                <div class="text-[10px] text-ink-400 mt-0.5">In use</div>
-                                            }
-                                        </div>
-                                    </button>
-                                    <div class="px-3 pb-2.5">
-                                        <RecordChip Record="rec" HasHistory="_context.HasHistory" Subject="@b.Name"
-                                                    NeverLabel="@(_recordsLabel is null ? "Never used" : $"Never {_recordsLabel}")"
-                                                    Starred="isFavourite"
-                                                    OnClick="() => ShowDetails(b)"/>
+        @* The same filter every catalogue and picker uses. *@
+        <div class="picker-filters">
+            <FilterBar Filter="_filter" OwnedExpansions="@OwnedExpansions"
+                       PresentExpansions="_filter.ExpansionsIn(inScope)"
+                       ShowingCount="visible.Count" TotalCount="inScope.Count"
+                       UntestedLabel="@UntestedLabel" UntestedHint="@UntestedHint"
+                       Changed="StateHasChanged"/>
+        </div>
+
+        <div class="picker-body space-y-6">
+            @* Grouped into expansions only while that is the order — see SpiritsView. *@
+            @foreach (var grp in _filter.GroupsByExpansion
+                ? visible.GroupBy(b => b.ExpansionId).Select(g => (Label: (string?)GameLookups.ExpansionName(g.Key), Boards: g.ToList()))
+                : [(Label: (string?)null, Boards: visible.ToList())])
+            {
+                <div>
+                    @if (grp.Label is { } label)
+                    {
+                        <div class="micro-label mb-2">@label</div>
+                    }
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                        @foreach (var b in grp.Boards)
+                        {
+                            var detail = BoardDetails.For(b.Id);
+                            var color = GameLookups.BoardColor(detail);
+                            var letter = GameLookups.BoardLetter(b);
+                            var isSelected = _currentBoardId == b.Id.Value;
+                            var isTaken = BoardsTaken.Contains(b.Id.Value) && !isSelected;
+                            var rec = _records.GetValueOrDefault(b.Id.Value);
+                            var isFavourite = SetupInsights.IsFavourite(rec, MostPlayed);
+
+                            @* The record pill is a sibling of the pick button, so it stays live
+                               even for a taken board — its record is still worth a look. *@
+                            <div @key="b.Id.Value"
+                                 class="pick-card @(isSelected ? "is-selected" : null) @(isTaken ? "is-taken" : null)
+                                        flex flex-col">
+                                <button type="button"
+                                        @onclick="() => Pick(b)"
+                                        disabled="@isTaken"
+                                        class="@(isTaken ? "cursor-not-allowed" : null)
+                                               flex w-full flex-1 items-center gap-3 rounded-t-xl p-3 pb-2 text-left focus-ring">
+                                    <LetterTile Size="2xl" Color="@color" Text="@letter"/>
+                                    <div class="min-w-0 flex-1">
+                                        @* h3 with the picker's other cards, so the four grids of
+                                           choices name what is in them the same way. *@
+                                        <h3 class="row-title truncate">@b.Name</h3>
+                                        @if (detail is not null)
+                                        {
+                                            <div class="row-sub truncate">@detail.ThematicName</div>
+                                        }
+                                        @if (isTaken)
+                                        {
+                                            <div class="fine-note mt-0.5">In use</div>
+                                        }
                                     </div>
+                                </button>
+                                <div class="px-3 pb-2.5">
+                                    <RecordChip Record="rec" HasHistory="Context.HasHistory" Subject="@b.Name"
+                                                NeverLabel="@UntestedLabel"
+                                                Starred="isFavourite"
+                                                OnClick="() => ShowDetails(b)"/>
                                 </div>
-                            }
-                        </div>
+                            </div>
+                        }
                     </div>
-                }
+                </div>
+            }
 
-                @if (_visible.Count == 0)
-                {
-                    <div class="py-10 text-center text-sm text-ink-500">No boards match the current filters.</div>
-                }
-            </div>
+            @if (visible.Count == 0)
+            {
+                <div class="no-matches">@Copy.NoMatches("boards")</div>
+            }
+        </div>
     </ModalShell>
 }
 
 <BoardDetailModal @ref="_detailModal"
-                  Facts="_context.Facts"
-                  SeatFilter="_context.SeatFilter"
-                  SubjectName="@_context.SubjectName"
+                  Facts="Context.Facts"
+                  SeatFilter="Context.SeatFilter"
+                  SubjectName="@Context.SubjectName"
                   OnSelected="Pick"/>
 
 @code {
@@ -118,23 +113,15 @@
     /// </summary>
     [Parameter] public IReadOnlyCollection<string> BoardsTaken { get; set; } = [];
 
-    private bool _open;
     private string? _currentBoardId;
     private BoardDetailModal _detailModal = default!;
-
-    /// The setup this picker was opened for — supplies the history behind the
-    /// per-board record and the board profile in the detail modal.
-    private SetupInsights.MatchupContext _context = SetupInsights.MatchupContext.Empty;
 
     // Snapshotted on open — the form behind the modal can't change while it is up.
     private Dictionary<string, SetupInsights.PlayRecord> _records = [];
     private string? _recordsLabel;
 
     /// The play count of the most-played board, so the leader can be marked as a favourite.
-    private int MostPlayed => _records.Count > 0 ? _records.Values.Max(r => r.Played) : 0;
-
-    [CascadingParameter(Name = "OwnedExpansions")]
-    public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
+    private int MostPlayed => SetupInsights.Leader(_records);
 
     /// <param name="forSpiritId">
     /// The spirit being placed, if chosen. Records are then the spirit-on-board
@@ -145,61 +132,42 @@
         SetupInsights.MatchupContext? context = null,
         string? forSpiritId = null)
     {
-        _context = context ?? SetupInsights.MatchupContext.Empty;
+        BeginShow(context);
         _currentBoardId = currentBoardId;
-        _records = _context.HasHistory ? _context.BoardRecords(forSpiritId) : [];
+        _records = Context.HasHistory ? Context.BoardRecords(forSpiritId) : [];
         _recordsLabel = GameLookups.SpiritFor(forSpiritId) is { } spirit ? $"with {spirit.Name}" : null;
 
         _filter.Reset();
-        _filter.UseHistory(_context.HasHistory ? _records : null);
+        _filter.UseHistory(Context.HasHistory ? _records : null);
 
-        _open = true;
-        StateHasChanged();
+        Open();
     }
 
-    /// With a spirit already chosen the record is that pairing, not the board overall — so the pill
-    /// has to say so. A board played often but never under this spirit passes it.
+    /// With a spirit already chosen the record is that pairing, not the board overall — so the
+    /// filter's pill and each card's never-state have to say so. A board played often but never
+    /// under this spirit passes it.
     private string UntestedLabel => _recordsLabel is null ? "Never used" : $"Never {_recordsLabel}";
 
-    /// Whose games the per-board counts are, for the line under the title.
+    /// Whose games the per-board counts are, for the line under the title — the same ownership
+    /// decision the record sheets head their strips with (Copy.Owner).
     private string WhoseGames =>
-        _context.SubjectName is { } name ? $"{name}'s games"
-        : _context.SeatFilter is not null ? "your games"
-        : "every game recorded";
-
-    /// The counts behind the pill are the seat's, not the reader's (MatchupContext.SeatFilter),
-    /// so the hint names the same person — or the whole table, while the seat is still empty.
-    private string NeverUsed =>
-        _context.SubjectName is { } name ? $"{name} has never used"
-        : _context.SeatFilter is not null ? "you have never used"
-        : "nobody at your table has used";
-
-    private string Otherwise =>
-        _context.SubjectName is { } name ? $"however often {name} has used them otherwise"
-        : _context.SeatFilter is not null ? "however often you have used them otherwise"
-        : "however often they have been used otherwise";
+        Copy.Owner(Context.SubjectName, Context.SeatFilter is not null) is { } owner
+            ? $"{owner} games"
+            : "every game recorded";
 
     private string UntestedHint => _recordsLabel is null
-        ? $"Boards {NeverUsed}"
-        : $"Boards {NeverUsed} {_recordsLabel} — {Otherwise}";
-
-    private void Close() => _open = false;
+        ? $"Boards {Context.UntestedIntro("used")}"
+        : $"Boards {Context.UntestedIntro("used")} {_recordsLabel} — {Context.UntestedConcession("used")}";
 
     private void ShowDetails(Board b) => _detailModal.Show(b);
 
     private async Task Pick(Board b)
     {
-        _open = false;
+        Close();
         await OnSelected.InvokeAsync(b);
     }
 
     /// No difficulty: one board is not harder than another.
     private readonly CatalogueFilter<Board> _filter = new(
         b => b.Id.Value, b => b.Name, b => b.ExpansionId);
-
-    /// Only what the player owns is on their table, so only that is offered.
-    private IReadOnlyList<Board> _inScope =>
-        GameData.Boards.Where(b => OwnedExpansions is null || OwnedExpansions.Contains(b.ExpansionId)).ToList();
-
-    private IReadOnlyList<Board> _visible => _filter.Apply(_inScope);
 }

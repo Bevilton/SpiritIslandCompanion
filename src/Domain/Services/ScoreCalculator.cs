@@ -10,6 +10,24 @@ namespace Domain.Services;
 /// </summary>
 public static class ScoreCalculator
 {
+    /// <summary>
+    /// The formula's weights, named so a preview that explains the score line by line can
+    /// quote them rather than repeat them — see the web app's <c>ScoreBreakdown</c>.
+    /// </summary>
+    public const int WinDifficultyWeight = 5;
+    public const int LossDifficultyWeight = 2;
+    public const int VictoryBonus = 10;
+    public const int RemainingCardWeight = 2;
+    public const int UsedCardWeight = 1;
+
+    /// <summary>
+    /// A token count shared out across the table — dahan and blight both score per player, in
+    /// whole players, and a table of nobody scores as a table of one. Public for the same reason
+    /// the weights are: the preview that itemises the score quotes this term rather than
+    /// re-deriving it.
+    /// </summary>
+    public static int PerPlayer(int tokens, int playerCount) => tokens / Math.Max(1, playerCount);
+
     public static Result<Score> Calculate(
         bool win,
         Difficulty difficulty,
@@ -37,24 +55,22 @@ public static class ScoreCalculator
         int playerCount,
         int scoreModifier)
     {
-        var players = Math.Max(1, playerCount);
-
         int total;
         if (win)
         {
-            total = 5 * difficulty
-                    + 10
-                    + 2 * cards
-                    + dahan / players
-                    - blight / players
+            total = WinDifficultyWeight * difficulty
+                    + VictoryBonus
+                    + RemainingCardWeight * cards
+                    + PerPlayer(dahan, playerCount)
+                    - PerPlayer(blight, playerCount)
                     + scoreModifier;
         }
         else
         {
-            total = 2 * difficulty
-                    + cards
-                    + dahan / players
-                    - blight / players
+            total = LossDifficultyWeight * difficulty
+                    + UsedCardWeight * cards
+                    + PerPlayer(dahan, playerCount)
+                    - PerPlayer(blight, playerCount)
                     + scoreModifier;
         }
 

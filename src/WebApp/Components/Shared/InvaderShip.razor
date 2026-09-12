@@ -1,0 +1,52 @@
+@* The invaders' ship, as one drawing: pennant, mast, two sails billowing away from it, a hull
+   dark below the waterline with a lit deck strip, and the wake it leaves. The landing page's
+   fleet rings the island with four of them and the setup screen floats one per adversary, and
+   the two had each drawn their own — same idea, two viewBoxes, two hull browns, and a comment on
+   the setup screen's promising it was "one fleet with the landing page's". One drawing keeps
+   that promise.
+
+   Size and any shadow stay with the caller: the hero sizes its ships off --ship-scale, the
+   setup screen fixes them at a chip's height. The sails are painted from SailGradient, which a
+   host renders once per page — an SVG id resolves across the whole document, so a copy per ship
+   would be all but one too many. *@
+
+<svg viewBox="0 0 64 60" class="@Class" aria-hidden="true">
+    @* wake first, so the hull sits in it *@
+    <path d="M4 50q9-4.5 18 0t18 0 18 0" fill="none" stroke="#D9EDF9" stroke-opacity=".5"
+          stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M11 55q10-4 21 0t21 0" fill="none" stroke="#D9EDF9" stroke-opacity=".28"
+          stroke-width="1.8" stroke-linecap="round"/>
+
+    @* The pennant is ember because these are the invaders — the same colour a defeat is drawn
+       in everywhere else in the app. *@
+    <path d="M32 3v9l11-3.6z" fill="#DC5B3C"/>
+    <rect x="30.8" y="5" width="2.4" height="30" rx="1.2" fill="#4A3520"/>
+    @* two sails, both billowing away from the mast so the ship reads as under way *@
+    <path d="M34.4 10c13 5.6 14.6 18 0 24.6z" fill="@SailFill"/>
+    <path d="M29.4 14.5c-10.6 4.4-11.8 14.4 0 19.4z" fill="@SailFill" opacity=".9"/>
+    @* hull: dark below the waterline, lit deck strip above it *@
+    <path d="M7 36h50l-6 11q-19 4.6-38 0z" fill="#5C4326"/>
+    <path d="M7 36h50l-1.9 3.6H8.9z" fill="#886138"/>
+</svg>
+
+@code {
+    /// <summary>How the drawing is sized and shadowed — the caller's box.</summary>
+    [Parameter] public string Class { get; set; } = "block h-full w-full";
+
+    /// <summary>The id <see cref="SailGradient"/> defines and every sail is painted from.</summary>
+    private const string SailGradientId = "invader-sail";
+
+    private const string SailFill = $"url(#{SailGradientId})";
+
+    /// <summary>
+    /// The sails' gradient — paper darkening towards the foot. Render it once on any page that
+    /// draws a ship, anywhere in the document; zero-sized, so it takes no space of its own.
+    /// </summary>
+    public static readonly RenderFragment SailGradient =
+        @<svg width="0" height="0" class="absolute" aria-hidden="true">
+            <linearGradient id="@SailGradientId" x1="0" y1="0" x2=".5" y2="1">
+                <stop offset="0" stop-color="#FDFBF6"/>
+                <stop offset="1" stop-color="#DCD2BC"/>
+            </linearGradient>
+        </svg>;
+}

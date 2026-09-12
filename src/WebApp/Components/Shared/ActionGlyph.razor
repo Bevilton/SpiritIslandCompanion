@@ -1,0 +1,33 @@
+@* What a button leads with, and the ring it becomes while its action is in flight: a save, a
+   send, a completed game.
+
+   Six primary buttons in the app act on the server and hold a flag while they wait, and only two
+   of them said so — Settings had grown a private <c>SaveGlyph</c> helper for its own pair, with a
+   comment about the drift a second copy invites, and the four elsewhere (the setup form's two
+   saves, the game page's "Save result", the first-login name prompt) went quiet instead: the
+   button dimmed and nothing else happened until the page moved. On a slow save that reads as a
+   click that missed.
+
+   The ring is LoadingSpinner's inline form, which is drawn in white on white — right on the
+   filled button every one of these is, and wrong on a .btn-secondary. Keep it to the filled ones,
+   as they all are today. *@
+
+@if (Busy)
+{
+    <LoadingSpinner Inline="true" Label="@BusyLabel"/>
+}
+else
+{
+    <Icon Name="@Icon" Class="w-4 h-4"/>
+}
+
+@code {
+    /// <summary>The glyph while the button is idle — what kind of act this is.</summary>
+    [Parameter, EditorRequired] public string Icon { get; set; } = "";
+
+    /// <summary>The action is in flight: the glyph becomes the ring.</summary>
+    [Parameter] public bool Busy { get; set; }
+
+    /// <summary>What a screen reader is told is happening while it spins.</summary>
+    [Parameter] public string BusyLabel { get; set; } = "Saving";
+}

@@ -11,8 +11,6 @@
    does belongs to the host — TapHint puts the host's answer in the tooltip. The way from a
    level to its games is the sheet's "See all games" link, never a tile. *@
 
-@using Application.Features.Statistics
-
 <div class="grid gap-1.5 @Columns">
     @foreach (var mode in Modes)
     {
@@ -24,7 +22,7 @@
         {
             <button @key="mode.Level" type="button" @onclick="() => OnPick.InvokeAsync(mode.Level)"
                     title="@Tooltip(mode, record)"
-                    class="@tile focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                    class="@tile focus-ring">
                 @Face(mode, record)
             </button>
         }
@@ -38,30 +36,29 @@
 </div>
 
 @code {
-    private RenderFragment Face(Domain.Models.Static.Mode mode, SetupInsights.PlayRecord? record) =>
+    private RenderFragment Face(Mode mode, SetupInsights.PlayRecord? record) =>
         @<text>
-            <div class="text-[10px] uppercase tracking-wide text-ink-500">L@(mode.Level)</div>
-            <div class="text-sm font-semibold text-ink-900">+@mode.Difficulty</div>
+            <div class="micro-label">L@(mode.Level)</div>
+            <div class="row-title">+@mode.Difficulty</div>
             @* The record line is drawn even when empty, so the tiles of one strip keep a common
                height and the ladder reads as a row rather than a comb. *@
             @if (Records is not null)
             {
                 <div class="mt-0.5 text-[9px] leading-tight tabular-nums @WinTone.ForRecord(record)">
-                    @(record is { Played: > 0 }
-                        ? $"{record.Played}×{(record.Completed > 0 ? $" · {record.WinRate:F0}%" : "")}"
-                        : "—")
+                    @(record is { Played: > 0 } ? SetupInsights.RecordLine(record) : "—")
                 </div>
             }
         </text>;
-}
 
-@code {
     /// <summary>
-    /// A foe faced at no level yet: hand this rather than null and the strip still draws its
-    /// record column, as dashes. Null is for the hosts with no reader to have a record at all.
+    /// What to hand <see cref="Records"/> for a foe: its per-level records where it has been
+    /// faced, the empty map where it hasn't but a reader has a record at all (the strip then
+    /// still draws its record column, as dashes), and null where nobody does. Three hosts had
+    /// the same three-way expression written out.
     /// </summary>
-    public static readonly IReadOnlyDictionary<int, SetupInsights.PlayRecord> NoRecords =
-        new Dictionary<int, SetupInsights.PlayRecord>();
+    public static IReadOnlyDictionary<int, SetupInsights.PlayRecord>? RecordsFor(
+        SetupInsights.AdversaryFacing? facing, bool hasRecord) =>
+        facing?.Levels ?? (hasRecord ? SetupInsights.NoLevels : null);
 
     [Parameter, EditorRequired] public Adversary Adversary { get; set; } = default!;
 
@@ -96,35 +93,26 @@
     /// <summary>The grid's columns. Seven levels fit one row from `sm` up; four wrap below it.</summary>
     [Parameter] public string Columns { get; set; } = "grid-cols-4 sm:grid-cols-7";
 
-    private IReadOnlyList<Domain.Models.Static.Mode> Modes =>
+    private IReadOnlyList<Mode> Modes =>
         Adversary.Modes.OrderBy(m => m.Level).ToList();
 
     private bool Pickable => OnPick.HasDelegate;
 
     private string TileClass(bool played, bool interactive, bool current) =>
-        string.Join(' ', new[]
-        {
-            "rounded-md border px-1 py-1.5 text-center transition-colors",
-            // The current level outranks the played tint — which level is chosen, or focused,
-            // is the one thing the host has to be able to see at a glance.
-            current ? "border-accent-500 bg-accent-50 ring-1 ring-accent-500/30"
-                : played ? "border-ink-300 bg-white"
-                : "border-ink-200 bg-ink-50/60",
-            interactive ? "hover:border-accent-400 hover:bg-accent-50" : null,
-            interactive && RaiseAboveOverlay ? "pointer-events-auto" : null,
-        }.Where(c => c is not null));
+        $"rounded-md px-1 py-1.5 text-center {TileChrome.For(played, interactive, current)}"
+        + (interactive && RaiseAboveOverlay ? " pointer-events-auto" : "");
 
     /// <summary>
     /// What the tile says on hover: the rules it adds, the record at it, and what a tap will do.
     /// One sentence in every host, so the strip explains itself the same way everywhere.
     /// </summary>
-    private string Tooltip(Domain.Models.Static.Mode mode, SetupInsights.PlayRecord? record)
+    private string Tooltip(Mode mode, SetupInsights.PlayRecord? record)
     {
         var line = $"{Adversary.Name} level {mode.Level} · +{mode.Difficulty} difficulty";
         if (Records is not null)
         {
             line += record is { Played: > 0 }
-                ? $" — played {record.Played}×{(record.Completed > 0 ? $", {record.Wins} won / {record.Losses} lost" : ", no results yet")}"
+                ? $" — played {record.Played}×{(record.Completed > 0 ? SetupInsights.WonLostSuffix(record) : ", no results yet")}"
                 : " — never played at this level";
         }
         if (Current == mode.Level) return $"{line}. {CurrentHint}";

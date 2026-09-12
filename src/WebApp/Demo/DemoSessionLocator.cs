@@ -39,34 +39,37 @@ public sealed class DemoSessionLocator(
 
             if (!_resolved)
             {
-                _value = Resolve();
-                _resolved = true;
+                (_value, _resolved) = Resolve();
             }
 
             return _value;
         }
     }
 
-    private Guid? Resolve()
+    /// <summary>
+    /// The sandbox the principal names, and whether that answer is final. A circuit whose
+    /// authentication state has not resolved yet has no answer to give — so it is asked again
+    /// on the next read rather than remembered as "the real database" for the scope's lifetime,
+    /// which for a demo visitor would have been every query going to the wrong place.
+    /// </summary>
+    private (Guid? SandboxId, bool Final) Resolve()
     {
         // Synchronous access works in Blazor Server because the provider caches the state
         // after its first async resolution in the circuit — same pattern as CurrentUserService.
         try
         {
             var task = authStateProvider.GetAuthenticationStateAsync();
-            if (task.IsCompletedSuccessfully)
-            {
-                // The circuit's principal is authoritative — including when it carries no
-                // sandbox claim. Falling through to the HttpContext here would let another
-                // (possibly stale) principal answer for a signed-in circuit.
-                return DemoClaims.GetSandboxId(task.Result.User);
-            }
+            // The circuit's principal is authoritative — including when it carries no sandbox
+            // claim. Falling through to the HttpContext here would let another (possibly stale)
+            // principal answer for a signed-in circuit.
+            return task.IsCompletedSuccessfully
+                ? (DemoClaims.GetSandboxId(task.Result.User), true)
+                : (null, false);
         }
         catch
         {
             // Not a circuit scope — the request principal is the one to read.
+            return (DemoClaims.GetSandboxId(httpContextAccessor.HttpContext?.User), true);
         }
-
-        return DemoClaims.GetSandboxId(httpContextAccessor.HttpContext?.User);
     }
 }

@@ -1,57 +1,54 @@
-@* Reference content for scenarios. Used from /scenarios (public) and /app/scenarios.
-   Pass OwnedExpansions to filter; null (default) shows every scenario.
-   Pass Records for the signed-in view to sort and filter by the account's recorded history — a
-   reference page counts every game on the account and never narrows to one player.
+@* Reference content for scenarios. Used from /scenarios (public) and /app/scenarios; what either
+   route hands over is CatalogueViewBase.
 
    The filter is FilterBar, shared with every other catalogue and picker. Scenarios have no facets
    of their own — expansion, difficulty and the record so far is the whole of what there is to ask. *@
+@inherits CatalogueViewBase
 
-<div class="page-head">
-    <div>
-        <span class="eyebrow">Reference</span>
-        <h1 class="page-title mt-2">Scenarios</h1>
-        <p class="page-sub">@_inScope.Count special scenarios that change how the game plays.</p>
-    </div>
-    <input type="search" class="input md:w-64" placeholder="Filter by name…" aria-label="Filter by name"
-           @bind="_filter.Query" @bind:event="oninput"/>
-</div>
+@* Derived once at the top of the render — see SpiritsView. *@
+@{
+    var inScope = OwnedCatalogue.Scenarios(OwnedExpansions);
+    var visible = _filter.Apply(inScope);
+}
+
+<PageHeader Eyebrow="Reference" Title="Scenarios">
+    <Sub>@inScope.Count special @Copy.Noun(inScope.Count, "scenario") that change how the game plays.</Sub>
+    <Actions>
+        <SearchBox @bind-Value="_filter.Query"/>
+    </Actions>
+</PageHeader>
 
 <div class="mt-4">
     <FilterBar Filter="_filter" OwnedExpansions="@OwnedExpansions"
-               PresentExpansions="_filter.ExpansionsIn(_inScope)"
-               ShowingCount="_visible.Count" TotalCount="_inScope.Count"
-               UntestedLabel="Never played" UntestedHint="Scenarios nobody at your table has played"
+               PresentExpansions="_filter.ExpansionsIn(inScope)"
+               ShowingCount="visible.Count" TotalCount="inScope.Count"
+               UntestedLabel="Never played" UntestedHint="@Copy.Untried("Scenarios")"
                Changed="StateHasChanged"/>
 </div>
 
 <div class="surface mt-6">
     <div class="table-wrap">
-        <table class="table">
+        <table class="table table-hover">
             <thead>
             <tr>
-                <th>Scenario</th>
-                <th>Expansion</th>
-                @if (Records is not null)
+                <th scope="col">Scenario</th>
+                <th scope="col">Expansion</th>
+                @if (HasRecord)
                 {
-                    <th>Record</th>
+                    <th scope="col">Record</th>
                 }
-                <th class="text-right">Difficulty</th>
+                <th scope="col" class="text-right">Difficulty</th>
             </tr>
             </thead>
             <tbody>
-            @foreach (var s in _visible)
+            @foreach (var s in visible)
             {
-                <tr @key="s.Id.Value" class="cursor-pointer hover:bg-ink-50/60 transition-colors" @onclick="() => OpenDetail(s)">
+                <tr @key="s.Id.Value" @onclick="() => OpenDetail(s)">
                     <td>
-                        @* A real button inside the clickable row, so the detail sheet is
-                           reachable by keyboard too. *@
-                        <button type="button" @onclick="() => OpenDetail(s)" @onclick:stopPropagation="true"
-                                class="rounded text-left font-medium text-ink-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
-                            @s.Name
-                        </button>
+                        <RowNameButton Name="@s.Name" OnClick="() => OpenDetail(s)"/>
                     </td>
                     <td class="text-ink-500">@GameLookups.ExpansionName(s.ExpansionId)</td>
-                    @if (Records is not null)
+                    @if (HasRecord)
                     {
                         @* Passive pill — the row opens the same sheet. Shows the figures the
                            play-based orderings sort on, in the shape used everywhere else. *@
@@ -60,52 +57,30 @@
                         </td>
                     }
                     <td class="text-right">
-                        <span class="badge @(s.Difficulty >= 3 ? "badge-warn" : s.Difficulty >= 1 ? "badge-info" : "badge-neutral")">
-                            +@s.Difficulty
-                        </span>
+                        <ScenarioDifficultyBadge Difficulty="s.Difficulty"/>
                     </td>
                 </tr>
             }
-            @if (_visible.Count == 0)
+            @if (visible.Count == 0)
             {
-                <tr><td colspan="@(Records is not null ? 4 : 3)" class="text-center text-ink-500 py-6">No scenarios match.</td></tr>
+                <tr><td colspan="@(HasRecord ? 4 : 3)" class="no-matches">@Copy.NoMatches("scenarios")</td></tr>
             }
             </tbody>
         </table>
     </div>
 </div>
 
-@* LinkGames only where there is a record to link from — see AdversariesView. *@
-<ScenarioDetailModal @ref="_modal" Facts="Facts" LinkGames="@(Records is not null)"/>
+<ScenarioDetailModal @ref="_modal" Facts="Facts" LinkGames="HasRecord"/>
 
 @code {
-    /// <summary>Null (default) shows everything; non-null restricts to those expansions.</summary>
-    [Parameter] public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
-
-    /// <summary>
-    /// The account's record per scenario — every game the visitor has recorded, whoever sat at the
-    /// table. Unlocks ordering by play count and win rate, the never-played filter, and the column
-    /// of figures. Null on the public route.
-    /// </summary>
-    [Parameter] public IReadOnlyDictionary<string, SetupInsights.PlayRecord>? Records { get; set; }
-
-    /// <summary>The history behind <see cref="Records"/>, for the detail modal's profile.</summary>
-    [Parameter] public IReadOnlyList<Application.Features.Statistics.SetupGameFact>? Facts { get; set; }
-
     private ScenarioDetailModal _modal = default!;
 
+    /// Difficulty is what a scenario adds, so it is the one number this catalogue sorts by.
     private readonly CatalogueFilter<Scenario> _filter = new(
-        s => s.Id.Value, s => s.Name, s => s.ExpansionId, (FilterState.ByDifficulty, s => s.Difficulty));
+        s => s.Id.Value, s => s.Name, s => s.ExpansionId,
+        numeric: (FilterState.ByDifficulty, s => s.Difficulty));
 
-    protected override void OnParametersSet()
-    {
-        _filter.UseHistory(Records);
-    }
-
-    private IReadOnlyList<Scenario> _inScope =>
-        GameData.Scenarios.Where(s => OwnedExpansions is null || OwnedExpansions.Contains(s.ExpansionId)).ToList();
-
-    private IReadOnlyList<Scenario> _visible => _filter.Apply(_inScope);
+    protected override FilterState Filter => _filter;
 
     private void OpenDetail(Scenario s) => _modal.Show(s);
 }

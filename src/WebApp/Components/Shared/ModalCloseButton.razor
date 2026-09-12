@@ -1,0 +1,27 @@
+@* The × every dialog wears, in the two places a dialog puts it.
+
+   Inline (the default) is a sibling of the title and the search box in a picker's header row, so
+   it is input-height and washes with ink like the other controls beside it.
+
+   Floating sits in the corner of a detail sheet's tinted header band, over a colour the sheet
+   chooses — so it is a size smaller, to sit clear of the heading it overlaps, and washes with
+   white, which is the one wash that reads the same over every tint.
+
+   ModalShell already closes on Escape and on a backdrop click; this is the visible affordance. *@
+
+<button type="button" @onclick="OnClick" aria-label="Close" class="@CssClass">
+    <Icon Name="x" Class="w-5 h-5"/>
+</button>
+
+@code {
+    [Parameter, EditorRequired] public EventCallback OnClick { get; set; }
+
+    /// <summary>Pins it to the top-right corner of a tinted header band. See the note above.</summary>
+    [Parameter] public bool Floating { get; set; }
+
+    private string CssClass =>
+        "inline-flex items-center justify-center rounded-lg text-ink-500 hover:text-ink-900 transition-colors focus-ring "
+        + (Floating
+            ? "absolute top-4 right-4 h-8 w-8 hover:bg-white/60"
+            : "h-9 w-9 shrink-0 hover:bg-ink-100");
+}

@@ -1,0 +1,37 @@
+@* The line that says which spirit is in a seat: the spirit's colour down the leading edge, its
+   name, its play style under that, and its elements at the far end. The setup form's seat button
+   and the recorded game's seat card are the same seat at two moments, and each drew this line
+   itself — which is what the card's own note about "variations of one component" was promising
+   and nothing was holding it to.
+
+   No wrapper of its own, because the row differs and its contents don't: one of the two is a
+   .field-button and the other a plain flex row, so the caller owns the row and only what goes in
+   it is here.
+
+   The name is a fragment rather than a string: on a saved game it is the way into every other
+   game played as that spirit, and while the game is being built there is nowhere to go yet. *@
+
+<ColorBar Color="@Color"/>
+<div class="min-w-0 flex-1">
+    <div class="row-title truncate">@Name</div>
+    @if (Detail is not null)
+    {
+        <div class="row-sub truncate">@Detail.PlayStyle</div>
+    }
+</div>
+@if (Detail is not null)
+{
+    <ElementBadges Elements="Detail.Elements" Size="sm"/>
+}
+
+@code {
+    /// <summary>The spirit's own colour — <see cref="GameLookups.SpiritColor"/>.</summary>
+    [Parameter, EditorRequired] public string Color { get; set; } = "";
+
+    /// <summary>What the spirit is called, linked or not. See the note above.</summary>
+    [Parameter, EditorRequired] public RenderFragment Name { get; set; } = default!;
+
+    /// <summary>The catalogue's entry, for the play style and the elements. Null for a spirit
+    /// the catalogue has no entry for, which leaves the line as the colour and the name.</summary>
+    [Parameter] public SpiritDetail? Detail { get; set; }
+}

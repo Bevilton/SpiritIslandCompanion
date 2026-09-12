@@ -1,37 +1,56 @@
-@if (!string.IsNullOrEmpty(Message))
+@* The one general message a page has to say back — a save confirmed, or a failure with no
+   field to sit on. Field-bound validation goes to FormErrorSummary instead; see FormFeedback
+   for which is which. Takes the whole FormFeedback rather than its message and type as two
+   parameters: every page passed the same pair, and the stamp below rode along as a third.
+
+   Dismissal is remembered here rather than written back into the feedback: a component must
+   not assign to its own parameter, and this one used to — so the next time the page
+   re-rendered for any reason at all (a keystroke in a field, say) the parameter came back and
+   the alert the user had just closed reappeared. It is keyed on MessageStamp, not the text:
+   two saves in a row both say "Saved.", and dismissing the first must not swallow the second. *@
+
+@if (!_dismissed && !string.IsNullOrEmpty(Feedback.Message))
 {
     <div class="alert @CssClass mb-4" role="alert">
-        <Icon Name="@IconForType" Class="w-5 h-5 shrink-0 mt-0.5"/>
-        <div class="flex-1">@Message</div>
-        <button type="button" @onclick="Dismiss" class="text-current opacity-60 hover:opacity-100 transition-opacity" aria-label="Dismiss">
+        <Icon Name="@IconName" Class="w-5 h-5 shrink-0 mt-0.5"/>
+        <div class="flex-1">@Feedback.Message</div>
+        @* Padded out and pulled back by the same step, so the hit target is a 24px box while the
+           glyph stays where the bare icon sat — a 16px × is not a target a thumb finds. *@
+        <button type="button" @onclick="() => _dismissed = true"
+                class="-m-1 shrink-0 rounded p-1 text-current opacity-60 transition-opacity hover:opacity-100 focus-ring" aria-label="Dismiss">
             <Icon Name="x" Class="w-4 h-4"/>
         </button>
     </div>
 }
 
 @code {
-    [Parameter] public string? Message { get; set; }
-    [Parameter] public string Type { get; set; } = "info";
-    [Parameter] public EventCallback OnDismiss { get; set; }
+    /// <summary>The form's voice — this renders its <see cref="FormFeedback.Message"/>.</summary>
+    [Parameter, EditorRequired] public FormFeedback Feedback { get; set; } = default!;
 
-    private string CssClass => Type switch
-    {
-        "success" => "alert-success",
-        "danger"  => "alert-danger",
-        "warn" or "warning" => "alert-warn",
-        _ => "alert-info"
-    };
+    private int _shownStamp;
+    private bool _dismissed;
 
-    private string IconForType => Type switch
+    protected override void OnParametersSet()
     {
-        "success" => "check-circle",
-        "danger"  => "x",
-        _ => "sparkles"
-    };
-
-    private async Task Dismiss()
-    {
-        Message = null;
-        await OnDismiss.InvokeAsync();
+        if (Feedback.MessageStamp == _shownStamp) return;
+        _shownStamp = Feedback.MessageStamp;
+        _dismissed = false;
     }
+
+    private string CssClass => Feedback.MessageKind switch
+    {
+        FormMessageKind.Success => "alert-success",
+        FormMessageKind.Info    => "alert-info",
+        _                       => "alert-danger",
+    };
+
+    /// The alert triangle for a failure, not the ×: the × is the app's close glyph — it heads
+    /// this very component's dismiss button — so a failed save was announcing itself with the
+    /// icon for "go away".
+    private string IconName => Feedback.MessageKind switch
+    {
+        FormMessageKind.Success => "check-circle",
+        FormMessageKind.Info    => "info",
+        _                       => "alert",
+    };
 }

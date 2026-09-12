@@ -1,53 +1,71 @@
 @* Confirm/cancel prompt on the shared ModalShell, so it gets the same backdrop, Escape
    handling and mobile bottom-sheet as every other dialog. Escape and backdrop count as
-   Cancel — dismissing a destructive prompt must never confirm it. *@
+   Cancel — dismissing a destructive prompt must never confirm it.
+
+   The dialog's name is a parameter and what it asks is an argument to ShowAsync: a page's
+   prompt is always about the same kind of act — deleting a game, settling a person — but never
+   about the same one twice. Both used to be available both ways, which left three parameter
+   defaults, one of them ("Delete") that no page ever set. *@
 
 @if (_visible)
 {
-    <ModalShell OnClose="Cancel" MaxWidth="md:max-w-md" Scrollable="false">
+    <ModalShell OnClose="() => Close(false)" MaxWidth="md:max-w-md" Scrollable="false">
         <div class="px-6 pt-6 pb-2">
-            <h3 class="text-lg font-semibold text-ink-900">@Title</h3>
-            <p class="mt-2 text-sm text-ink-600">@Message</p>
+            @* h2, like every other dialog's title: a dialog is its own outline, and this one was
+               the odd h3 among them. *@
+            <h2 class="dialog-title">@Title</h2>
+            <p class="body-note mt-2">@_message</p>
         </div>
-        <div class="px-6 py-4 flex justify-end gap-2">
-            <button type="button" class="btn btn-secondary" @onclick="Cancel">Cancel</button>
-            <button type="button" class="btn btn-danger" @onclick="Confirm">@ConfirmText</button>
+        <div class="dialog-foot">
+            <button type="button" class="btn btn-secondary" @onclick="() => Close(false)">Cancel</button>
+            <button type="button" class="btn btn-danger" @onclick="() => Close(true)">@_confirmText</button>
         </div>
     </ModalShell>
 }
 
 @code {
+    /// <summary>The verb a prompt confirms with unless the caller names a better one.</summary>
+    private const string DefaultConfirmText = "Delete";
+
     private bool _visible;
     private TaskCompletionSource<bool>? _tcs;
 
-    [Parameter] public string Title { get; set; } = "Confirm";
-    [Parameter] public string Message { get; set; } = "Are you sure?";
-    [Parameter] public string ConfirmText { get; set; } = "Delete";
+    /// <summary>What kind of act the page's prompts are about — "Delete game", "Are you sure?"
+    /// Required, as every other dialog's title is: a prompt called "Confirm" would be the one
+    /// dialog in the app not saying what it is about.</summary>
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
 
+    // What this particular showing asks. Held in fields rather than written back into
+    // parameters: a component that assigns to its own parameters has them overwritten the next
+    // time its parent renders.
+    private string _message = "";
+    private string _confirmText = DefaultConfirmText;
+
+    /// <param name="message">What is about to happen, and to what — always this act, not the kind.</param>
     /// <param name="confirmText">
     /// The verb on the confirming button. Worth passing whenever the prompt is reused for
     /// more than one action — a button that says "Delete" on a prompt about removing a friend
     /// describes something harsher than what will happen.
     /// </param>
-    public Task<bool> ShowAsync(string? message = null, string? confirmText = null)
+    public Task<bool> ShowAsync(string message, string? confirmText = null)
     {
-        if (message is not null) Message = message;
-        if (confirmText is not null) ConfirmText = confirmText;
+        // A prompt raised over one still waiting for an answer replaces it, so the caller
+        // awaiting the first has to be let go — otherwise its await never returns.
+        _tcs?.TrySetResult(false);
+
+        _message = message;
+        _confirmText = confirmText ?? DefaultConfirmText;
         _visible = true;
         _tcs = new TaskCompletionSource<bool>();
         StateHasChanged();
         return _tcs.Task;
     }
 
-    private void Confirm()
+    /// Both answers are the same act — close, and hand the caller what was decided. TrySet
+    /// rather than Set: a prompt that has already been answered must not throw on the second.
+    private void Close(bool confirmed)
     {
         _visible = false;
-        _tcs?.SetResult(true);
-    }
-
-    private void Cancel()
-    {
-        _visible = false;
-        _tcs?.SetResult(false);
+        _tcs?.TrySetResult(confirmed);
     }
 }

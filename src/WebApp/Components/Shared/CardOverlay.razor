@@ -1,0 +1,31 @@
+@* A card that is one big button holding smaller live controls — which a browser will not
+   render: a button may not contain interactive content. So the card's own action becomes a
+   full-card overlay behind everything, and the content is raised above it with pointer
+   events off — the links and tiles inside declare `pointer-events-auto` (or take
+   RaiseAboveOverlay, where a component offers it) and stay clickable, while everything else
+   falls through to the overlay.
+
+   The adversary record cards on the statistics page and the reference page each spelled the
+   arrangement out and cross-referenced the other; this is that arrangement said once. The
+   card around it stays the caller's and must carry `relative`, since the overlay pins to it.
+   FilterBar's header keeps its own copy on purpose — its overlay is also the hover surface
+   and a disclosure, so it carries aria-expanded and a conditional radius this one has no
+   business growing. *@
+
+<button type="button" @onclick="OnOpen" title="@Label"
+        class="absolute inset-0 rounded-xl focus-ring">
+    <span class="sr-only">@Label</span>
+</button>
+<div class="pointer-events-none relative">
+    @ChildContent
+</div>
+
+@code {
+    /// <summary>What opening the card does — the tooltip, and the screen reader's name for
+    /// the otherwise-invisible button.</summary>
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+
+    [Parameter, EditorRequired] public EventCallback OnOpen { get; set; }
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

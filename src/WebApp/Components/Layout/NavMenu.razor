@@ -1,38 +1,61 @@
 @* Sidebar navigation. Lives on deep chrome — see AppShell — so .nav-item and .nav-group are the
-   light-on-dark pair from Styles/site.css. *@
+   light-on-dark pair from Styles/site.css.
+
+   A list rather than nine hand-written links, as PublicShell's top bar already is: every row is
+   the same row, and what actually differs — which group it sits under, the address, the glyph and
+   the word — is data. Written out, each row carried its own `class` and `ActiveClass`, which is
+   nine chances for a new page to arrive without the one that makes it light up. *@
+
 <nav class="flex flex-col gap-1">
-    <div class="nav-group pt-1">App</div>
-    <NavLink class="nav-item" ActiveClass="active" href="/app/dashboard" Match="NavLinkMatch.All">
-        <Icon Name="dashboard" Class="w-4 h-4"/> Dashboard
-    </NavLink>
-    <NavLink class="nav-item" ActiveClass="active" href="/app/games" Match="NavLinkMatch.Prefix">
-        <Icon Name="controller" Class="w-4 h-4"/> Games
-    </NavLink>
-    <NavLink class="nav-item" ActiveClass="active" href="/app/statistics">
-        <Icon Name="chart" Class="w-4 h-4"/> Statistics
-    </NavLink>
-
-    <div class="nav-group">People</div>
-    <NavLink class="nav-item" ActiveClass="active" href="/app/people">
-        <Icon Name="users" Class="w-4 h-4"/> People
-    </NavLink>
-
-    <div class="nav-group">Reference</div>
-    <NavLink class="nav-item" ActiveClass="active" href="/app/spirits">
-        <Icon Name="sparkles" Class="w-4 h-4"/> Spirits
-    </NavLink>
-    <NavLink class="nav-item" ActiveClass="active" href="/app/adversaries">
-        <Icon Name="shield" Class="w-4 h-4"/> Adversaries
-    </NavLink>
-    <NavLink class="nav-item" ActiveClass="active" href="/app/scenarios">
-        <Icon Name="book" Class="w-4 h-4"/> Scenarios
-    </NavLink>
-    <NavLink class="nav-item" ActiveClass="active" href="/app/boards">
-        <Icon Name="map" Class="w-4 h-4"/> Boards
-    </NavLink>
-
-    <div class="nav-group">Account</div>
-    <NavLink class="nav-item" ActiveClass="active" href="/app/settings">
-        <Icon Name="settings" Class="w-4 h-4"/> Settings
-    </NavLink>
+    @for (var i = 0; i < Sections.Count; i++)
+    {
+        var section = Sections[i];
+        @* The first heading sits under the sidebar's own rule rather than under a link, so it
+           wants a touch less air above it than the ones that follow. *@
+        <div class="nav-group @(i == 0 ? "pt-1" : null)">@section.Title</div>
+        @foreach (var link in section.Links)
+        {
+            <NavLink @key="link.Href" class="nav-item" ActiveClass="active"
+                     href="@link.Href" Match="link.Match">
+                <Icon Name="@link.Icon" Class="w-4 h-4"/> @link.Label
+            </NavLink>
+        }
+    }
 </nav>
+
+@code {
+    /// <summary>
+    /// One destination in the sidebar.
+    /// </summary>
+    /// <param name="Match">
+    /// Prefix by default, so a page opened out of a list keeps its section lit — a game's own
+    /// page is still Games. Exact only where the address has children that are not this page.
+    /// </param>
+    private sealed record NavEntry(
+        string Href, string Icon, string Label, NavLinkMatch Match = NavLinkMatch.Prefix);
+
+    /// <summary>One heading and the destinations under it.</summary>
+    private sealed record NavSection(string Title, IReadOnlyList<NavEntry> Links);
+
+    /// <summary>The signed-in app, in the order the sidebar lists it.</summary>
+    private static readonly IReadOnlyList<NavSection> Sections =
+    [
+        new("App", [
+            new(AppRoutes.Dashboard, "dashboard", "Dashboard", NavLinkMatch.All),
+            new(GamesLink.Path, "controller", "Games"),
+            new(StatsLink.Path, "chart", "Statistics"),
+        ]),
+        new("People", [
+            new(PeopleLink.Path, "users", "People"),
+        ]),
+        new("Reference", [
+            new(AppRoutes.Spirits, "sparkles", "Spirits"),
+            new(AppRoutes.Adversaries, "shield", "Adversaries"),
+            new(AppRoutes.Scenarios, "book", "Scenarios"),
+            new(AppRoutes.Boards, "map", "Boards"),
+        ]),
+        new("Account", [
+            new(AppRoutes.Settings, "settings", "Settings"),
+        ]),
+    ];
+}

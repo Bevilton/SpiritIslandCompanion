@@ -1,95 +1,62 @@
-@* Stacked column chart: wins (green) on top of losses (red) per month, with a
-   win-rate line overlay. Replaces the inline div bars. *@
+@* How often the table plays and how it goes, month by month: one column per month, jade won
+   stacked on ember lost. The chrome is ChartOptions.Columns, shared with the two distribution
+   charts below it on the page. *@
+
+@using ApexCharts
 
 @if (_data.Count == 0)
 {
-    <div class="text-sm text-ink-500 py-8 text-center">No monthly data yet.</div>
+    <div class="no-data">No monthly data yet.</div>
 }
 else
 {
-    <ApexChart TItem="MonthlyRow" Options="_options" @ref="_chart">
+    @* The series colours are the options' — one list, in series order — rather than a Color on
+       each series as well, which was the same two hexes spelled a second time. *@
+    <ApexChart TItem="MonthlyRow" Options="_options">
         <ApexPointSeries TItem="MonthlyRow"
                          Items="_data"
                          Name="Wins"
                          SeriesType="SeriesType.Bar"
                          XValue="@(d => d.Label)"
-                         YValue="@(d => d.Wins)"
-                         Color="@StatsTheme.Accent500"/>
+                         YValue="@(d => d.Wins)"/>
         <ApexPointSeries TItem="MonthlyRow"
                          Items="_data"
                          Name="Losses"
                          SeriesType="SeriesType.Bar"
                          XValue="@(d => d.Label)"
-                         YValue="@(d => d.Losses)"
-                         Color="@StatsTheme.DangerSoft"/>
+                         YValue="@(d => d.Losses)"/>
     </ApexChart>
 }
 
 @code {
-    [Parameter, EditorRequired] public IReadOnlyList<Application.Features.Statistics.MonthlyStats> Months { get; set; } = [];
-    [Parameter] public int Height { get; set; } = 240;
+    [Parameter, EditorRequired] public IReadOnlyList<MonthlyStats> Months { get; set; } = [];
 
-    private ApexChart<MonthlyRow>? _chart;
+    /// <summary>The plot's height. A constant rather than a parameter, as <see cref="ColumnChart"/>'s
+    /// is: one page draws this chart, so a height it could pass is a second place to keep the
+    /// number — and the default that was here had already stopped being the one in use.</summary>
+    private const int PlotHeight = 280;
+
+    /// <summary>One column: the month, and the two outcomes stacked in it. Drafts are in
+    /// neither — <see cref="MonthlyStats.Losses"/> is the finished games that were lost, not
+    /// everything that wasn't a win.</summary>
+    public sealed record MonthlyRow(string Label, int Wins, int Losses);
+
     private ApexChartOptions<MonthlyRow> _options = new();
-    private List<MonthlyRow> _data = [];
-
-    public record MonthlyRow(string Label, decimal Wins, decimal Losses);
+    private IReadOnlyList<MonthlyRow> _data = [];
 
     protected override void OnParametersSet()
     {
         _data = Months
             .OrderBy(m => m.Year).ThenBy(m => m.Month)
             .Select(m => new MonthlyRow(
-                Label: new DateTime(m.Year, m.Month, 1).ToString("MMM yy"),
+                Label: GameFormat.MonthShort(new DateTime(m.Year, m.Month, 1)),
                 Wins: m.Wins,
-                Losses: Math.Max(0, m.GamesPlayed - m.Wins)))
+                Losses: m.Losses))
             .ToList();
 
-        _options = new ApexChartOptions<MonthlyRow>
-        {
-            Chart = new Chart
-            {
-                Stacked = true,
-                Height = Height,
-                Toolbar = new Toolbar { Show = false },
-                FontFamily = StatsTheme.FontFamily,
-            },
-            Colors = [StatsTheme.Accent500, StatsTheme.DangerSoft],
-            PlotOptions = new PlotOptions
-            {
-                Bar = new PlotOptionsBar
-                {
-                    BorderRadius = 4,
-                    ColumnWidth = "55%",
-                },
-            },
-            DataLabels = new DataLabels { Enabled = false },
-            Legend = new Legend
-            {
-                Position = LegendPosition.Top,
-                HorizontalAlign = ApexCharts.Align.Right,
-                FontSize = "12px",
-            },
-            Yaxis =
-            [
-                new YAxis
-                {
-                    DecimalsInFloat = 0,
-                    Labels = new YAxisLabels { Style = new AxisLabelStyle { Colors = new Color(StatsTheme.Ink500) } },
-                }
-            ],
-            Xaxis = new XAxis
-            {
-                AxisBorder = new AxisBorder { Show = false },
-                AxisTicks = new AxisTicks { Show = false },
-                Labels = new XAxisLabels { Style = new AxisLabelStyle { Colors = new Color(StatsTheme.Ink500) } },
-            },
-            Grid = new Grid
-            {
-                BorderColor = StatsTheme.Ink200,
-                StrokeDashArray = 4,
-            },
-            Tooltip = new Tooltip { Theme = ApexCharts.Mode.Light },
-        };
+        // The two colours are what the columns mean, so this is the one chart of the three whose
+        // legend earns its line.
+        _options = ChartOptions.Columns<MonthlyRow>(
+            PlotHeight, [StatsTheme.Accent500, StatsTheme.DangerSoft], stacked: true, showLegend: true);
     }
 }

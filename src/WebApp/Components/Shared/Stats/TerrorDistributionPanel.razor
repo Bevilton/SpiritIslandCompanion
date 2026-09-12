@@ -1,0 +1,79 @@
+@* Where the island's games actually ended: one tile per terror level, with the share of games
+   that reached it and the record at it.
+
+   Its own component rather than fifty lines inside the overview tab, for the reason every other
+   panel on that page is one — the tab reads as the list of panels it is, and the tile's own
+   arithmetic (a share of the total, a rate over what finished there) stays next to the tile
+   rather than being computed a screen away from where it is drawn.
+
+   The colour and the numeral of a band are TerrorScale's, so the tiles and the little stacked bars
+   in the spirits table below climb the same ramp. *@
+
+@* Total and Busiest move together — a band can only be the busiest one if a game ended somewhere —
+   so the panel is either whole or absent, and the heading below needs no second guard. *@
+@if (Total > 0 && Busiest is not null)
+{
+    <div class="panel">
+        <SectionHead Class="mb-4" Title="Terror level at game end"
+                     Note="@($"{Total} completed games")">
+            <Sub>
+                Most games end at <span class="font-medium text-ink-800">Terror @TerrorScale.Label(Busiest.TerrorLevel)</span>
+                (@($"{Share(Busiest.GamesPlayed):F0}%"))
+            </Sub>
+        </SectionHead>
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            @foreach (var t in Levels)
+            {
+                var colour = TerrorScale.Color(t.TerrorLevel);
+                var losses = t.GamesPlayed - t.Wins;
+                var winPct = Percent.Of(t.Wins, t.GamesPlayed);
+                <div @key="t.TerrorLevel" class="rounded-xl border border-ink-200 px-4 py-3">
+                    <div class="flex items-baseline justify-between gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="inline-block h-3 w-3 rounded-sm" style="background-color: @colour;"></span>
+                            <span class="section-label">Terror @TerrorScale.Label(t.TerrorLevel)</span>
+                        </div>
+                        <span class="numeral text-base text-ink-900">@t.GamesPlayed</span>
+                    </div>
+                    <Meter Value="Share(t.GamesPlayed)" FillColor="@colour" Class="mt-2"/>
+                    @* A band nobody has ended on says so, rather than reporting an 0 W · 0 L
+                       record that reads as games gone badly. *@
+                    @if (t.GamesPlayed > 0)
+                    {
+                        <div class="row-sub mt-2 flex items-center justify-between">
+                            <WinLossTally Wins="t.Wins" Losses="losses"/>
+                            <WinRateFigure Value="winPct" Suffix=" win"/>
+                        </div>
+                    }
+                    else
+                    {
+                        @* .no-value — the register for a value that isn't there, as TerrorBar's own
+                           "no data" is. The size is this tile's. *@
+                        <div class="no-value mt-2 text-[11px]">no game ended here</div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    /// <summary>Every band, including the ones nothing ended on — the panel is a distribution,
+    /// so a band with no games is part of what it says.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<TerrorLevelStats> Levels { get; set; } = [];
+
+    /// <summary>The busiest band, for the line under the heading.</summary>
+    private TerrorLevelStats? Busiest { get; set; }
+
+    /// <summary>Completed games across every band — the panel's denominator, and what decides
+    /// whether it has anything to show at all.</summary>
+    private int Total { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        Total = Levels.Sum(t => t.GamesPlayed);
+        Busiest = Levels.MaxBy(t => t.GamesPlayed);
+    }
+
+    private double Share(int games) => Percent.Of(games, Total);
+}

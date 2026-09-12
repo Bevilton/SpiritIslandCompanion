@@ -3,6 +3,7 @@ using Application.Features.Users;
 using Domain.Models.Static;
 using MediatR;
 using Microsoft.AspNetCore.Components.Authorization;
+using WebApp.Auth;
 using WebApp.Demo;
 
 namespace WebApp.State;
@@ -30,6 +31,14 @@ public sealed class CurrentUserState(
 {
     private bool _loaded;
     private Task? _inFlight;
+
+    /// <summary>
+    /// The name AppShell cascades <see cref="OwnedExpansions"/> under, and the name every
+    /// <c>[CascadingParameter]</c> that reads it has to match. It was a bare literal in six
+    /// files, where a typo in any one of them would have come back as "no expansions known" —
+    /// which the readers treat as "show everything" — rather than as an error anyone would see.
+    /// </summary>
+    public const string OwnedExpansionsCascade = "OwnedExpansions";
 
     /// <summary>
     /// The user's owned expansions. Null while loading or for anonymous visitors —
@@ -76,7 +85,7 @@ public sealed class CurrentUserState(
     private async Task LoadAsync()
     {
         var state = await authStateProvider.GetAuthenticationStateAsync();
-        var userId = GetUserId(state);
+        var userId = AppClaims.GetUserId(state.User);
         if (userId is null)
         {
             OwnedExpansions = null;
@@ -97,15 +106,16 @@ public sealed class CurrentUserState(
                 User = result.Value;
                 OwnedExpansions = result.Value.OwnedExpansionIds.Select(id => new ExpansionId(id)).ToList();
             }
+            else
+            {
+                // A reload that fails must not leave the previous account's context standing as
+                // if it were fresh — the readers treat null as "nothing known", which is true.
+                User = null;
+                OwnedExpansions = null;
+            }
         }
 
         _loaded = true;
         Changed?.Invoke();
-    }
-
-    private static Guid? GetUserId(AuthenticationState state)
-    {
-        var claim = state.User.FindFirst("db_user_id")?.Value;
-        return claim is not null && Guid.TryParse(claim, out var id) ? id : null;
     }
 }

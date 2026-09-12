@@ -1,113 +1,83 @@
-@* Read-only display card for a recorded player. Mirrors the editor card in
-   GameForm but without the pickers — same colour treatment so the two pages
-   read as variations of one component. *@
+@* Read-only display card for a recorded player: the seat the setup screen's dialog filled,
+   shown as it was recorded. What the two share — the seat badge, the spirit line, the top
+   accent in the spirit's colour — they share through the same components (SeatBadge,
+   SpiritLine, .top-accent-lg) rather than by promise. *@
 
 @{
     var spirit = GameLookups.SpiritFor(Player.SpiritId);
-    var spiritDetail = spirit is null ? null : SpiritDetails.For(spirit.Id);
-    var color = spiritDetail?.ColorHex ?? GameLookups.NeutralColor;
+    var spiritDetail = GameLookups.DetailFor(spirit);
+    var color = GameLookups.SpiritColor(spiritDetail);
 
     var board = GameLookups.BoardFor(Player.BoardId);
-    var boardDetail = board is null ? null : BoardDetails.For(board.Id);
-    var boardColor = boardDetail?.ColorHex ?? GameLookups.NeutralColor;
-    var boardLetter = boardDetail?.Letter ?? (board is null ? "?" : board.Name[^1..]);
+    var boardDetail = GameLookups.DetailFor(board);
+    var boardColor = GameLookups.BoardColor(boardDetail);
+    var boardLetter = GameLookups.BoardLetterFor(Player.BoardId) ?? "?";
 
     var aspect = GameLookups.AspectFor(Player.AspectId);
 }
 
-<article class="relative border border-ink-200 rounded-2xl"
-         style="border-top: 4px solid @color; background: linear-gradient(to bottom, @(color)14 0%, white 96px);">
+@* The band across the top is .top-accent-lg, the step a surface of its own takes — the same band
+   the dialog that fills this seat wears. The wash under it is this card's alone: the 14 suffix is
+   8% alpha, enough to tint the header without the card reading as coloured. *@
+<article class="top-accent-lg rounded-2xl border border-ink-200"
+         style="--top-accent: @color; background: linear-gradient(to bottom, @(color)14 0%, white 96px);">
     <div class="p-4 md:p-5">
         @* Header: P# badge *@
         <div class="flex items-center justify-between mb-3">
-            <span class="inline-flex items-center gap-2 text-xs font-medium text-ink-500">
-                <span class="inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold"
-                      style="background-color: @color; color: white;">
-                    @(Index + 1)
-                </span>
-                <span class="uppercase tracking-wide">Player @(Index + 1)</span>
-            </span>
+            <SeatBadge Number="Index + 1" Color="@color"/>
             @if (aspect is not null)
             {
-                <span class="badge badge-neutral text-[10px]">@aspect.Name</span>
+                <span class="badge badge-sm badge-neutral">@aspect.Name</span>
             }
         </div>
 
         @* Main row: spirit | board | assignee *@
         <div class="grid md:grid-cols-12 gap-3">
             <div class="md:col-span-6">
-                <div class="text-[10px] uppercase tracking-wide text-ink-500 mb-1">Spirit</div>
+                <div class="micro-label mb-1">Spirit</div>
                 @if (spirit is not null)
                 {
                     <div class="flex items-center gap-3">
-                        <span class="inline-block h-9 w-1.5 rounded-full shrink-0" style="background-color: @color;"></span>
-                        <div class="min-w-0 flex-1">
-                            @* The name is the link, where the host asked for one — no extra
-                               control on a card that is already three columns of them. *@
-                            <div class="text-sm font-semibold text-ink-900 truncate">
-                                @if (LinkGames)
-                                {
-                                    <a href="@GamesLink.ForSpirit(Player.SpiritId)" title="@($"See every game played as {spirit.Name}")"
-                                       class="rounded hover:text-accent-800 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">@spirit.Name</a>
-                                }
-                                else
-                                {
-                                    @spirit.Name
-                                }
-                            </div>
-                            @if (spiritDetail is not null)
-                            {
-                                <div class="text-[11px] text-ink-500 truncate">@spiritDetail.PlayStyle</div>
-                            }
-                        </div>
-                        @if (spiritDetail is not null)
-                        {
-                            <ElementBadges Elements="spiritDetail.Elements" Size="sm"/>
-                        }
+                        <SpiritLine Color="@color" Detail="spiritDetail">
+                            <Name>
+                                @LinkedName(spirit.Name, GamesLink.ForSpirit(Player.SpiritId),
+                                    $"See every game played as {spirit.Name}")
+                            </Name>
+                        </SpiritLine>
                     </div>
                 }
                 else
                 {
-                    <div class="text-sm text-ink-500 italic">Unknown spirit</div>
+                    <div class="no-value text-sm">Unknown spirit</div>
                 }
             </div>
 
             <div class="md:col-span-3">
-                <div class="text-[10px] uppercase tracking-wide text-ink-500 mb-1">Board</div>
+                <div class="micro-label mb-1">Board</div>
                 @if (board is not null)
                 {
                     <div class="flex items-center gap-2">
-                        <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-white text-base font-semibold shrink-0"
-                              style="background-color: @boardColor; font-family: var(--font-serif);">
-                            @boardLetter
-                        </span>
+                        <LetterTile Size="xl" Color="@boardColor" Text="@boardLetter"/>
                         <div class="min-w-0 flex-1">
-                            <div class="text-sm font-semibold text-ink-900 truncate">
-                                @if (LinkGames)
-                                {
-                                    <a href="@GamesLink.ForBoard(Player.BoardId)" title="@($"See every game with {board.Name} on the island")"
-                                       class="rounded hover:text-accent-800 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">@board.Name</a>
-                                }
-                                else
-                                {
-                                    @board.Name
-                                }
+                            <div class="row-title truncate">
+                                @LinkedName(board.Name, GamesLink.ForBoard(Player.BoardId),
+                                    $"See every game with {board.Name} on the island")
                             </div>
                             @if (boardDetail is not null)
                             {
-                                <div class="text-[11px] text-ink-500 truncate">@boardDetail.ThematicName</div>
+                                <div class="row-sub truncate">@boardDetail.ThematicName</div>
                             }
                         </div>
                     </div>
                 }
                 else
                 {
-                    <div class="text-sm text-ink-500 italic">No board</div>
+                    <div class="no-value text-sm">No board</div>
                 }
             </div>
 
             <div class="md:col-span-3">
-                <div class="text-[10px] uppercase tracking-wide text-ink-500 mb-1">Played by</div>
+                <div class="micro-label mb-1">Played by</div>
                 @{
                     var info = ResolveAssignee();
                     // Nobody named means nothing to look up — an "unassigned" slice of the
@@ -118,7 +88,7 @@
                 {
                     <a href="@GamesLink.ForPlayer(Player.UserId, Player.PlayerId)"
                        title="@($"See every game {info.Name} sat in")"
-                       class="block rounded transition-colors hover:bg-ink-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                       class="block rounded transition-colors hover:bg-ink-50 focus-ring">
                         <PlayerAssigneeBadge Kind="@info.Kind" Name="@info.Name" DetailLabel="@info.Detail"/>
                     </a>
                 }
@@ -132,7 +102,24 @@
 </article>
 
 @code {
-    [Parameter, EditorRequired] public Application.Features.Games.Dtos.GamePlayerResponse Player { get; set; } = default!;
+    /// <summary>
+    /// What the seat chose, as the way to every other game with it — the name itself is the
+    /// link, since a card already three columns wide has no room for a control per column. The
+    /// spirit and the board each wrote out the same link and the same plain fallback.
+    /// </summary>
+    private RenderFragment LinkedName(string name, string href, string title) => __builder =>
+    {
+        @if (LinkGames)
+        {
+            <a href="@href" title="@title" class="rounded hover:underline focus-ring">@name</a>
+        }
+        else
+        {
+            @name
+        }
+    };
+
+    [Parameter, EditorRequired] public GamePlayerResponse Player { get; set; } = default!;
     [Parameter, EditorRequired] public int Index { get; set; }
 
     /// <summary>
@@ -142,33 +129,31 @@
     [Parameter] public bool LinkGames { get; set; }
 
     [Parameter] public Guid? CurrentUserId { get; set; }
-    [Parameter] public IReadOnlyList<Application.Features.Friendships.FriendResponse> Friends { get; set; } = [];
-    [Parameter] public IReadOnlyList<Application.Features.Players.ListPlayersResponse> LocalPlayers { get; set; } = [];
+    [Parameter] public IReadOnlyList<FriendResponse> Friends { get; set; } = [];
+    [Parameter] public IReadOnlyList<ListPlayersResponse> LocalPlayers { get; set; } = [];
 
-    private record AssigneeInfo(PlayerAssigneeBadge.AssigneeKind Kind, string Name, string? Detail);
+    /// <param name="Detail">The line under the name where it is more than the kind — a friend's
+    /// email. Null lets the badge say what kind of person this is, which is its own word for it.</param>
+    private sealed record AssigneeInfo(AssigneeKind Kind, string Name, string? Detail = null);
 
+    /// Who sat here, from the seat's ids. A friend or a guest the lists no longer hold keeps their
+    /// kind and takes the badge's word for it as their name — the seat names somebody the table
+    /// can no longer place, which is different from a seat nobody was named for.
     private AssigneeInfo ResolveAssignee()
     {
         if (Player.UserId is { } uid)
         {
-            if (CurrentUserId == uid)
-            {
-                return new(PlayerAssigneeBadge.AssigneeKind.Me, "Me", "You");
-            }
+            if (CurrentUserId == uid) return new(AssigneeKind.Me, "Me");
             var friend = Friends.FirstOrDefault(f => f.FriendUserId == uid);
-            return friend is null
-                ? new(PlayerAssigneeBadge.AssigneeKind.Friend, "Friend", null)
-                : new(PlayerAssigneeBadge.AssigneeKind.Friend, friend.Name, friend.Email);
+            return new(AssigneeKind.Friend, friend?.Name ?? "Friend", friend?.Email);
         }
 
         if (Player.PlayerId is { } pid)
         {
             var player = LocalPlayers.FirstOrDefault(p => p.Id == pid);
-            return player is null
-                ? new(PlayerAssigneeBadge.AssigneeKind.Player, "Local player", null)
-                : new(PlayerAssigneeBadge.AssigneeKind.Player, player.Name, "Local player");
+            return new(AssigneeKind.Player, player?.Name ?? "Local player");
         }
 
-        return new(PlayerAssigneeBadge.AssigneeKind.Unknown, "Unassigned", null);
+        return new(AssigneeKind.Unknown, "Unassigned");
     }
 }

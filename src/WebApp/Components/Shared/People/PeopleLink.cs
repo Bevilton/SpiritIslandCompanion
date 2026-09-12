@@ -11,6 +11,15 @@ public static class PeopleLink
     public const string Path = "/app/people";
     public const string TabKey = "tab";
 
+    /// <summary>
+    /// The two addresses the page used to be split across, kept so a bookmark lands where it did.
+    /// Named beside the page's own <c>@@page</c> directives for them, which have to stay literal,
+    /// so the route resolver that reads them back compares against a constant rather than a
+    /// second spelling.
+    /// </summary>
+    public const string LegacyFriendsPath = "/app/friends";
+    public const string LegacyPlayersPath = "/app/players";
+
     /// <summary>The list the page opens on, and the one left out of the URL as the default.</summary>
     public const string Friends = "friends";
 
@@ -26,6 +35,8 @@ public static class PeopleLink
 
     public static bool IsTab(string? key) => key is not null && Tabs.Any(t => t.Key == key);
 
-    public static string ForTab(string? tab) =>
+    /// <summary>One of the three lists. The default tab is left out of the query, so the plain
+    /// page keeps a plain URL — the same rule <see cref="Stats.StatsLink.For"/> follows.</summary>
+    public static string ForTab(string tab) =>
         IsTab(tab) && tab != Friends ? $"{Path}?{TabKey}={tab}" : Path;
 }

@@ -1,38 +1,25 @@
-@* Large stat card for the overview top-row. Bigger and richer than StatCard:
-   supports a side-bar accent colour, a caption line, and an optional click
-   action (navigate to a related entity). *@
+@* The headline stat tile: a label, one big figure, an optional caption, and a whole-tile
+   link to whatever the figure is about. The dashboard and the statistics page both open with a
+   row of these, which is what keeps a headline number looking the same in both. *@
 
-@{
-    var clickable = !string.IsNullOrEmpty(Href);
-    var tag = clickable ? "a" : "div";
-    var attrs = clickable
-        ? new Dictionary<string, object> { ["href"] = Href! }
-        : null;
-}
-
-@* The accent is set as --tile-accent, which .stat-tile paints as a bar down the leading edge in
-   an ::before. It used to be an inline border-left here; with the bar now part of the tile itself
-   that would have drawn a second, differently-sized stripe beside the first. *@
-<div class="@WrapperClass" style="@(string.IsNullOrEmpty(AccentColor) ? null : $"--tile-accent: {AccentColor};")">
+<div class="@_wrapperClass">
     <div class="flex items-start justify-between gap-3 h-full">
         <div class="min-w-0 flex flex-col gap-1.5">
-            <div class="text-[10px] uppercase tracking-wide text-ink-500 font-medium">@Label</div>
-            <div class="text-2xl md:text-3xl font-bold text-ink-900 leading-none tabular-nums" style="font-family: var(--font-serif);">@Value</div>
+            <div class="micro-label">@Label</div>
+            <div class="stat-tile-value">@Value</div>
             @if (!string.IsNullOrEmpty(Caption))
             {
-                <div class="text-xs text-ink-500 leading-snug">@Caption</div>
+                <div class="block-note leading-snug">@Caption</div>
             }
         </div>
         @if (!string.IsNullOrEmpty(Icon))
         {
-            <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-accent-50 text-accent-700 shrink-0">
-                <Icon Name="@Icon" Class="w-4 h-4"/>
-            </span>
+            <IconChip Name="@Icon"/>
         }
     </div>
     @if (Href is not null)
     {
-        <a href="@Href" class="absolute inset-0" aria-label="@Label"></a>
+        <a href="@Href" class="absolute inset-0 rounded-xl focus-ring" aria-label="@Label"></a>
     }
 </div>
 
@@ -43,20 +30,23 @@
     [Parameter] public string? Icon { get; set; }
     [Parameter] public string? Href { get; set; }
 
-    /// <summary>Colour of the bar down the tile's leading edge. Defaults to jade; pass a
-    /// StatsTheme constant, a spirit's own colour, or one of the tile-* classes via
-    /// <see cref="Class"/> for the standard semantic pairs.</summary>
-    [Parameter] public string? AccentColor { get; set; }
-
     /// <summary>Extra classes on the tile — in practice one of tile-sun / tile-ember / tile-deep,
-    /// which is how a row of tiles says what kind of figure each one is.</summary>
+    /// which is how a row of tiles colours the bar down its leading edge to say what kind of
+    /// figure each one is. The bar defaults to jade.</summary>
     [Parameter] public string? Class { get; set; }
 
-    /// <summary>.stat-tile already carries `relative` and a transition, so neither is repeated here.</summary>
-    private string WrapperClass => string.Join(' ', new[]
-    {
-        "stat-tile",
-        Class,
-        Href is null ? null : "hover:border-accent-300 hover:bg-accent-50/30",
-    }.Where(c => !string.IsNullOrEmpty(c)));
+    /// <summary>.stat-tile already carries `relative` and a transition, so neither is repeated here.
+    /// Built once per parameter change rather than per render — a row of these re-renders with the
+    /// page, and the join is the same answer every time.</summary>
+    private string _wrapperClass = "stat-tile";
+
+    protected override void OnParametersSet() =>
+        _wrapperClass = string.Join(' ', new[]
+        {
+            "stat-tile",
+            Class,
+            // The same wash a linked card answers with elsewhere (GameSetupSummary's faces) — the two
+            // had settled on /30 and /40, a difference nobody could see and nobody could defend.
+            Href is null ? null : "hover:border-accent-300 hover:bg-accent-50/40",
+        }.Where(c => !string.IsNullOrEmpty(c)));
 }

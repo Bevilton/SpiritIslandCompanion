@@ -1,0 +1,35 @@
+@* The free-text note a game carries: its label, the textarea and the field's own error. The
+   setup screen and the game page's complete-game flow each wrote the three out, and neither
+   paired the label with the control — so clicking the word did nothing and a screen reader read
+   the box unnamed. One field, with the id and the `for` decided once. *@
+
+<div class="@Class">
+    <label class="label" for="@_id">Note</label>
+    <textarea id="@_id" class="textarea" rows="3" placeholder="@Placeholder"
+              value="@Value" @oninput="OnInput"></textarea>
+    <FieldError For="Note" Errors="@Errors"/>
+</div>
+
+@code {
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+
+    /// <summary>What the empty box invites — the two screens ask slightly differently.</summary>
+    [Parameter, EditorRequired] public string Placeholder { get; set; } = "";
+
+    /// <summary>The form's errors, usually <c>_form.Errors</c>.</summary>
+    [Parameter] public FormErrors? Errors { get; set; }
+
+    /// <summary>Extra classes on the field — the space above it, where it follows a panel.</summary>
+    [Parameter] public string? Class { get; set; }
+
+    /// Two of these can share a page's lifetime, so the id is the instance's own.
+    private readonly string _id = $"note-{Guid.NewGuid():N}";
+
+    /// Empty is not a note — the callers send null to the server for a blank box.
+    private Task OnInput(ChangeEventArgs e)
+    {
+        var text = e.Value?.ToString();
+        return ValueChanged.InvokeAsync(string.IsNullOrEmpty(text) ? null : text);
+    }
+}

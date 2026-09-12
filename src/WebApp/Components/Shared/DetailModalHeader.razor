@@ -1,0 +1,54 @@
+@* The band across the top of a reference sheet: a tint the subject chooses, its name, a row of
+   badges saying what it is, and the close button in the corner.
+
+   The tint is either a class (TintClass — a flat wash from the palette) or a style
+   (TintStyle — the gradient a spirit or board builds from its own colour, see
+   GameLookups.TintBandStyle). Both spell the bottom border too, so the band's edge belongs to
+   the tint rather than being a rule laid over it.
+
+   Glyph is what identifies the subject beside its name — a colour bar, a lettered tile, an
+   icon — and Badges the row under it. A sheet with neither still gets the same band. *@
+
+@* The tint is one or the other, never both: a palette wash would show through the gradient's
+   own transparency and muddy it. *@
+<div class="sheet-head @(TintStyle is null ? TintClass ?? NeutralTint : null)" style="@TintStyle">
+    <ModalCloseButton OnClick="OnClose" Floating="true"/>
+
+    <div class="flex items-start gap-4 pr-10">
+        @Glyph
+        <div class="min-w-0 flex-1">
+            <h2 class="dialog-title-xl">@Title</h2>
+            @if (Badges is not null)
+            {
+                <div class="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-ink-600">@Badges</div>
+            }
+            @Extra
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter, EditorRequired] public EventCallback OnClose { get; set; }
+
+    /// <summary>A flat wash and its border, from the palette — a kind's tint (<c>.tint-saved</c>,
+    /// <c>.tint-thematic</c>) or null for the neutral band.</summary>
+    [Parameter] public string? TintClass { get; set; }
+
+    /// <summary>The band a subject with no colour of its own wears.</summary>
+    private const string NeutralTint = "border-ink-200 bg-ink-50/60";
+
+    /// <summary>A tint the subject builds from its own colour — set instead of
+    /// <see cref="TintClass"/>, and spell the border in it too.</summary>
+    [Parameter] public string? TintStyle { get; set; }
+
+    /// <summary>What identifies the subject beside its name.</summary>
+    [Parameter] public RenderFragment? Glyph { get; set; }
+
+    /// <summary>The badge row under the name — expansion, difficulty, whatever the sheet is about.</summary>
+    [Parameter] public RenderFragment? Badges { get; set; }
+
+    /// <summary>Anything the band carries below the badges — the spirit sheet's elements and
+    /// tokens, which are a legend rather than another badge.</summary>
+    [Parameter] public RenderFragment? Extra { get; set; }
+}

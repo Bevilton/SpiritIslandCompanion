@@ -1,48 +1,54 @@
 @* Ranked top-N list of "hardest" entities — sorted by loss count. Renders a
    compact, list-style card with a red progress bar per row showing each entity's
-   share of total losses in the set. *@
+   share of total losses in the set. Every row is a link into the defeats it counts:
+   the list is a question ("what keeps beating me?") and the answer is a set of games.
 
-<div class="surface px-5 py-5 h-full flex flex-col">
-    <div class="flex items-baseline justify-between mb-3">
-        <h3 class="text-sm font-semibold text-ink-900" style="font-family: var(--font-serif);">@Title</h3>
-        @if (!string.IsNullOrEmpty(Subtitle))
-        {
-            <span class="text-[10px] uppercase tracking-wide text-ink-500">@Subtitle</span>
-        }
-    </div>
+   The head is SectionHead like every other panel's: three of these sit in a row directly under
+   the activity chart and directly above the two distribution panels, and the heading here had
+   been written out a size smaller than all of them. Level 3 because the row of them already
+   sits under a heading of its own. *@
+
+<div class="panel flex h-full flex-col">
+    <SectionHead Level="3" Title="@Title" Note="@Subtitle"/>
 
     @if (Rows.Count == 0)
     {
-        <div class="flex-1 flex items-center justify-center text-center py-6">
-            <div>
-                <Icon Name="trophy" Class="w-5 h-5 text-accent-700 mx-auto"/>
-                <p class="mt-2 text-xs text-ink-500">No losses recorded — flawless so far.</p>
-            </div>
+        @* .no-data, as every panel with nothing to report yet says it — this one had its own
+           padding and its own bare glyph. *@
+        <div class="no-data flex flex-1 flex-col items-center justify-center">
+            <IconChip Name="trophy" Size="sm"/>
+            <p class="block-note mt-2">No losses recorded — flawless so far.</p>
         </div>
     }
     else
     {
-        var maxLosses = Rows.Max(r => r.Losses);
         <ol class="space-y-2.5">
             @for (var i = 0; i < Rows.Count; i++)
             {
                 var row = Rows[i];
-                var pct = maxLosses > 0 ? row.Losses / (double)maxLosses * 100 : 0;
-                @* Given an Href the whole row opens those defeats — the list is a question
-                   ("what keeps beating me?") and the answer is a set of games. *@
-                <li>
-                    @if (row.Href is { } href)
-                    {
-                        <a href="@href" title="@($"{row.Name} — see the {row.Losses} game{(row.Losses == 1 ? "" : "s")} lost")"
-                           class="-mx-1.5 flex items-center gap-3 rounded-lg px-1.5 py-1 transition-colors hover:bg-ink-50
-                                  focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
-                            @Line(i, row, pct)
-                        </a>
-                    }
-                    else
-                    {
-                        <div class="flex items-center gap-3">@Line(i, row, pct)</div>
-                    }
+                var pct = Percent.Of(row.Losses, _maxLosses);
+                <li @key="row.Name">
+                    <a href="@row.Href" title="@($"{row.Name} — see the {Copy.Count(row.Losses, "game")} lost")"
+                       class="-mx-1.5 flex items-center gap-3 rounded-lg px-1.5 py-1 transition-colors hover:bg-ink-50
+                              focus-ring">
+                        <span class="disc h-6 w-6 shrink-0 bg-ink-100 text-[11px] font-semibold tabular-nums text-ink-600">
+                            @(i + 1)
+                        </span>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-baseline justify-between gap-2">
+                                @* .row-title — a spirit's or a foe's name, the same register the statistics
+                                   tables beside this panel name the same subjects in. *@
+                                <span class="row-title truncate">@row.Name</span>
+                                <span class="numeral shrink-0 text-sm text-red-700">
+                                    @row.Losses<span class="text-[11px] text-red-500 ml-0.5">L</span>
+                                </span>
+                            </div>
+                            <div class="mt-1 flex items-center gap-2">
+                                <Meter Value="pct" FillClass="bg-red-400" Class="flex-1"/>
+                                <span class="fine-note shrink-0 tabular-nums">@row.Detail</span>
+                            </div>
+                        </div>
+                    </a>
                 </li>
             }
         </ol>
@@ -50,31 +56,19 @@
 </div>
 
 @code {
-    private static RenderFragment Line(int index, Row row, double pct) =>
-        @<text>
-            <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-ink-100 text-ink-600 text-[11px] font-semibold tabular-nums shrink-0">
-                @(index + 1)
-            </span>
-            <div class="min-w-0 flex-1">
-                <div class="flex items-baseline justify-between gap-2">
-                    <span class="text-sm font-medium text-ink-900 truncate">@row.Name</span>
-                    <span class="text-sm font-semibold text-red-700 tabular-nums shrink-0" style="font-family: var(--font-serif);">
-                        @row.Losses<span class="text-[11px] text-red-500 ml-0.5">L</span>
-                    </span>
-                </div>
-                <div class="mt-1 flex items-center gap-2">
-                    <div class="flex-1 h-1.5 bg-ink-100 rounded-full overflow-hidden">
-                        <div class="h-full bg-red-400 rounded-full" style="width:@($"{pct:F0}")%"></div>
-                    </div>
-                    <span class="text-[10px] text-ink-500 tabular-nums shrink-0">@row.Detail</span>
-                </div>
-            </div>
-        </text>;
-
     [Parameter, EditorRequired] public string Title { get; set; } = "";
     [Parameter] public string? Subtitle { get; set; }
     [Parameter, EditorRequired] public IReadOnlyList<Row> Rows { get; set; } = [];
 
-    /// <param name="Href">Where the row's defeats can be read — null for a passive list.</param>
-    public sealed record Row(string Name, int Losses, string Detail, string? Href = null);
+    /// <param name="Href">Where the row's defeats can be read. Every host has a games list to
+    /// send the reader to, so the row is always the way there — the passive form it once had
+    /// was never rendered.</param>
+    public sealed record Row(string Name, int Losses, string Detail, string Href);
+
+    /// The longest bar's worth, so each row's share is a fraction of the leader's rather than of
+    /// the total — computed once per parameter change rather than per render.
+    private int _maxLosses;
+
+    protected override void OnParametersSet() =>
+        _maxLosses = Rows.Count == 0 ? 0 : Rows.Max(r => r.Losses);
 }

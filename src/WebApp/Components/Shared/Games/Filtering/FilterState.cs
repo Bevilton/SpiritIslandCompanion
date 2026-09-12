@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Domain.Models.Static;
+using Domain.Models.Static.Data;
 
 namespace WebApp.Components.Shared.Games.Filtering;
 
@@ -99,7 +100,7 @@ public abstract class FilterState
         IsTested = isTested ?? (records is null ? null : id => records.GetValueOrDefault(id) is { Played: > 0 });
     }
 
-    public bool HasRecords => Records is { Count: > 0 };
+    private bool HasRecords => Records is { Count: > 0 };
     public bool HasHistory => HasRecords || IsTested is not null;
 
     /// <summary>The orderings worth offering — the play-based ones need a history.</summary>
@@ -139,6 +140,18 @@ public abstract class FilterState
     public virtual int ActiveCount => Expansions.Count + (UntestedOnly ? 1 : 0);
 
     public bool Any => ActiveCount > 0;
+
+    /// <summary>
+    /// Whether anything at all is narrowing the list — a pill or a typed query. Distinct from
+    /// <see cref="Any"/>, which counts only the pills, because the search box is not one of them
+    /// and the header that reads <see cref="Any"/> has the box beside it to speak for itself.
+    /// <para>
+    /// A host that maps the filtered catalogue back onto its own rows needs the wider question:
+    /// a row the catalogue no longer lists cannot answer a filter, so it may stay visible only
+    /// while nothing is being asked. The statistics tabs each had a copy of that test.
+    /// </para>
+    /// </summary>
+    public bool Narrows => Any || !string.IsNullOrWhiteSpace(Query);
 
     public virtual void Clear()
     {
@@ -189,20 +202,43 @@ public abstract class FilterState
     protected IOrderedEnumerable<T> Then<T, TKey>(IOrderedEnumerable<T> source, Func<T, TKey> key) =>
         Descending ? source.ThenByDescending(key) : source.ThenBy(key);
 
+    /// <summary>
+    /// The orderings every catalogue shares, applied — expansion and the two play-based ones.
+    /// Null when the current key is one of the catalogue's own, which the subclass then handles.
+    /// <para>
+    /// Shared rather than repeated per filter because of the win-rate rule: an item with no
+    /// finished game has no rate to compare, so it sits at the end whichever way round the rest
+    /// is — reversing the order must not promote a blank to the top. Written twice, that rule
+    /// was two chances to get it wrong.
+    /// </para>
+    /// </summary>
+    protected IOrderedEnumerable<T>? SharedOrder<T>(
+        IEnumerable<T> matched, Func<T, string> id, Func<T, ExpansionId>? expansion) => SortKey switch
+    {
+        var key when key == ByExpansion.Key && expansion is not null =>
+            By(matched, item => ExpansionOrder(expansion(item))),
+        var key when key == ByPlayed.Key => By(matched, item => Played(id(item))),
+        var key when key == ByWinRate.Key =>
+            Then(matched.OrderBy(item => Unrated(id(item))), item => WinRate(id(item))),
+        _ => null,
+    };
+
     /// <summary>Release order, as the catalogue lists them — not alphabetical, which would put
     /// Jagged Earth before the base game.</summary>
-    protected static int ExpansionOrder(ExpansionId id)
+    private static int ExpansionOrder(ExpansionId id)
     {
-        var all = Domain.Models.Static.Data.GameData.Expansions;
+        var all = GameData.Expansions;
         for (var i = 0; i < all.Count; i++)
             if (all[i].Id == id) return i;
         return int.MaxValue;
     }
 
-    protected SetupInsights.PlayRecord? Record(string id) => Records?.GetValueOrDefault(id);
-    protected int Played(string id) => Record(id)?.Played ?? 0;
-    protected bool Unrated(string id) => Record(id) is not { Completed: > 0 };
-    protected double WinRate(string id) => Record(id)?.WinRate ?? 0;
+    // The shared orderings' own readings of the record. Private: every subclass orders through
+    // SharedOrder rather than reaching for these, and a wider surface is more to keep in step.
+    private SetupInsights.PlayRecord? Record(string id) => Records?.GetValueOrDefault(id);
+    private int Played(string id) => Record(id)?.Played ?? 0;
+    private bool Unrated(string id) => Record(id) is not { Completed: > 0 };
+    private double WinRate(string id) => Record(id)?.WinRate ?? 0;
 
     /// <summary>The orderings every catalogue shares, for a concrete filter's option list.</summary>
     public static readonly SortOption ByName = new("name", "Name", "A–Z", "Z–A");

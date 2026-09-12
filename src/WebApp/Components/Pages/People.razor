@@ -2,30 +2,25 @@
 @page "/app/friends"
 @page "/app/players"
 @attribute [Authorize]
-@using Application.Features.People
-@using Domain.Models.PlayerMerge
 @inject IMediator Mediator
 @inject ICurrentUserService CurrentUser
 @inject NavigationManager Nav
 
-<PageTitle>People</PageTitle>
+<AppPageTitle Title="People"/>
 
-<div class="page-head">
-    <div>
-        <span class="eyebrow">Your table</span>
-        <h1 class="page-title mt-2">People</h1>
-        <p class="page-sub">@HeaderSummary</p>
-    </div>
-    @if (!_loading && _people is not null)
-    {
-        <a class="btn btn-primary" href="@PeopleLink.ForTab(PeopleLink.Friends)">
-            <Icon Name="plus" Class="w-4 h-4"/> Add a friend
-        </a>
-    }
-</div>
+<PageHeader Eyebrow="Your table" Title="People">
+    <Sub>@HeaderSummary</Sub>
+    <Actions>
+        @if (!_loading && _people is not null)
+        {
+            <a class="btn btn-primary" href="@PeopleLink.ForTab(PeopleLink.Friends)">
+                <Icon Name="plus" Class="w-4 h-4"/> Add a friend
+            </a>
+        }
+    </Actions>
+</PageHeader>
 
-<Alert Message="@_form.Message" Type="@_form.MessageType"/>
-<FormErrorSummary Errors="@_form.Errors" Attempt="_form.Attempt"/>
+<FormMessages Feedback="_form"/>
 
 @if (_loading)
 {
@@ -33,44 +28,33 @@
 }
 else if (_people is null)
 {
-    <div class="alert alert-warn">
-        <Icon Name="alert" Class="w-5 h-5"/>
-        <div>Couldn't load your people right now.</div>
-    </div>
+    <NotFound>Couldn't load your people right now.</NotFound>
 }
 else
 {
     @* Same pill row the games list and statistics slice with — and, like the statistics tabs,
        real links, so which list you were reading survives following somebody out of it. *@
-    <nav class="mb-6 flex flex-wrap items-center gap-2" aria-label="People lists">
-        @foreach (var (key, label) in PeopleLink.Tabs)
-        {
-            var count = TabCount(key);
-            <FilterPill Active="@(_tab == key)" Href="@PeopleLink.ForTab(key)">
-                @label
-                @if (count > 0)
-                {
-                    <span class="tabular-nums opacity-60">@count</span>
-                }
-            </FilterPill>
-        }
-        @if (PendingForMe > 0 && _tab != PeopleLink.Requests)
-        {
-            <a class="badge badge-info ml-1" href="@PeopleLink.ForTab(PeopleLink.Requests)">
-                <Icon Name="alert" Class="w-3 h-3"/> @PendingForMe waiting on you
-            </a>
-        }
-    </nav>
+    <TabNav Tabs="PeopleLink.Tabs" Current="@_tab" Label="People lists"
+            Href="PeopleLink.ForTab" Count="TabPillCount">
+        <Trailing>
+            @if (PendingForMe > 0 && _tab != PeopleLink.Requests)
+            {
+                <a class="badge badge-info focus-ring ml-1" href="@PeopleLink.ForTab(PeopleLink.Requests)">
+                    <Icon Name="alert" Class="w-3 h-3"/> @PendingForMe waiting on you
+                </a>
+            }
+        </Trailing>
+    </TabNav>
 
     @switch (_tab)
     {
-        case TabFriends:
+        case PeopleLink.Friends:
             @FriendsTab();
             break;
-        case TabPlayers:
+        case PeopleLink.Players:
             @PlayersTab();
             break;
-        case TabRequests:
+        case PeopleLink.Requests:
             @RequestsTab();
             break;
     }
@@ -86,42 +70,29 @@ else
     private RenderFragment FriendsTab() =>
         @<div class="space-y-6">
             <section class="surface">
-                <div class="surface-head">
-                    <div>
-                        <h2 class="text-base font-semibold">Invite by email</h2>
-                        <p class="mt-0.5 text-[11px] text-ink-500">
-                            They need an account here. Once you're connected you can seat each other in games.
-                        </p>
-                    </div>
-                </div>
+                <SectionHead Surface="true" Title="Invite by email">
+                    <Sub>They need an account here. Once you're connected you can seat each other in games.</Sub>
+                </SectionHead>
                 <div class="surface-body">
-                    <div class="flex max-w-xl flex-col gap-2 sm:flex-row">
-                        <div class="flex-1">
-                            <input type="email" class="input w-full" placeholder="friend@@example.com"
-                                   @bind="_friendEmail" @bind:event="oninput" @onkeydown="OnInviteKeyDown"/>
-                            <FieldError For="AddresseeEmail" Errors="@_form.Errors"/>
-                        </div>
-                        <button class="btn btn-primary self-start" @onclick="SendFriendRequest"
-                                disabled="@string.IsNullOrWhiteSpace(_friendEmail)">
-                            <Icon Name="send" Class="w-4 h-4"/> Send request
-                        </button>
-                    </div>
+                    <SubmitField @bind-Value="_friendEmail" InputType="email" Class="max-w-xl"
+                                 Placeholder="friend@@example.com" ErrorFor="AddresseeEmail" Errors="@_form.Errors"
+                                 Icon="send" SubmitLabel="Send request" OnSubmit="SendFriendRequest"/>
                 </div>
             </section>
 
             @if (_people!.Friends.Count == 0)
             {
-                @EmptyState("users", "No friends yet",
-                    "Invite someone above and their games with you start counting on both sides.")
+                <EmptyState Icon="users" Title="No friends yet"
+                            Body="Invite someone above and their games with you start counting on both sides."/>
             }
             else
             {
                 <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     @foreach (var f in _people.Friends)
                     {
-                        <PersonCard @key="f.UserId" Kind="PlayerAssigneeBadge.AssigneeKind.Friend"
+                        <PersonCard @key="f.UserId" Kind="AssigneeKind.Friend"
                                     Name="@f.Name" DetailLabel="@f.Email"
-                                    Games="f.GamesTogether" Wins="f.Wins" Losses="f.Losses" WinRate="f.WinRate"
+                                    Record="f"
                                     FavouriteSpiritId="@f.FavouriteSpiritId"
                                     GamesHref="@(f.GamesTogether > 0 ? GamesLink.ForPlayer(f.UserId, null) : null)"
                                     EmptyNote="No games together yet — seat them in your next one.">
@@ -136,7 +107,7 @@ else
                                         <Icon Name="chart" Class="w-3.5 h-3.5"/> Shared stats
                                     </a>
                                 }
-                                <button class="btn btn-sm btn-danger-outline ml-auto" @onclick="() => RemoveFriend(f)"
+                                <button type="button" class="btn btn-sm btn-danger-outline ml-auto" @onclick="() => RemoveFriend(f)"
                                         title="@($"Remove {f.Name}")" aria-label="@($"Remove {f.Name}")">
                                     <Icon Name="unlink" Class="w-3.5 h-3.5"/> Remove
                                 </button>
@@ -153,42 +124,29 @@ else
     private RenderFragment PlayersTab() =>
         @<div class="space-y-6">
             <section class="surface">
-                <div class="surface-head">
-                    <div>
-                        <h2 class="text-base font-semibold">Add a local player</h2>
-                        <p class="mt-0.5 text-[11px] text-ink-500">
-                            Someone at your table without an account. If they sign up later, link the two and they keep the games.
-                        </p>
-                    </div>
-                </div>
+                <SectionHead Surface="true" Title="Add a local player">
+                    <Sub>Someone at your table without an account. If they sign up later, link the two and they keep the games.</Sub>
+                </SectionHead>
                 <div class="surface-body">
-                    <div class="flex max-w-md flex-col gap-2 sm:flex-row">
-                        <div class="flex-1">
-                            <input type="text" class="input w-full" placeholder="Player name…"
-                                   @bind="_newPlayerName" @bind:event="oninput" @onkeydown="OnAddPlayerKeyDown"/>
-                            <FieldError For="Name" Errors="@_form.Errors"/>
-                        </div>
-                        <button class="btn btn-primary self-start" @onclick="AddPlayer"
-                                disabled="@string.IsNullOrWhiteSpace(_newPlayerName)">
-                            <Icon Name="plus" Class="w-4 h-4"/> Add
-                        </button>
-                    </div>
+                    <SubmitField @bind-Value="_newPlayerName" Class="max-w-md"
+                                 Placeholder="Player name…" ErrorFor="Name" Errors="@_form.Errors"
+                                 Icon="plus" SubmitLabel="Add" OnSubmit="AddPlayer"/>
                 </div>
             </section>
 
             @if (_people!.LocalPlayers.Count == 0)
             {
-                @EmptyState("user", "No local players yet",
-                    "Add the people you play with in person so their spirits and results are recorded too.")
+                <EmptyState Icon="user" Title="No local players yet"
+                            Body="Add the people you play with in person so their spirits and results are recorded too."/>
             }
             else
             {
                 <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     @foreach (var p in _people.LocalPlayers)
                     {
-                        <PersonCard @key="p.PlayerId" Kind="PlayerAssigneeBadge.AssigneeKind.Player"
+                        <PersonCard @key="p.PlayerId" Kind="AssigneeKind.Player"
                                     Name="@p.Name" DetailLabel="Local player · no account"
-                                    Games="p.GamesTogether" Wins="p.Wins" Losses="p.Losses" WinRate="p.WinRate"
+                                    Record="p"
                                     FavouriteSpiritId="@p.FavouriteSpiritId"
                                     GamesHref="@(p.GamesTogether > 0 ? GamesLink.ForPlayer(null, p.PlayerId) : null)"
                                     EmptyNote="Not in any game yet.">
@@ -198,13 +156,13 @@ else
                                 {
                                     <div class="flex w-full items-start gap-2">
                                         <div class="flex-1">
-                                            <input type="text" class="input w-full" @bind="_editName"/>
+                                            <input type="text" class="input" @bind="_editName" aria-label="Player name"/>
                                             <FieldError For="Name" Errors="@_form.Errors"/>
                                         </div>
-                                        <button class="btn btn-sm btn-primary" @onclick="SaveRename" aria-label="Save name" title="Save name">
+                                        <button type="button" class="btn btn-sm btn-primary" @onclick="SaveRename" aria-label="Save name" title="Save name">
                                             <Icon Name="check" Class="w-3.5 h-3.5"/>
                                         </button>
-                                        <button class="btn btn-sm btn-secondary" @onclick="() => _editingId = null" aria-label="Cancel" title="Cancel">
+                                        <button type="button" class="btn btn-sm btn-secondary" @onclick="() => _editingId = null" aria-label="Cancel" title="Cancel">
                                             <Icon Name="x" Class="w-3.5 h-3.5"/>
                                         </button>
                                     </div>
@@ -228,7 +186,7 @@ else
                                         <span class="badge badge-info" title="@($"Waiting for {p.PendingMergeTargetName}")">
                                             <Icon Name="hourglass" Class="w-3 h-3"/> Link pending
                                         </span>
-                                        <button class="btn btn-sm btn-secondary" @onclick="() => _mergeModal.ShowAsync(requestId)">
+                                        <button type="button" class="btn btn-sm btn-secondary" @onclick="() => _mergeModal.ShowAsync(requestId)">
                                             Review
                                         </button>
                                     }
@@ -237,25 +195,25 @@ else
                                         <span class="badge badge-warn" title="@($"{p.PendingMergeTargetName} said this isn't them")">
                                             <Icon Name="x" Class="w-3 h-3"/> Link declined
                                         </span>
-                                        <button class="btn btn-sm btn-secondary" @onclick="() => DismissDeclinedMerge(declinedId)"
+                                        <button type="button" class="btn btn-sm btn-secondary" @onclick="() => DismissDeclinedMerge(declinedId)"
                                                 title="Clear this and you can ask someone else">
                                             Dismiss
                                         </button>
                                     }
                                     else
                                     {
-                                        <button class="btn btn-sm btn-secondary" @onclick="() => _linkModal.Show(p)"
+                                        <button type="button" class="btn btn-sm btn-secondary" @onclick="() => _linkModal.Show(p)"
                                                 title="This guest now has an account">
                                             <Icon Name="users" Class="w-3.5 h-3.5"/> Link
                                         </button>
                                     }
 
                                     <div class="ml-auto flex gap-1">
-                                        <button class="btn btn-sm btn-secondary" @onclick="() => StartRename(p)"
+                                        <button type="button" class="btn btn-sm btn-secondary" @onclick="() => StartRename(p)"
                                                 aria-label="@($"Rename {p.Name}")" title="Rename">
                                             <Icon Name="edit" Class="w-3.5 h-3.5"/>
                                         </button>
-                                        <button class="btn btn-sm btn-danger-outline" @onclick="() => DeletePlayer(p)"
+                                        <button type="button" class="btn btn-sm btn-danger-outline" @onclick="() => DeletePlayer(p)"
                                                 aria-label="@($"Delete {p.Name}")" title="Delete">
                                             <Icon Name="trash" Class="w-3.5 h-3.5"/>
                                         </button>
@@ -275,27 +233,24 @@ else
         @<div class="space-y-6">
             @if (PendingForMe == 0 && _people!.OutgoingFriendRequests.Count == 0 && _people.OutgoingMergeRequests.Count == 0)
             {
-                @EmptyState("check", "Nothing waiting", "No friend or merge requests need your attention.")
+                <EmptyState Icon="check" Title="Nothing waiting"
+                            Body="No friend or merge requests need your attention."/>
             }
 
             @if (_people!.IncomingMergeRequests.Count > 0)
             {
                 <section>
-                    <div class="section-head">
-                        <h2 class="section-title">Someone says a guest of theirs is you</h2>
-                        <span class="section-note">Confirming hands you those seats</span>
-                    </div>
+                    <SectionHead Title="Someone says a guest of theirs is you"
+                                 Note="Confirming hands you those seats"/>
                     <div class="space-y-2">
                         @foreach (var m in _people.IncomingMergeRequests)
                         {
-                            <div class="surface flex flex-wrap items-center gap-3 px-5 py-3">
-                                <PlayerAssigneeBadge Kind="PlayerAssigneeBadge.AssigneeKind.Player" Name="@m.PlayerName"
-                                                     DetailLabel="@($"{m.OtherUserName}'s guest · {m.GameCount} game{(m.GameCount == 1 ? "" : "s")}")"
-                                                     ContainerClass="inline-flex items-center gap-3 min-w-0 flex-1"/>
-                                <button class="btn btn-sm btn-primary shrink-0" @onclick="() => _mergeModal.ShowAsync(m.Id)">
+                            <RequestRow @key="m.Id" Kind="AssigneeKind.Player" Name="@m.PlayerName"
+                                        Detail="@($"{m.OtherUserName}'s guest · {Copy.Count(m.GameCount, "game")}")">
+                                <button type="button" class="btn btn-sm btn-primary shrink-0" @onclick="() => _mergeModal.ShowAsync(m.Id)">
                                     <Icon Name="arrow-right" Class="w-3.5 h-3.5"/> Review
                                 </button>
-                            </div>
+                            </RequestRow>
                         }
                     </div>
                 </section>
@@ -304,26 +259,22 @@ else
             @if (_people.IncomingFriendRequests.Count > 0)
             {
                 <section>
-                    <div class="section-head">
-                        <h2 class="section-title">Friend requests</h2>
-                        <span class="section-note">@_people.IncomingFriendRequests.Count waiting</span>
-                    </div>
+                    <SectionHead Title="Friend requests"
+                                 Note="@($"{_people.IncomingFriendRequests.Count} waiting")"/>
                     <div class="space-y-2">
                         @foreach (var r in _people.IncomingFriendRequests)
                         {
-                            <div class="surface flex flex-wrap items-center gap-3 px-5 py-3">
-                                <PlayerAssigneeBadge Kind="PlayerAssigneeBadge.AssigneeKind.Friend" Name="@r.Name"
-                                                     DetailLabel="@($"{r.Email} · {r.SentAt.DateTime:MMM d}")"
-                                                     ContainerClass="inline-flex items-center gap-3 min-w-0 flex-1"/>
+                            <RequestRow @key="r.FriendshipId" Kind="AssigneeKind.Friend" Name="@r.Name"
+                                        Detail="@($"{r.Email} · {GameFormat.DayOnly(r.SentAt.DateTime)}")">
                                 <div class="flex shrink-0 gap-2">
-                                    <button class="btn btn-sm btn-primary" @onclick="() => AcceptRequest(r.FriendshipId)">
+                                    <button type="button" class="btn btn-sm btn-primary" @onclick="() => AcceptRequest(r.FriendshipId)">
                                         <Icon Name="check" Class="w-3.5 h-3.5"/> Accept
                                     </button>
-                                    <button class="btn btn-sm btn-danger-outline" @onclick="() => RejectRequest(r.FriendshipId)">
+                                    <button type="button" class="btn btn-sm btn-danger-outline" @onclick="() => RejectRequest(r.FriendshipId)">
                                         <Icon Name="x" Class="w-3.5 h-3.5"/> Decline
                                     </button>
                                 </div>
-                            </div>
+                            </RequestRow>
                         }
                     </div>
                 </section>
@@ -332,34 +283,26 @@ else
             @if (_people.OutgoingFriendRequests.Count > 0 || _people.OutgoingMergeRequests.Count > 0)
             {
                 <section>
-                    <div class="section-head">
-                        <h2 class="section-title">Sent by you</h2>
-                        <span class="section-note">@SentByYouNote</span>
-                    </div>
+                    <SectionHead Title="Sent by you" Note="@SentByYouNote"/>
                     <div class="space-y-2">
                         @foreach (var r in _people.OutgoingFriendRequests)
                         {
-                            <div class="surface flex flex-wrap items-center gap-3 px-5 py-3">
-                                <PlayerAssigneeBadge Kind="PlayerAssigneeBadge.AssigneeKind.Friend" Name="@r.Name"
-                                                     DetailLabel="@r.Email"
-                                                     ContainerClass="inline-flex items-center gap-3 min-w-0 flex-1"/>
+                            <RequestRow @key="r.FriendshipId" Kind="AssigneeKind.Friend" Name="@r.Name" Detail="@r.Email">
                                 <span class="badge badge-neutral shrink-0">
                                     <Icon Name="hourglass" Class="w-3 h-3"/> Friend request pending
                                 </span>
                                 @* Taking back an unanswered request is the same command that ends a
                                    friendship — there is nothing shared to unpick until it's accepted. *@
-                                <button class="btn btn-sm btn-secondary shrink-0" @onclick="() => CancelFriendRequest(r)">
+                                <button type="button" class="btn btn-sm btn-secondary shrink-0" @onclick="() => CancelFriendRequest(r)">
                                     Cancel
                                 </button>
-                            </div>
+                            </RequestRow>
                         }
                         @foreach (var m in _people.OutgoingMergeRequests)
                         {
                             var declined = m.Status == PlayerMergeStatus.Rejected;
-                            <div class="surface flex flex-wrap items-center gap-3 px-5 py-3">
-                                <PlayerAssigneeBadge Kind="PlayerAssigneeBadge.AssigneeKind.Player" Name="@m.PlayerName"
-                                                     DetailLabel="@($"link to {m.OtherUserName} · {m.GameCount} game{(m.GameCount == 1 ? "" : "s")}")"
-                                                     ContainerClass="inline-flex items-center gap-3 min-w-0 flex-1"/>
+                            <RequestRow @key="m.Id" Kind="AssigneeKind.Player" Name="@m.PlayerName"
+                                        Detail="@($"link to {m.OtherUserName} · {Copy.Count(m.GameCount, "game")}")">
                                 <span class="badge @(declined ? "badge-warn" : "badge-neutral") shrink-0">
                                     @if (declined)
                                     {
@@ -372,57 +315,40 @@ else
                                         <span>Merge pending</span>
                                     }
                                 </span>
-                                <button class="btn btn-sm btn-secondary shrink-0" @onclick="() => _mergeModal.ShowAsync(m.Id)">
+                                <button type="button" class="btn btn-sm btn-secondary shrink-0" @onclick="() => _mergeModal.ShowAsync(m.Id)">
                                     Review
                                 </button>
-                            </div>
+                            </RequestRow>
                         }
                     </div>
                 </section>
             }
         </div>;
 
-    /// <summary>The two lines every person card carries under their favourite spirit.</summary>
+    /// <summary>The two lines every person card carries under their favourite spirit — IconNote,
+    /// the register for a quiet line led by a glyph, as the statistics page's card writes its own.</summary>
     private static RenderFragment RecordLines(PersonSummary p) =>
         @<text>
             @if (p.BestScore is { } best)
             {
-                <div class="flex items-center gap-2">
-                    <Icon Name="star" Class="w-3.5 h-3.5 text-ink-400"/>
-                    <span>Best score together <span class="font-medium text-ink-800 tabular-nums">@best</span></span>
-                </div>
+                <IconNote Icon="star">Best score together <span class="font-medium text-ink-800 tabular-nums">@best</span></IconNote>
             }
             @if (p.LastPlayedAt is { } last)
             {
-                <div class="flex items-center gap-2">
-                    <Icon Name="calendar" Class="w-3.5 h-3.5 text-ink-400"/>
-                    <span>Last played @last.DateTime.ToString("MMM d, yyyy")</span>
-                </div>
+                <IconNote Icon="calendar">Last played @GameFormat.Date(last.DateTime)</IconNote>
             }
         </text>;
 
-    private RenderFragment EmptyState(string icon, string title, string body) =>
-        @<div class="surface px-6 py-14 text-center">
-            <div class="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-50 text-accent-700">
-                <Icon Name="@icon" Class="w-6 h-6"/>
-            </div>
-            <h2 class="text-lg font-semibold text-ink-900" style="font-family: var(--font-serif);">@title</h2>
-            <p class="mx-auto mt-1 max-w-sm text-sm text-ink-500">@body</p>
-        </div>;
 }
 
 @code {
-    private const string TabFriends = PeopleLink.Friends;
-    private const string TabPlayers = PeopleLink.Players;
-    private const string TabRequests = PeopleLink.Requests;
-
     /// <summary>Which list is open. Written back on every tab click — see PeopleLink.</summary>
     [SupplyParameterFromQuery(Name = PeopleLink.TabKey)]
     public string? TabParam { get; set; }
 
     private PeopleResponse? _people;
     private bool _loading = true;
-    private string _tab = TabFriends;
+    private string _tab = PeopleLink.Friends;
 
     private string _friendEmail = "";
     private string _newPlayerName = "";
@@ -434,14 +360,20 @@ else
     private LinkPlayerModal _linkModal = default!;
     private MergeRequestModal _mergeModal = default!;
 
-    private int TabCount(string key) => key switch
+    /// <summary>How many are in a list, or null for an empty one: a list with nothing in it says
+    /// so by being empty, and a "0" beside its name is one more number to read past.</summary>
+    private int? TabPillCount(string key)
     {
-        TabFriends  => _people?.Friends.Count ?? 0,
-        TabPlayers  => _people?.LocalPlayers.Count ?? 0,
-        TabRequests => (_people?.IncomingFriendRequests.Count ?? 0) + (_people?.IncomingMergeRequests.Count ?? 0)
-                       + (_people?.OutgoingFriendRequests.Count ?? 0) + (_people?.OutgoingMergeRequests.Count ?? 0),
-        _           => 0,
-    };
+        var count = key switch
+        {
+            PeopleLink.Friends  => _people?.Friends.Count ?? 0,
+            PeopleLink.Players  => _people?.LocalPlayers.Count ?? 0,
+            PeopleLink.Requests => (_people?.IncomingFriendRequests.Count ?? 0) + (_people?.IncomingMergeRequests.Count ?? 0)
+                                   + (_people?.OutgoingFriendRequests.Count ?? 0) + (_people?.OutgoingMergeRequests.Count ?? 0),
+            _                   => 0,
+        };
+        return count > 0 ? count : null;
+    }
 
     /// <summary>
     /// What the "Sent by you" list actually holds: everything there is waiting on the other
@@ -464,7 +396,7 @@ else
             var friends = _people.Friends.Count;
             var locals = _people.LocalPlayers.Count;
             if (friends == 0 && locals == 0) return "Nobody here yet — add the people you play with.";
-            return $"{friends} friend{(friends == 1 ? "" : "s")} · {locals} local player{(locals == 1 ? "" : "s")}";
+            return $"{Copy.Count(friends, "friend")} · {locals} local {Copy.Noun(locals, "player")}";
         }
     }
 
@@ -477,14 +409,15 @@ else
     {
         // The old Friends and Players routes still resolve here, so a bookmark lands where it
         // used to; an explicit ?tab= wins over both.
-        var fromRoute = Nav.ToBaseRelativePath(Nav.Uri).Split('?')[0].TrimEnd('/') switch
+        var path = "/" + Nav.ToBaseRelativePath(Nav.Uri).Split('?')[0].TrimEnd('/');
+        var fromRoute = path switch
         {
-            "app/players" => TabPlayers,
-            "app/friends" => TabFriends,
-            _             => null,
+            PeopleLink.LegacyPlayersPath => PeopleLink.Players,
+            PeopleLink.LegacyFriendsPath => PeopleLink.Friends,
+            _                            => null,
         };
 
-        var wanted = PeopleLink.IsTab(TabParam) ? TabParam! : fromRoute ?? TabFriends;
+        var wanted = PeopleLink.IsTab(TabParam) ? TabParam! : fromRoute ?? PeopleLink.Friends;
         if (wanted == _tab) return;
         _tab = wanted;
 
@@ -518,49 +451,47 @@ else
         await LoadData();
     }
 
-    // ---------- friends ----------
-
-    private async Task OnInviteKeyDown(KeyboardEventArgs e)
+    /// <summary>
+    /// Every act on this page is the same three steps — send the command, report how it went
+    /// through the form's voice, reload the lists — and eight handlers had them written out.
+    /// Returns whether it worked, for the two acts that only clear their field on success. The
+    /// reload happens either way: a failed act may still have changed what the server holds
+    /// (a request that was answered from the other side in the meantime, say), and the lists
+    /// should say so.
+    /// </summary>
+    private async Task<bool> Run(ICommand command, string success, FormMessageKind kind = FormMessageKind.Success)
     {
-        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_friendEmail)) await SendFriendRequest();
+        var result = await Mediator.Send(command);
+        var ok = _form.Apply(result, success, kind);
+        await LoadData();
+        return ok;
     }
+
+    // ---------- friends ----------
 
     private async Task SendFriendRequest()
     {
         var email = _friendEmail;
-        var result = await Mediator.Send(new Application.Features.Friendships.SendFriendRequestCommand(
-            CurrentUser.UserId!.Value, _friendEmail));
-
-        if (_form.Apply(result, $"Friend request sent to {email}."))
+        if (await Run(new SendFriendRequestCommand(CurrentUser.RequireUserId(), email),
+                $"Friend request sent to {email}."))
         {
             _friendEmail = "";
-            await LoadData();
         }
     }
 
-    private async Task AcceptRequest(Guid friendshipId)
-    {
-        var result = await Mediator.Send(new Application.Features.Friendships.AcceptFriendRequestCommand(
-            friendshipId, CurrentUser.UserId!.Value));
-        _form.Apply(result, "Friend request accepted.");
-        await LoadData();
-    }
+    private Task AcceptRequest(Guid friendshipId) =>
+        Run(new AcceptFriendRequestCommand(friendshipId, CurrentUser.RequireUserId()),
+            "Friend request accepted.");
 
-    private async Task RejectRequest(Guid friendshipId)
-    {
-        var result = await Mediator.Send(new Application.Features.Friendships.RejectFriendRequestCommand(
-            friendshipId, CurrentUser.UserId!.Value));
-        _form.Apply(result, "Friend request declined.", "info");
-        await LoadData();
-    }
+    private Task RejectRequest(Guid friendshipId) =>
+        Run(new RejectFriendRequestCommand(friendshipId, CurrentUser.RequireUserId()),
+            "Friend request declined.", FormMessageKind.Info);
 
-    private async Task CancelFriendRequest(PendingFriendRequest request)
-    {
-        var result = await Mediator.Send(new Application.Features.Friendships.RemoveFriendCommand(
-            request.FriendshipId, CurrentUser.UserId!.Value));
-        _form.Apply(result, $"Request to {request.Name} cancelled.", "info");
-        await LoadData();
-    }
+    /// Taking back an unanswered request is the same command that ends a friendship — there is
+    /// nothing shared to unpick until it's accepted.
+    private Task CancelFriendRequest(PendingFriendRequest request) =>
+        Run(new RemoveFriendCommand(request.FriendshipId, CurrentUser.RequireUserId()),
+            $"Request to {request.Name} cancelled.", FormMessageKind.Info);
 
     private async Task RemoveFriend(PersonSummary friend)
     {
@@ -569,33 +500,22 @@ else
         var shared = friend.GamesTogether;
         var message = shared == 0
             ? $"Remove {friend.Name}? You can send a new request later."
-            : $"Remove {friend.Name}? Your {shared} shared game{(shared == 1 ? "" : "s")} stay with you, " +
+            : $"Remove {friend.Name}? Your {shared} shared {Copy.Noun(shared, "game")} stay with you, " +
               $"with {friend.Name} kept as a local player — and they get their own copy to do as they like with.";
 
         if (!await _confirmDialog.ShowAsync(message, "Remove")) return;
 
-        var result = await Mediator.Send(new Application.Features.Friendships.RemoveFriendCommand(
-            friendshipId, CurrentUser.UserId!.Value));
-        _form.Apply(result, $"{friend.Name} removed.", "info");
-        await LoadData();
+        await Run(new RemoveFriendCommand(friendshipId, CurrentUser.RequireUserId()),
+            $"{friend.Name} removed.", FormMessageKind.Info);
     }
 
     // ---------- local players ----------
 
-    private async Task OnAddPlayerKeyDown(KeyboardEventArgs e)
-    {
-        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_newPlayerName)) await AddPlayer();
-    }
-
     private async Task AddPlayer()
     {
-        var result = await Mediator.Send(new Application.Features.Players.CreatePlayerCommand(
-            _newPlayerName, CurrentUser.UserId!.Value));
-
-        if (_form.Apply(result, "Player added."))
+        if (await Run(new CreatePlayerCommand(_newPlayerName, CurrentUser.RequireUserId()), "Player added."))
         {
             _newPlayerName = "";
-            await LoadData();
         }
     }
 
@@ -610,12 +530,10 @@ else
     {
         if (_editingId is not { } id) return;
 
-        var result = await Mediator.Send(new Application.Features.Players.UpdatePlayerCommand(
-            id, _editName, CurrentUser.UserId!.Value));
-        if (!_form.Apply(result, "Player renamed.")) return;
-
-        _editingId = null;
-        await LoadData();
+        if (await Run(new UpdatePlayerCommand(id, _editName, CurrentUser.RequireUserId()), "Player renamed."))
+        {
+            _editingId = null;
+        }
     }
 
     private async Task DeletePlayer(PersonSummary p)
@@ -624,23 +542,17 @@ else
 
         var message = p.GamesTogether == 0
             ? $"Delete {p.Name}?"
-            : $"Delete {p.Name}? They sit in {p.GamesTogether} recorded game" +
-              $"{(p.GamesTogether == 1 ? "" : "s")}, where that seat will no longer name anyone.";
+            : $"Delete {p.Name}? They sit in {Copy.Count(p.GamesTogether, "recorded game")}, " +
+              "where that seat will no longer name anyone.";
 
         if (!await _confirmDialog.ShowAsync(message, "Delete")) return;
 
-        var result = await Mediator.Send(new Application.Features.Players.DeletePlayerCommand(
-            id, CurrentUser.UserId!.Value));
-        _form.Apply(result, $"{p.Name} deleted.", "info");
-        await LoadData();
+        await Run(new DeletePlayerCommand(id, CurrentUser.RequireUserId()),
+            $"{p.Name} deleted.", FormMessageKind.Info);
     }
 
     /// <summary>Clears a request that came back declined, freeing the guest to be linked again.</summary>
-    private async Task DismissDeclinedMerge(Guid requestId)
-    {
-        var result = await Mediator.Send(new Application.Features.PlayerMerges.WithdrawMergeRequestCommand(
-            requestId, CurrentUser.UserId!.Value));
-        _form.Apply(result, "Link request cleared.", "info");
-        await LoadData();
-    }
+    private Task DismissDeclinedMerge(Guid requestId) =>
+        Run(new WithdrawMergeRequestCommand(requestId, CurrentUser.RequireUserId()),
+            "Link request cleared.", FormMessageKind.Info);
 }

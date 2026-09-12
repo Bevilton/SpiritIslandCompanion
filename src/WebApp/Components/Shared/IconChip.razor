@@ -1,0 +1,58 @@
+@* A glyph centred on its own soft tile — the mark that leads a stat tile, a launchpad card, a
+   panel that is asking for something, a scenario's row, an empty page.
+
+   Twelve of these were spelled out by hand and had come apart in the way a box-and-glyph pair
+   always does when the two are chosen separately: the same 28px tile carried a 16px icon in the
+   dashboard's attention panel and a 14px one in the statistics scenario table, and the six
+   utilities that centre the glyph were written in four different orders. The ladder below pairs
+   box, corner and glyph once, so two chips of one size cannot drift again.
+
+   The tone is the caller's — jade by default, amber while a panel is asking for something, ink
+   where the chip is a handle rather than a subject — because the tone is what the chip is
+   saying. It is its own parameter rather than riding on Class: while the two shared one, a host
+   that only wanted a margin had to restate the default jade to get it, and the empty page did.
+
+   LetterTile is this component's sibling for a subject identified by a letter rather than a
+   glyph; ColorDot for one identified by nothing but its colour. *@
+
+<span class="@BoxClasses inline-flex shrink-0 items-center justify-center @Tone @Class">
+    <Icon Name="@Name" Class="@GlyphClass"/>
+</span>
+
+@code {
+    /// <summary>The glyph — an <see cref="Icon"/> name.</summary>
+    [Parameter, EditorRequired] public string Name { get; set; } = "";
+
+    /// <summary>
+    /// "xs" a list row's marker, "sm" a table row's, "md" a disclosure's handle, "lg" (default) a
+    /// stat tile's or a launchpad card's, "xl" the head of a dialog or an invitation, "2xl" a
+    /// landing-page feature, "3xl" the mark over an empty page.
+    /// </summary>
+    [Parameter] public string Size { get; set; } = "lg";
+
+    /// <summary>The fill and the glyph's colour. Jade unless the chip is saying something else.</summary>
+    [Parameter] public string Tone { get; set; } = "bg-accent-50 text-accent-700";
+
+    /// <summary>Whatever else the host lays the chip out with — a margin, a hover the card
+    /// around it drives.</summary>
+    [Parameter] public string? Class { get; set; }
+
+    private string BoxClasses => Size switch
+    {
+        "xs"  => "h-6 w-6 rounded-md",
+        "sm"  => "h-7 w-7 rounded-lg",
+        "md"  => "h-8 w-8 rounded-lg",
+        "xl"  => "h-10 w-10 rounded-xl",
+        "2xl" => "h-11 w-11 rounded-xl",
+        "3xl" => "h-14 w-14 rounded-2xl",
+        _     => "h-9 w-9 rounded-lg", // "lg"
+    };
+
+    private string GlyphClass => Size switch
+    {
+        "xs" or "sm" => "w-3.5 h-3.5",
+        "xl" or "2xl" => "w-5 h-5",
+        "3xl" => "w-6 h-6",
+        _     => "w-4 h-4", // "md", "lg"
+    };
+}

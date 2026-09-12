@@ -1,75 +1,27 @@
-@* Renders a horizontal row of element chips for a spirit.
+@* A spirit's elements as a row of chips. The row itself is GlyphBadges; this supplies only
+   the eight glyphs and the eight tints.
    Pass Size="sm" for compact card display, Size="md" for the modal header. *@
 
-@if (Elements is { Count: > 0 })
-{
-    <div class="inline-flex items-center @Gap">
-        @foreach (var el in Elements)
-        {
-            var (bg, fg) = ColorFor(el);
-            <span class="inline-flex items-center justify-center rounded-full @SizeClasses"
-                  style="background-color: @bg; color: @fg;"
-                  title="@el">
-                @Glyph(el)
-            </span>
-        }
-    </div>
-}
+<GlyphBadges TValue="Element" Values="Elements" Size="@Size" Colour="ColorFor" Glyph="Glyph"/>
 
 @code {
     [Parameter, EditorRequired] public IReadOnlyList<Element>? Elements { get; set; }
     [Parameter] public string Size { get; set; } = "sm";
 
-    private string SizeClasses => Size switch
+    private static MarkupString Glyph(Element e, string iconClass) => new(e switch
     {
-        "md" => "h-7 w-7",
-        _    => "h-6 w-6",
-    };
+        Element.Sun => $@"<svg viewBox=""0 0 24 24"" fill=""none"" stroke=""currentColor"" stroke-width=""2"" stroke-linecap=""round"" stroke-linejoin=""round"" class=""{iconClass}"" aria-hidden=""true""><circle cx=""12"" cy=""12"" r=""4"" fill=""currentColor""/><path d=""M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4""/></svg>",
+        Element.Moon => $@"<svg viewBox=""0 0 24 24"" fill=""currentColor"" class=""{iconClass}"" aria-hidden=""true""><path d=""M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z""/></svg>",
+        Element.Fire => $@"<svg viewBox=""0 0 24 24"" fill=""currentColor"" class=""{iconClass}"" aria-hidden=""true""><path d=""M12 2 c2 4 5 6 5 10 a5 5 0 0 1-2.5 4 c.5-1.5-.3-3-1.5-4 -.8 2-2.5 3-2.5 5 a2.5 2.5 0 0 0 1.2 2 A6 6 0 0 1 7 14 c0-4 4-6 5-12 z""/></svg>",
+        Element.Air => $@"<svg viewBox=""0 0 24 24"" fill=""none"" stroke=""currentColor"" stroke-width=""2"" stroke-linecap=""round"" stroke-linejoin=""round"" class=""{iconClass}"" aria-hidden=""true""><path d=""M3 8h11a3 3 0 1 0-3-3""/><path d=""M3 12h15a3 3 0 1 1-3 3""/><path d=""M3 16h9""/></svg>",
+        Element.Water => $@"<svg viewBox=""0 0 24 24"" fill=""currentColor"" class=""{iconClass}"" aria-hidden=""true""><path d=""M12 3s-6 7-6 11a6 6 0 0 0 12 0c0-4-6-11-6-11Z""/></svg>",
+        Element.Earth => $@"<svg viewBox=""0 0 24 24"" fill=""currentColor"" class=""{iconClass}"" aria-hidden=""true""><path d=""M3 19h18L15 8l-3 5-2-3Z""/></svg>",
+        Element.Plant => $@"<svg viewBox=""0 0 24 24"" fill=""currentColor"" class=""{iconClass}"" aria-hidden=""true""><path d=""M12 21c0-6 3-11 9-13-1 7-4 12-9 13Zm0 0C9 17 6 14 3 13c0 5 3 8 9 8Z""/></svg>",
+        Element.Animal => $@"<svg viewBox=""0 0 24 24"" fill=""currentColor"" class=""{iconClass}"" aria-hidden=""true""><ellipse cx=""12"" cy=""16"" rx=""4"" ry=""3.5""/><circle cx=""6.5"" cy=""10"" r=""1.8""/><circle cx=""17.5"" cy=""10"" r=""1.8""/><circle cx=""9"" cy=""6"" r=""1.6""/><circle cx=""15"" cy=""6"" r=""1.6""/></svg>",
+        _ => "",
+    });
 
-    private string IconClass => Size switch
-    {
-        "md" => "w-4 h-4",
-        _    => "w-3.5 h-3.5",
-    };
-
-    private string Gap => Size switch
-    {
-        "md" => "gap-1.5",
-        _    => "gap-1",
-    };
-
-    private RenderFragment Glyph(Element e) => builder =>
-    {
-        switch (e)
-        {
-            case Element.Sun:
-                builder.AddMarkupContent(0, $@"<svg viewBox=""0 0 24 24"" fill=""none"" stroke=""currentColor"" stroke-width=""2"" stroke-linecap=""round"" stroke-linejoin=""round"" class=""{IconClass}"" aria-hidden=""true""><circle cx=""12"" cy=""12"" r=""4"" fill=""currentColor""/><path d=""M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4""/></svg>");
-                break;
-            case Element.Moon:
-                builder.AddMarkupContent(0, $@"<svg viewBox=""0 0 24 24"" fill=""currentColor"" class=""{IconClass}"" aria-hidden=""true""><path d=""M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z""/></svg>");
-                break;
-            case Element.Fire:
-                builder.AddMarkupContent(0, $@"<svg viewBox=""0 0 24 24"" fill=""currentColor"" class=""{IconClass}"" aria-hidden=""true""><path d=""M12 2 c2 4 5 6 5 10 a5 5 0 0 1-2.5 4 c.5-1.5-.3-3-1.5-4 -.8 2-2.5 3-2.5 5 a2.5 2.5 0 0 0 1.2 2 A6 6 0 0 1 7 14 c0-4 4-6 5-12 z""/></svg>");
-                break;
-            case Element.Air:
-                builder.AddMarkupContent(0, $@"<svg viewBox=""0 0 24 24"" fill=""none"" stroke=""currentColor"" stroke-width=""2"" stroke-linecap=""round"" stroke-linejoin=""round"" class=""{IconClass}"" aria-hidden=""true""><path d=""M3 8h11a3 3 0 1 0-3-3""/><path d=""M3 12h15a3 3 0 1 1-3 3""/><path d=""M3 16h9""/></svg>");
-                break;
-            case Element.Water:
-                builder.AddMarkupContent(0, $@"<svg viewBox=""0 0 24 24"" fill=""currentColor"" class=""{IconClass}"" aria-hidden=""true""><path d=""M12 3s-6 7-6 11a6 6 0 0 0 12 0c0-4-6-11-6-11Z""/></svg>");
-                break;
-            case Element.Earth:
-                builder.AddMarkupContent(0, $@"<svg viewBox=""0 0 24 24"" fill=""currentColor"" class=""{IconClass}"" aria-hidden=""true""><path d=""M3 19h18L15 8l-3 5-2-3Z""/></svg>");
-                break;
-            case Element.Plant:
-                builder.AddMarkupContent(0, $@"<svg viewBox=""0 0 24 24"" fill=""currentColor"" class=""{IconClass}"" aria-hidden=""true""><path d=""M12 21c0-6 3-11 9-13-1 7-4 12-9 13Zm0 0C9 17 6 14 3 13c0 5 3 8 9 8Z""/></svg>");
-                break;
-            case Element.Animal:
-                builder.AddMarkupContent(0, $@"<svg viewBox=""0 0 24 24"" fill=""currentColor"" class=""{IconClass}"" aria-hidden=""true""><ellipse cx=""12"" cy=""16"" rx=""4"" ry=""3.5""/><circle cx=""6.5"" cy=""10"" r=""1.8""/><circle cx=""17.5"" cy=""10"" r=""1.8""/><circle cx=""9"" cy=""6"" r=""1.6""/><circle cx=""15"" cy=""6"" r=""1.6""/></svg>");
-                break;
-        }
-    };
-
-    private static (string bg, string fg) ColorFor(Element e) => e switch
+    private static (string Bg, string Fg) ColorFor(Element e) => e switch
     {
         Element.Sun    => ("#FEF3C7", "#B45309"), // amber
         Element.Moon   => ("#E0E7FF", "#3730A3"), // indigo
@@ -79,6 +31,6 @@
         Element.Earth  => ("#FEF3C7", "#78350F"), // brown-amber
         Element.Plant  => ("#DCFCE7", "#15803D"), // green
         Element.Animal => ("#FFEDD5", "#9A3412"), // orange
-        _              => ("#F5F5F4", "#44403C"),
+        _              => ("#F0EADC", "#4A4031"), // ink-100 on ink-700 — unreachable, but not a stock grey
     };
 }

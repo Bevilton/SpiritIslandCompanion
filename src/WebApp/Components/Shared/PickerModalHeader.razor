@@ -1,0 +1,37 @@
+@* The band across the top of a picker: what is being chosen, a line on how to choose it, the
+   name search, and the close button.
+
+   The search box is here rather than in the filter bar below because it is the control a picker
+   is actually used with — the bar under it is for narrowing a catalogue you are browsing, the box
+   for finding the one thing you already have in mind. Leave Query unbound to leave it out, which
+   the board picker does: eight lettered tiles are not a list anybody searches.
+
+   The band is .dialog-head, the same one DialogHeader wears: a player moves between the two on
+   the setup screen, and this one had drifted a rung down on the subtitle and a step off on the
+   padding while the comments in both files promised they matched. *@
+
+<div class="dialog-head flex items-start gap-4">
+    <div class="min-w-0 flex-1">
+        <h2 class="dialog-title-lg">@Title</h2>
+        <p class="body-note mt-1">@Subtitle</p>
+    </div>
+    @if (QueryChanged.HasDelegate)
+    {
+        <SearchBox Value="@Query" ValueChanged="QueryChanged" Class="md:w-56"/>
+    }
+    <ModalCloseButton OnClick="OnClose"/>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+
+    /// <summary>The line under the title — what the picker offers and how to work it.</summary>
+    [Parameter, EditorRequired] public RenderFragment Subtitle { get; set; } = default!;
+
+    [Parameter, EditorRequired] public EventCallback OnClose { get; set; }
+
+    /// <summary>The name search. Bind both halves (<c>@@bind-Query</c>) to raise the box; the box
+    /// follows <see cref="QueryChanged"/>, since a search nobody listens to is no search.</summary>
+    [Parameter] public string? Query { get; set; }
+    [Parameter] public EventCallback<string> QueryChanged { get; set; }
+}

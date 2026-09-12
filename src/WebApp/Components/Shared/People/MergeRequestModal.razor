@@ -1,53 +1,35 @@
 @* The games a merge would move, laid out so nobody has to agree to something unseen.
    Same sheet for both sides: the person being asked answers from here, the person who asked
    can look at what they sent and take it back. *@
-@using Application.Features.PlayerMerges
-@using Domain.Models.PlayerMerge
 @inject IMediator Mediator
 @inject ICurrentUserService CurrentUser
 
 @if (_open)
 {
     <ModalShell OnClose="Close" MaxWidth="md:max-w-3xl">
-        <div class="border-b border-ink-200 px-6 py-5">
-            <div class="flex items-start justify-between gap-4">
-                <div class="min-w-0">
-                    <span class="eyebrow">Merge request</span>
-                    <h3 class="mt-2 text-xl font-semibold text-ink-900" style="font-family: var(--font-serif);">
-                        @Headline
-                    </h3>
-                    <p class="mt-1 text-sm text-ink-500">@Explanation</p>
-                </div>
-                <button type="button" class="btn btn-ghost btn-sm shrink-0" @onclick="Close" aria-label="Close">
-                    <Icon Name="x" Class="w-4 h-4"/>
-                </button>
-            </div>
-        </div>
+        <DialogHeader Eyebrow="Merge request" Title="@Headline" OnClose="Close">
+            <Subtitle>@Explanation</Subtitle>
+        </DialogHeader>
 
-        <div class="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+        <div class="picker-body">
             @if (_loading)
             {
                 <LoadingSpinner/>
             }
             else if (_detail is null)
             {
-                <div class="alert alert-warn">
-                    <Icon Name="alert" Class="w-5 h-5"/>
-                    <div>This merge request is no longer available.</div>
-                </div>
+                <NotFound>This merge request is no longer available.</NotFound>
             }
             else
             {
-                <Alert Message="@_form.Message" Type="@_form.MessageType"/>
+                <Alert Feedback="_form"/>
 
-                <div class="section-head">
-                    <h4 class="section-title">Games in this merge</h4>
-                    <span class="section-note">@_detail.Games.Count game@(_detail.Games.Count == 1 ? "" : "s")</span>
-                </div>
+                <SectionHead Level="3" Title="Games in this merge"
+                             Note="@Copy.Count(_detail.Games.Count, "game")"/>
 
                 @if (_detail.Games.Count == 0)
                 {
-                    <div class="surface px-5 py-8 text-center text-sm text-ink-500">
+                    <div class="surface no-data px-5">
                         The local player doesn't sit in any recorded game right now.
                     </div>
                 }
@@ -58,22 +40,22 @@
                         {
                             var spirit = GameLookups.SpiritFor(g.SpiritId);
                             var aspect = GameLookups.AspectFor(g.AspectId);
-                            var color = (spirit is null ? null : SpiritDetails.For(spirit.Id)?.ColorHex) ?? GameLookups.NeutralColor;
+                            var color = GameLookups.SpiritColor(spirit);
                             var board = GameLookups.BoardFor(g.BoardId);
                             <li class="surface flex flex-wrap items-center gap-3 px-4 py-3">
-                                <span class="inline-block h-9 w-1.5 shrink-0 rounded-full" style="background-color: @color;"></span>
+                                <ColorBar Color="@color"/>
                                 <div class="min-w-0 flex-1">
-                                    <div class="truncate text-sm font-semibold text-ink-900">
+                                    <div class="row-title truncate">
                                         @GameLookups.MatchTitle(g.Adversaries, g.ScenarioId)
                                     </div>
-                                    <div class="truncate text-[11px] text-ink-500">
-                                        @g.StartedAt.DateTime.ToString("MMM d, yyyy")
+                                    <div class="row-sub truncate">
+                                        @GameFormat.Date(g.StartedAt.DateTime)
                                         · @(spirit?.Name ?? g.SpiritId)@(aspect is null ? "" : $" · {aspect.Name}")
                                         @if (board is not null)
                                         {
                                             <span> · board @GameLookups.BoardLetter(board)</span>
                                         }
-                                        · @g.PlayerCount player@(g.PlayerCount == 1 ? "" : "s")
+                                        · @Copy.Count(g.PlayerCount, "player")
                                         · difficulty @g.Difficulty
                                     </div>
                                 </div>
@@ -81,7 +63,7 @@
                                     <GameStatusBadge IsCompleted="g.IsCompleted" Win="g.Win"/>
                                     @if (g.Score is { } score)
                                     {
-                                        <span class="text-sm font-bold tabular-nums text-ink-900" style="font-family: var(--font-serif);">@score</span>
+                                        <span class="numeral text-sm text-ink-900">@score</span>
                                     }
                                 </div>
                             </li>
@@ -91,7 +73,9 @@
             }
         </div>
 
-        <div class="flex flex-wrap justify-end gap-2 border-t border-ink-200 px-6 py-4">
+        @* .dialog-foot plus the wrap this one needs: three buttons is more than a phone's width
+           of dialog holds on one line. *@
+        <div class="dialog-foot flex-wrap border-t border-ink-100">
             <button type="button" class="btn btn-secondary" @onclick="Close">Close</button>
             @if (_detail is not null && !_loading)
             {
@@ -170,9 +154,9 @@
 
     private void Close() => _open = false;
 
-    private Task Approve() => Send(new ApproveMergeRequestCommand(_detail!.Id, CurrentUser.UserId!.Value));
-    private Task Reject() => Send(new RejectMergeRequestCommand(_detail!.Id, CurrentUser.UserId!.Value));
-    private Task Withdraw() => Send(new WithdrawMergeRequestCommand(_detail!.Id, CurrentUser.UserId!.Value));
+    private Task Approve() => Send(new ApproveMergeRequestCommand(_detail!.Id, CurrentUser.RequireUserId()));
+    private Task Reject() => Send(new RejectMergeRequestCommand(_detail!.Id, CurrentUser.RequireUserId()));
+    private Task Withdraw() => Send(new WithdrawMergeRequestCommand(_detail!.Id, CurrentUser.RequireUserId()));
 
     private async Task Send(ICommand command)
     {

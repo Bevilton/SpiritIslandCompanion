@@ -2,28 +2,24 @@
    and a completion bar, linking to the page that names what's still missing. The compact
    cousin of CoveragePanel — that one lists the gaps, this one only reports the score. *@
 
+@* The clamp is Meter's — see there. *@
 @{
-    var pct = Total > 0 ? Math.Clamp((double)Played / Total * 100, 0, 100) : 0;
+    var pct = Percent.Of(Played, Total);
 }
 
 <a href="@Href" title="@($"{Label} — {Played} of {Total} played")"
    class="block rounded-lg px-3 py-2.5 transition-colors hover:bg-ink-50
-          focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+          focus-ring">
     <div class="flex items-baseline justify-between gap-2">
         <span class="inline-flex items-center gap-2 truncate text-sm font-medium text-ink-800">
-            @if (!string.IsNullOrEmpty(Icon))
-            {
-                <Icon Name="@Icon" Class="w-3.5 h-3.5 shrink-0 text-ink-400"/>
-            }
+            <Icon Name="@Icon" Class="w-3.5 h-3.5 shrink-0 text-ink-400"/>
             @Label
         </span>
-        <span class="shrink-0 text-xs tabular-nums text-ink-500">
+        <span class="block-note shrink-0 tabular-nums">
             <span class="font-semibold text-ink-900">@Played</span> / @Total
         </span>
     </div>
-    <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-ink-100">
-        <div class="h-full rounded-full bg-accent-500 transition-all" style="width:@($"{pct:F0}")%"></div>
-    </div>
+    <Meter Value="pct" FillClass="bg-accent-500" Class="mt-2"/>
 </a>
 
 @code {
@@ -34,5 +30,6 @@
     /// <summary>Where the full picture lives — the statistics tab that names what's missing.</summary>
     [Parameter, EditorRequired] public string Href { get; set; } = "";
 
-    [Parameter] public string? Icon { get; set; }
+    /// <summary>The catalogue's glyph, as the sidebar names it — every bar has one.</summary>
+    [Parameter, EditorRequired] public string Icon { get; set; } = "";
 }

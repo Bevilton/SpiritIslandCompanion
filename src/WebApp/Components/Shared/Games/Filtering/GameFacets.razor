@@ -1,4 +1,3 @@
-@using Application.Features.Games
 
 @* The rows only the games list has: adversary, scenario, spirits, players and difficulty.
    Handed to FilterBar's Facets slot so the shell, the sort row and the Clear come from the
@@ -6,19 +5,23 @@
 
    Every row offers only what the recorded games actually contain — a pill for an adversary
    you have never faced can only ever produce the empty list. A row that ends up with a single
-   answer is dropped for the same reason. *@
+   answer is dropped for the same reason.
 
-@if (AdversaryOptions.Count + (AnyWithoutAdversary ? 1 : 0) > 1)
+   The options are derived once per parameter change rather than per read: each row used to be
+   a property walked twice a render (once for the "is there more than one?" guard and once for
+   the pills), and the level row three times. *@
+
+@if (_adversaryOptions.Count + (_anyWithoutAdversary ? 1 : 0) > 1)
 {
     <FilterRow Label="Adversary">
-        @foreach (var adv in AdversaryOptions)
+        @foreach (var adv in _adversaryOptions)
         {
-            <FilterPill Active="@Filter.Adversaries.Contains(adv.Id.Value)"
+            <FilterPill @key="adv.Id.Value" Active="@Filter.Adversaries.Contains(adv.Id.Value)"
                         OnToggle="() => Bar.Set(() => FilterState.Toggle(Filter.Adversaries, adv.Id.Value))">
                 @adv.Name
             </FilterPill>
         }
-        @if (AnyWithoutAdversary)
+        @if (_anyWithoutAdversary)
         {
             <FilterPill Active="@Filter.Adversaries.Contains(GamesFilter.None)"
                         OnToggle="() => Bar.Set(() => FilterState.Toggle(Filter.Adversaries, GamesFilter.None))">
@@ -31,12 +34,12 @@
 @* Escalation levels, read against the foes picked above — a level on its own means "any foe
    at that level", which is how you find the hardest nights you have played. Offered only for
    the foes in view, so picking England never leaves a pill for a level England never saw. *@
-@if (ShowLevels)
+@if (_showLevels)
 {
     <FilterRow Label="Level">
-        @foreach (var level in LevelOptions)
+        @foreach (var level in _levelOptions)
         {
-            <FilterPill Active="@Filter.AdversaryLevels.Contains(level)"
+            <FilterPill @key="level" Active="@Filter.AdversaryLevels.Contains(level)"
                         OnToggle="() => Bar.Set(() => FilterState.Toggle(Filter.AdversaryLevels, level))">
                 <span title="@LevelHint(level)">L@(level)</span>
             </FilterPill>
@@ -44,17 +47,17 @@
     </FilterRow>
 }
 
-@if (ScenarioOptions.Count + (AnyWithoutScenario ? 1 : 0) > 1)
+@if (_scenarioOptions.Count + (_anyWithoutScenario ? 1 : 0) > 1)
 {
     <FilterRow Label="Scenario">
-        @foreach (var sc in ScenarioOptions)
+        @foreach (var sc in _scenarioOptions)
         {
-            <FilterPill Active="@Filter.Scenarios.Contains(sc.Id.Value)"
+            <FilterPill @key="sc.Id.Value" Active="@Filter.Scenarios.Contains(sc.Id.Value)"
                         OnToggle="() => Bar.Set(() => FilterState.Toggle(Filter.Scenarios, sc.Id.Value))">
                 @sc.Name
             </FilterPill>
         }
-        @if (AnyWithoutScenario)
+        @if (_anyWithoutScenario)
         {
             <FilterPill Active="@Filter.Scenarios.Contains(GamesFilter.None)"
                         OnToggle="() => Bar.Set(() => FilterState.Toggle(Filter.Scenarios, GamesFilter.None))">
@@ -64,16 +67,16 @@
     </FilterRow>
 }
 
-@if (SpiritOptions.Count > 1)
+@if (_spiritOptions.Count > 1)
 {
     <FilterRow Label="Spirits">
         <ChildContent>
-            @foreach (var spirit in SpiritOptions)
+            @foreach (var spirit in _spiritOptions)
             {
-                var color = SpiritDetails.For(spirit.Id)?.ColorHex ?? GameLookups.NeutralColor;
-                <FilterPill Active="@Filter.Spirits.Contains(spirit.Id.Value)"
+                var color = GameLookups.SpiritColor(spirit);
+                <FilterPill @key="spirit.Id.Value" Active="@Filter.Spirits.Contains(spirit.Id.Value)"
                             OnToggle="() => Bar.Set(() => FilterState.Toggle(Filter.Spirits, spirit.Id.Value))">
-                    <span class="h-2 w-2 shrink-0 rounded-full" style="background-color: @color;"></span>
+                    <ColorDot Color="@color"/>
                     <span>@spirit.Name</span>
                 </FilterPill>
             }
@@ -89,18 +92,15 @@
     </FilterRow>
 }
 
-@if (BoardOptions.Count > 1)
+@if (_boardOptions.Count > 1)
 {
     <FilterRow Label="Board">
-        @foreach (var board in BoardOptions)
+        @foreach (var board in _boardOptions)
         {
             var detail = BoardDetails.For(board.Id);
-            <FilterPill Active="@Filter.Boards.Contains(board.Id.Value)"
+            <FilterPill @key="board.Id.Value" Active="@Filter.Boards.Contains(board.Id.Value)"
                         OnToggle="() => Bar.Set(() => FilterState.Toggle(Filter.Boards, board.Id.Value))">
-                <span class="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded text-[9px] font-semibold text-white"
-                      style="background-color: @(detail?.ColorHex ?? GameLookups.NeutralColor); font-family: var(--font-serif);">
-                    @GameLookups.BoardLetter(board)
-                </span>
+                <LetterTile Size="xs" Color="@(GameLookups.BoardColor(detail))" Text="@GameLookups.BoardLetter(board)"/>
                 <span title="@detail?.ThematicName">@(detail?.ThematicName ?? board.Name)</span>
             </FilterPill>
         }
@@ -110,12 +110,12 @@
 @* The island a game was set up on: a published layout, a shape out of the player's library,
    or the pool of hand-built ones that were never saved. The same grouping the statistics
    island tiles count by, so a tile and a pill mean the same thing. *@
-@if (IslandOptions.Count > 1)
+@if (_islandOptions.Count > 1)
 {
     <FilterRow Label="Island">
-        @foreach (var island in IslandOptions)
+        @foreach (var island in _islandOptions)
         {
-            <FilterPill Active="@Filter.Islands.Contains(island.Key)"
+            <FilterPill @key="island.Key" Active="@Filter.Islands.Contains(island.Key)"
                         OnToggle="() => Bar.Set(() => FilterState.Toggle(Filter.Islands, island.Key))">
                 <Icon Name="map" Class="w-3 h-3"/> @island.Label
             </FilterPill>
@@ -125,26 +125,25 @@
 
 @* Who sat at the table, as opposed to how many did. Both rows are worth having: "the three
    of us" and "any game with Anna" are different questions. *@
-@if (WhoOptions.Count > 1)
+@if (_whoOptions.Count > 1)
 {
     <FilterRow Label="At the table">
-        @foreach (var who in WhoOptions)
+        @foreach (var who in _whoOptions)
         {
-            <FilterPill Active="@Filter.Who.Contains(who.Key)"
+            <FilterPill @key="who.Key" Active="@Filter.Who.Contains(who.Key)"
                         OnToggle="() => Bar.Set(() => FilterState.Toggle(Filter.Who, who.Key))">
-                <Icon Name="@(who.Kind == GamePlayerKind.Me ? "user" : who.Kind == GamePlayerKind.Friend ? "users" : "user")"
-                      Class="w-3 h-3"/> @who.Label
+                <Icon Name="@(who.Kind == GamePlayerKind.Friend ? "users" : "user")" Class="w-3 h-3"/> @who.Label
             </FilterPill>
         }
     </FilterRow>
 }
 
-@if (PlayerCountOptions.Count > 1)
+@if (_playerCountOptions.Count > 1)
 {
     <FilterRow Label="Table size">
-        @foreach (var count in PlayerCountOptions)
+        @foreach (var count in _playerCountOptions)
         {
-            <FilterPill Active="@Filter.PlayerCounts.Contains(count)"
+            <FilterPill @key="count" Active="@Filter.PlayerCounts.Contains(count)"
                         OnToggle="() => Bar.Set(() => FilterState.Toggle(Filter.PlayerCounts, count))">
                 <Icon Name="@(count == 1 ? "user" : "users")" Class="w-3 h-3"/> @count
             </FilterPill>
@@ -152,12 +151,12 @@
     </FilterRow>
 }
 
-@if (DifficultyBandOptions.Count > 1)
+@if (_difficultyBandOptions.Count > 1)
 {
     <FilterRow Label="Difficulty">
-        @foreach (var band in DifficultyBandOptions)
+        @foreach (var band in _difficultyBandOptions)
         {
-            <FilterPill Active="@Filter.Difficulties.Contains(band.Key)"
+            <FilterPill @key="band.Key" Active="@Filter.Difficulties.Contains(band.Key)"
                         OnToggle="() => Bar.Set(() => FilterState.Toggle(Filter.Difficulties, band.Key))">
                 @band.Label
             </FilterPill>
@@ -174,87 +173,82 @@
     /// <summary>Everything the player has recorded, before any filtering — the facets offer only what's in here.</summary>
     [Parameter, EditorRequired] public IReadOnlyList<ListGamesResponse> Games { get; set; } = [];
 
-    private IReadOnlyList<Adversary> AdversaryOptions =>
-        Games.SelectMany(g => g.Adversaries).Select(a => a.AdversaryId).Distinct()
+    private sealed record IslandOption(string Key, string Label);
+    private sealed record WhoOption(string Key, string Label, GamePlayerKind Kind);
+
+    private IReadOnlyList<Adversary> _adversaryOptions = [];
+    private bool _anyWithoutAdversary;
+    private IReadOnlyList<int> _levelOptions = [];
+    private bool _showLevels;
+    private IReadOnlyDictionary<int, int> _levelCounts = new Dictionary<int, int>();
+    private IReadOnlyList<Scenario> _scenarioOptions = [];
+    private bool _anyWithoutScenario;
+    private IReadOnlyList<Spirit> _spiritOptions = [];
+    private IReadOnlyList<Board> _boardOptions = [];
+    private IReadOnlyList<IslandOption> _islandOptions = [];
+    private IReadOnlyList<WhoOption> _whoOptions = [];
+    private IReadOnlyList<int> _playerCountOptions = [];
+    private IReadOnlyList<GamesFilter.DifficultyBand> _difficultyBandOptions = [];
+
+    /// Everything the rows offer, in one pass. The level row is the one that follows the filter
+    /// as well as the history — it is what a change to the adversary pills re-derives.
+    protected override void OnParametersSet()
+    {
+        _adversaryOptions = Games.SelectMany(g => g.Adversaries).Select(a => a.AdversaryId).Distinct()
             .Select(GameLookups.AdversaryFor).OfType<Adversary>()
             .OrderBy(a => a.Name).ToList();
+        _anyWithoutAdversary = Games.Any(g => g.Adversaries.Count == 0);
 
-    private bool AnyWithoutAdversary => Games.Any(g => g.Adversaries.Count == 0);
-
-    /// <summary>
-    /// The levels on offer: those the foes picked above were actually played at, plus whatever
-    /// is already picked. The second half is half of a promise — a pill you cannot see is a
-    /// pill you cannot un-pick — which <see cref="ShowLevels"/> keeps the other half of.
-    /// </summary>
-    private IReadOnlyList<int> LevelOptions =>
-        Games.SelectMany(g => g.Adversaries)
+        // The levels on offer: those the foes picked above were actually played at, plus whatever
+        // is already picked. The second half is half of a promise — a pill you cannot see is a
+        // pill you cannot un-pick — which _showLevels keeps the other half of.
+        var levelsInView = Games.SelectMany(g => g.Adversaries)
             .Where(a => Filter.Adversaries.Count == 0 || Filter.Adversaries.Contains(a.AdversaryId))
             .Select(a => a.Level)
-            .Concat(Filter.AdversaryLevels)
-            .Distinct()
-            .OrderBy(l => l)
             .ToList();
+        _levelOptions = levelsInView.Concat(Filter.AdversaryLevels).Distinct().OrderBy(l => l).ToList();
+        // How many of the games in view were at each level, for the pills' tooltips.
+        _levelCounts = _levelOptions.ToDictionary(
+            level => level,
+            level => Games.Count(g => g.Adversaries.Any(a =>
+                a.Level == level && (Filter.Adversaries.Count == 0 || Filter.Adversaries.Contains(a.AdversaryId)))));
 
-    /// <summary>
-    /// Whether the row is drawn. Every other row hides itself at a single option, on the grounds
-    /// that a lone pill cannot change the answer. This row is the exception, because it is the
-    /// only one whose options follow another row rather than the history as a whole: under the
-    /// shared rule it blinked out the moment a foe played at one level was picked, and back in
-    /// when a second foe widened the set again. And under a picked foe a single "L5" is not a
-    /// dead control — it is the answer to which levels that foe has been faced at, which nothing
-    /// else on the page says.
-    /// <para>
-    /// A picked level keeps the row whatever else is true. Otherwise the adversary row could
-    /// hide a level that is still narrowing the list — reachable in two clicks, and with "No
-    /// adversary" picked it left a filter that matches nothing and could not be undone here.
-    /// </para>
-    /// </summary>
-    private bool ShowLevels =>
-        Filter.AdversaryLevels.Count > 0
-        || (Filter.Adversaries.Count > 0 ? LevelOptions.Count > 0 : LevelOptions.Count > 1);
+        // Whether the row is drawn. Every other row hides itself at a single option, on the grounds
+        // that a lone pill cannot change the answer. This row is the exception, because it is the
+        // only one whose options follow another row rather than the history as a whole: under the
+        // shared rule it blinked out the moment a foe played at one level was picked, and back in
+        // when a second foe widened the set again. And under a picked foe a single "L5" is not a
+        // dead control — it is the answer to which levels that foe has been faced at, which nothing
+        // else on the page says. A picked level keeps the row whatever else is true: otherwise the
+        // adversary row could hide a level that is still narrowing the list — reachable in two
+        // clicks, and with "No adversary" picked it left a filter that matches nothing and could not
+        // be undone here.
+        _showLevels = Filter.AdversaryLevels.Count > 0
+            || (Filter.Adversaries.Count > 0 ? _levelOptions.Count > 0 : _levelOptions.Count > 1);
 
-    /// <summary>How many of the games in view were at this level, for the pill's tooltip.</summary>
-    private string LevelHint(int level)
-    {
-        var count = Games.Count(g => g.Adversaries.Any(a =>
-            a.Level == level && (Filter.Adversaries.Count == 0 || Filter.Adversaries.Contains(a.AdversaryId))));
-        var who = Filter.Adversaries.Count == 0 ? "an adversary" : "a picked adversary";
-        return $"Games with {who} at level {level} — {count} recorded";
-    }
-
-    private IReadOnlyList<Scenario> ScenarioOptions =>
-        Games.Select(g => g.ScenarioId).Distinct()
+        _scenarioOptions = Games.Select(g => g.ScenarioId).Distinct()
             .Select(GameLookups.ScenarioFor).OfType<Scenario>()
             .OrderBy(s => s.Name).ToList();
+        _anyWithoutScenario = Games.Any(g => g.ScenarioId is null);
 
-    private bool AnyWithoutScenario => Games.Any(g => g.ScenarioId is null);
-
-    private IReadOnlyList<Spirit> SpiritOptions =>
-        Games.SelectMany(g => g.Players).Select(p => p.SpiritId).Distinct()
+        _spiritOptions = Games.SelectMany(g => g.Players).Select(p => p.SpiritId).Distinct()
             .Select(GameLookups.SpiritFor).OfType<Spirit>()
             .OrderBy(s => s.Name).ToList();
 
-    /// <summary>In catalogue order, so the boards read A, B, C — not by when they were played.</summary>
-    private IReadOnlyList<Board> BoardOptions =>
-        Games.SelectMany(g => g.Players).Select(p => p.BoardId).Distinct()
+        // In catalogue order, so the boards read A, B, C — not by when they were played.
+        _boardOptions = Games.SelectMany(g => g.Players).Select(p => p.BoardId).Distinct()
             .Select(GameLookups.BoardFor).OfType<Board>()
             .OrderBy(b => b.Name, StringComparer.Ordinal).ToList();
 
-    private sealed record IslandOption(string Key, string Label);
-
-    /// <summary>Most-played first: the shapes a player keeps coming back to lead the row.</summary>
-    private IReadOnlyList<IslandOption> IslandOptions =>
-        Games.GroupBy(GamesFilter.IslandKeyOf)
+        // Most-played first: the shapes a player keeps coming back to lead the row.
+        _islandOptions = Games.GroupBy(GamesFilter.IslandKeyOf)
             .OrderByDescending(g => g.Count())
             .ThenBy(g => GamesFilter.IslandLabel(g.Key, Games), StringComparer.CurrentCulture)
             .Select(g => new IslandOption(g.Key, GamesFilter.IslandLabel(g.Key, Games)))
             .ToList();
 
-    private sealed record WhoOption(string Key, string Label, GamePlayerKind Kind);
-
-    /// <summary>You first, then whoever has been at the table most.</summary>
-    private IReadOnlyList<WhoOption> WhoOptions =>
-        Games.SelectMany(g => g.Players)
+        // You first, then whoever has been at the table most.
+        _whoOptions = Games.SelectMany(g => g.Players)
             .GroupBy(GamesFilter.WhoKeyOf)
             .Select(g => new { Option = new WhoOption(g.Key, g.First().Name, g.First().Kind), Seats = g.Count() })
             .OrderByDescending(x => x.Option.Kind == GamePlayerKind.Me)
@@ -263,11 +257,16 @@
             .Select(x => x.Option)
             .ToList();
 
-    private IReadOnlyList<int> PlayerCountOptions =>
-        Games.Select(g => g.PlayerCount).Distinct().OrderBy(c => c).ToList();
+        _playerCountOptions = Games.Select(g => g.PlayerCount).Distinct().OrderBy(c => c).ToList();
 
-    private IReadOnlyList<GamesFilter.DifficultyBand> DifficultyBandOptions =>
-        GamesFilter.AllDifficultyBands
+        _difficultyBandOptions = GamesFilter.AllDifficultyBands
             .Where(band => Games.Any(g => band.Contains(g.Difficulty)))
             .ToList();
+    }
+
+    private string LevelHint(int level)
+    {
+        var who = Filter.Adversaries.Count == 0 ? "an adversary" : "a picked adversary";
+        return $"Games with {who} at level {level} — {_levelCounts.GetValueOrDefault(level)} recorded";
+    }
 }

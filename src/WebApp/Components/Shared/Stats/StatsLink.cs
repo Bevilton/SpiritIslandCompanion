@@ -56,7 +56,8 @@ public static class StatsLink
     /// <summary>One tab of the whole-table statistics.</summary>
     public static string ForTab(string tab) => For(tab);
 
-    /// <summary>The statistics counted over one person's games — the People page links this way.</summary>
-    public static string ForPlayer(Guid? userId, Guid? playerId, string? tab = null) =>
-        For(tab, userId, playerId);
+    /// <summary>The statistics counted over one person's games, opening on the overview — the
+    /// People page links this way.</summary>
+    public static string ForPlayer(Guid? userId, Guid? playerId) =>
+        For(userId: userId, playerId: playerId);
 }

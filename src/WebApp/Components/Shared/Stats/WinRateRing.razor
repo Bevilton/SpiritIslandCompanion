@@ -1,51 +1,76 @@
-@* Compact SVG donut showing a win-rate percentage. Sized by <c>Size</c> px.
-   Uses the same green / red accents the rest of the app uses for win/loss.
+@* A win rate as a donut, sized by <c>Size</c> px. The arc is <c>WinTone</c>'s, which is the one
+   place the app decides what a rate is worth — see the note beside the call below.
 
    The label is sized off the hole rather than off the badge, and steps down again at 100%:
    in a serif tabular face "100%" is half again as wide as "80%", so a ladder keyed only to
    the ring's outer size has the number touching the stroke on exactly the values worth
-   showing off. *@
+   showing off.
 
-@{
+   Empty is the same ring with nothing in it, for a record whose games are all still drafts: a
+   rate over nothing finished is 0 by arithmetic, and a ring drawn at 0% would report a run of
+   defeats that never happened. The two record readouts that can hit that case had each hand-rolled
+   the hollow ring, at two sizes four pixels apart and with the caption's utilities in two orders —
+   which is the whole reason it lives with the ring it stands in for. *@
+
+@if (Empty)
+{
+    <div class="disc shrink-0 border-2 border-dashed border-ink-200 text-center"
+         style="width:@(Size)px; height:@(Size)px;">
+        <span class="micro-label px-2 leading-tight text-ink-400">no results yet</span>
+    </div>
+}
+else
+{
     var pct = Math.Clamp(Pct, 0, 100);
     var radius = Size / 2.0 - StrokeWidth / 2.0;
     var circumference = 2 * Math.PI * radius;
     var dash = circumference * pct / 100.0;
-    var color = pct >= 60 ? "var(--color-accent-600)"
-              : pct >= 40 ? "var(--color-sun-600)"
-              :             "var(--color-ember-600)";
+    // WinTone's, not a threshold of its own: this had been a three-band ladder that turned jade
+    // only at 60% and ember below 40, with a sun band between — so on the statistics page's
+    // adversary cards a 55% record drew an amber ring directly above a level strip calling the
+    // same 55% a win in jade. One decision, as WinRateBar already takes it.
+    var color = WinTone.Fill(pct);
     var bg = "var(--color-ink-100)";
     var center = Size / 2.0;
 
     // Rounded at any real value, blunt at zero: a round cap on a zero-length dash still
     // paints a dot, which reads as a sliver of a win rate that isn't there.
     var cap = dash > 0 ? "round" : "butt";
-}
 
-<div class="relative inline-flex items-center justify-center" style="width:@(Size)px; height:@(Size)px;">
-    <svg width="@Size" height="@Size" viewBox="0 0 @Size @Size" aria-hidden="true">
-        <circle cx="@center" cy="@center" r="@radius"
-                stroke="@bg" stroke-width="@StrokeWidth" fill="none"/>
-        <circle cx="@center" cy="@center" r="@radius"
-                stroke="@color" stroke-width="@StrokeWidth" fill="none"
-                stroke-linecap="@cap"
-                stroke-dasharray="@($"{dash.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)} {circumference.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}")"
-                transform="rotate(-90 @center @center)"/>
-    </svg>
-    <div class="absolute inset-0 flex items-center justify-center">
-        <div class="text-center leading-none">
-            <div class="font-semibold tabular-nums @TextSizeClass" style="font-family: var(--font-serif);">@($"{pct:F0}")<span class="text-[0.5em] align-top">%</span></div>
-            @if (!string.IsNullOrEmpty(Caption))
-            {
-                <div class="@CaptionClass uppercase tracking-wide text-ink-500">@Caption</div>
-            }
+    @* Every figure in the ring goes through BrowserNumber: the radius is half the stroke short
+       of half the size, so it is fractional at most of the sizes this is drawn at — 28.5 at 64,
+       35.5 at 80 — and a comma there is an attribute the browser drops rather than reports. The
+       dash array was already guarded and the geometry beside it was not, which is the whole
+       argument for one spelling of the rule. *@
+    <div class="relative inline-flex items-center justify-center" style="width:@(Size)px; height:@(Size)px;">
+        <svg width="@Size" height="@Size" viewBox="0 0 @Size @Size" aria-hidden="true">
+            <circle cx="@center.ToInvariant()" cy="@center.ToInvariant()" r="@radius.ToInvariant()"
+                    stroke="@bg" stroke-width="@StrokeWidth" fill="none"/>
+            <circle cx="@center.ToInvariant()" cy="@center.ToInvariant()" r="@radius.ToInvariant()"
+                    stroke="@color" stroke-width="@StrokeWidth" fill="none"
+                    stroke-linecap="@cap"
+                    stroke-dasharray="@($"{dash.ToInvariant("0.##")} {circumference.ToInvariant("0.##")}")"
+                    transform="rotate(-90 @center.ToInvariant() @center.ToInvariant())"/>
+        </svg>
+        <div class="absolute inset-0 flex items-center justify-center">
+            <div class="text-center leading-none">
+                <div class="numeral @TextSizeClass">@($"{pct:F0}")<span class="text-[0.5em] align-top">%</span></div>
+                @if (!string.IsNullOrEmpty(Caption))
+                {
+                    @* .micro-label, sized down to the hole — the caption register everywhere else. *@
+                    <div class="micro-label @CaptionClass">@Caption</div>
+                }
+            </div>
         </div>
     </div>
-</div>
+}
 
 @code {
     [Parameter, EditorRequired] public double Pct { get; set; }
     [Parameter] public int Size { get; set; } = 80;
+
+    /// <summary>Nothing has finished yet — the ring stands empty and says so. See the note above.</summary>
+    [Parameter] public bool Empty { get; set; }
 
     /// <summary>Ring thickness. Omit to scale it with <see cref="Size"/>.</summary>
     [Parameter] public int? Stroke { get; set; }

@@ -1,55 +1,60 @@
-@* Reference content for boards. Used from /boards (public) and /app/boards.
-   Pass OwnedExpansions to filter; null (default) shows every board. *@
+@* Reference content for boards. Used from /boards (public) and /app/boards; what either route
+   hands over is CatalogueViewBase, plus the two things only this catalogue has — the reader's own
+   island shapes, and which route they arrived on — both of which belong to the layouts index
+   that follows the boards (IslandLayoutIndex). *@
+@inherits CatalogueViewBase
 
-@using Application.Features.IslandLayouts
+@* Derived once at the top of the render — see SpiritsView. *@
+@{
+    var inScope = OwnedCatalogue.Boards(OwnedExpansions);
+    var visible = _filter.Apply(inScope);
+}
 
-<div class="page-head">
-    <div>
-        <span class="eyebrow">Reference</span>
-        <h1 class="page-title mt-2">Island boards</h1>
-        <p class="page-sub">@HeaderSummary</p>
-    </div>
-</div>
+<PageHeader Eyebrow="Reference" Title="Island boards">
+    <Sub>@HeaderSummary(inScope.Count)</Sub>
+</PageHeader>
 
-@* === BOARDS === *@
 <section>
-    <div class="section-head">
-        <h2 class="section-title">The boards</h2>
-        <span class="section-note">Where each one sits on the thematic island</span>
-    </div>
+    @* Size="lg": the two halves of this page are its own divisions, the register the spirits
+       view cuts its expansions in and a recorded game its Setup / Players / Notes. *@
+    <SectionHead Size="lg" Title="The boards" Note="Where each one sits on the thematic island"/>
 
     @* Same filter as every other catalogue. Boards have no facets of their own and no difficulty —
-       one board is not harder than another — so it is the shared questions and nothing else. *@
+       one board is not harder than another — so it is the shared questions and nothing else.
+
+       And no name search beside the heading, which the other three reference views carry: there
+       are eight boards and they are lettered A–H, so the whole catalogue is on screen at once and
+       a box to find one in it would be a control that decides nothing. The board picker omits it
+       for the same reason and says so; this page and the statistics tab were the two that left it
+       to be guessed at. *@
     <FilterBar Filter="_filter" OwnedExpansions="@OwnedExpansions"
-               PresentExpansions="_filter.ExpansionsIn(_boardsInScope)"
-               ShowingCount="_visibleBoards.Count" TotalCount="_boardsInScope.Count"
-               UntestedLabel="Never used" UntestedHint="Boards nobody at your table has used"
+               PresentExpansions="_filter.ExpansionsIn(inScope)"
+               ShowingCount="visible.Count" TotalCount="inScope.Count"
+               UntestedLabel="Never used" UntestedHint="@Copy.Untried("Boards", "used")"
                Changed="StateHasChanged"/>
 
     <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        @foreach (var b in _visibleBoards)
+        @foreach (var b in visible)
         {
             var detail = BoardDetails.For(b.Id);
-            var color = detail?.ColorHex ?? GameLookups.NeutralColor;
+            var color = GameLookups.BoardColor(detail);
             var letter = GameLookups.BoardLetter(b);
 
             @* A button like every other catalogue card — boards have a record sheet too. *@
             <button @key="b.Id.Value" type="button" @onclick="() => OpenDetail(b)"
-                    class="surface p-4 flex items-start gap-3 text-left transition-all hover:-translate-y-px hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40"
-                    style="border-top: 3px solid @color;">
-                <span class="inline-flex h-11 w-11 items-center justify-center rounded-xl text-white text-lg font-semibold shrink-0 shadow-sm"
-                      style="background-color: @color; font-family: var(--font-serif);">
-                    @letter
-                </span>
+                    class="surface card-lift top-accent p-4 flex items-start gap-3 text-left focus-ring"
+                    style="--top-accent: @color;">
+                <LetterTile Size="2xl" Color="@color" Text="@letter"/>
                 <div class="min-w-0 flex-1">
-                    <h4 class="text-base font-semibold text-ink-900">@b.Name</h4>
+                    @* h3, not h4: the page's outline is the heading, "The boards", then the cards. *@
+                    <h3 class="card-title">@b.Name</h3>
                     @if (detail is not null)
                     {
-                        <p class="mt-0.5 text-xs text-ink-500">@detail.ThematicName</p>
+                        <p class="row-sub mt-0.5">@detail.ThematicName</p>
                     }
-                    <p class="mt-0.5 text-[11px] text-ink-400">@GameLookups.ExpansionName(b.ExpansionId)</p>
+                    <p class="row-sub mt-0.5">@GameLookups.ExpansionName(b.ExpansionId)</p>
                     @* Passive pill — the whole card opens the board's sheet. *@
-                    @if (Records is not null)
+                    @if (HasRecord)
                     {
                         <div class="mt-1.5">
                             <RecordChip Record="Records.GetValueOrDefault(b.Id.Value)" Subject="@b.Name" NeverLabel="Never used"/>
@@ -60,134 +65,25 @@
         }
     </div>
 
-    @if (_visibleBoards.Count == 0)
+    @if (visible.Count == 0)
     {
-        <div class="surface mt-4 py-10 text-center text-ink-500">No boards match the current filters.</div>
+        <div class="surface no-matches mt-6">@Copy.NoMatches("boards")</div>
     }
 </section>
 
-@* === LAYOUTS ===
-   One index rather than a section per kind. The published standards, the thematic islands and
-   the player's own shapes are all arrangements of the same boards, so which kind you want is a
-   pill above the list — not three lists stacked down the page, each with its own heading and
-   its own grid of half-empty rows. *@
-<section class="mt-12">
-    <div class="section-head">
-        <h2 class="section-title">Island layouts</h2>
-        <span class="section-note">How the boards are laid out, by player count</span>
-    </div>
-
-    @* The first question of the section — which kind — stays out in the open, as on the games
-       list; everything finer lives in the filter bar below. The dots are the legend for the
-       tints the tiles carry. *@
-    <div class="mb-3 flex flex-wrap items-center gap-2">
-        <FilterPill Active="@(_kind is null)" OnToggle="() => _kind = null">
-            All <span class="tabular-nums opacity-60">@_entries.Count</span>
-        </FilterPill>
-        @foreach (var tab in _kindTabs.Where(t => _entries.Any(e => e.Kind == t.Kind)))
-        {
-            <FilterPill Active="@(_kind == tab.Kind)" OnToggle="() => _kind = tab.Kind">
-                <span class="h-1.5 w-1.5 rounded-full @tab.Dot"></span>
-                @tab.Label
-                <span class="tabular-nums opacity-60">@_entries.Count(e => e.Kind == tab.Kind)</span>
-            </FilterPill>
-        }
-    </div>
-
-    @* Its own Filters panel rather than a bare pill row — the board count is a filter like any
-       other and belongs in the same chrome. Separate from the boards panel above because the two
-       narrow different lists: a board count says nothing about board D. *@
-    <FilterBar @ref="_layoutBar" Filter="_layoutFilter"
-               ShowingCount="_visibleLayouts.Count" TotalCount="_entries.Count"
-               UntestedLabel="Never played" UntestedHint="Layouts nobody at your table has played on"
-               Changed="StateHasChanged">
-        <Facets>
-            <FilterRow Label="Boards">
-                @foreach (var n in _layoutFilter.NumbersIn(_entries))
-                {
-                    <FilterPill Active="@_layoutFilter.Numbers.Contains(n)"
-                                OnToggle="() => _layoutBar!.Set(() => FilterState.Toggle(_layoutFilter.Numbers, n))">
-                        @n
-                    </FilterPill>
-                }
-            </FilterRow>
-        </Facets>
-    </FilterBar>
-
-    @* One panel, a lane per player count: the index then reads as a list of answers to "what
-       can I play on four boards?" rather than as one long wall of islands. Lanes only while
-       the board count is the order — cutting a name or win-rate ordering into player counts
-       would show neither. *@
-    <div class="surface mt-4 divide-y divide-ink-100 overflow-hidden">
-        @if (_visibleLayouts.Count == 0)
-        {
-            <div class="px-5 py-12 text-center text-sm text-ink-500">No layouts match the current filters.</div>
-        }
-        else if (_groupsByCount)
-        {
-            @foreach (var lane in _visibleLayouts.GroupBy(e => e.BoardCount))
-            {
-                var count = lane.Count();
-                @* The count moves into a left-hand gutter only once there is width to spare for
-                   one; below that it is a heading over the lane, where it costs a line instead
-                   of a quarter of the row. *@
-                <div class="flex flex-col gap-2 px-4 py-4 lg:flex-row lg:items-start lg:gap-5 lg:px-5">
-                    <div class="flex shrink-0 items-baseline gap-2 lg:block lg:w-24 lg:pt-1">
-                        <div class="text-sm font-semibold text-ink-900" style="font-family: var(--font-serif);">
-                            @lane.Key board@(lane.Key == 1 ? "" : "s")
-                        </div>
-                        <div class="text-[11px] text-ink-500">@count layout@(count == 1 ? "" : "s")</div>
-                    </div>
-                    @* A grid rather than a wrapped row, so the tiles line up in the same columns
-                       from one lane to the next however many each holds. The columns come in
-                       later than a full-width grid's would: the signed-in shell spends a sidebar's
-                       worth of the viewport before this panel starts. *@
-                    <div class="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                        @foreach (var entry in lane)
-                        {
-                            @LayoutTile(entry)
-                        }
-                    </div>
-                </div>
-            }
-        }
-        else
-        {
-            <div class="grid grid-cols-2 gap-2 p-4 sm:grid-cols-3 md:p-5 lg:grid-cols-4 xl:grid-cols-5">
-                @foreach (var entry in _visibleLayouts)
-                {
-                    @LayoutTile(entry)
-                }
-            </div>
-        }
-    </div>
-</section>
+<IslandLayoutIndex SavedLayouts="SavedLayouts" Facts="Facts" SignedIn="SignedIn"/>
 
 @* ReferenceOnly rather than "Facts is null": the public route loads nobody's history, so its
-   sheets must not report "no games yet" — a signed-in reader browsing it has a record, this
-   page just never went and fetched one. *@
-@* LinkGames only for a signed-in reader — see AdversariesView. *@
+   sheet must not report "no games yet" — a signed-in reader browsing it has a record, this
+   page just never went and fetched one. The sheet therefore keys off the route (SignedIn)
+   rather than off CatalogueViewBase.HasRecord, which is what the other three catalogues use:
+   a signed-in reader with no games yet still has a games page to be sent to. *@
 <BoardDetailModal @ref="_modal" Facts="Facts" ReferenceOnly="@(!SignedIn)" LinkGames="SignedIn"/>
-<IslandLayoutDetailModal @ref="_layoutModal" Facts="Facts" ReferenceOnly="@(!SignedIn)" LinkGames="SignedIn"/>
 
 @code {
-    /// <summary>Null (default) shows everything; non-null restricts to those expansions.</summary>
-    [Parameter] public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
-
-    /// <summary>
-    /// The account's record per board — every seat the visitor has recorded, their own and their
-    /// table's, since a reference page has no player selector and never narrows. Unlocks ordering
-    /// by how often a board has been played on and how it went, the never-used filter, and the
-    /// figures on the cards. Null on the public route.
-    /// </summary>
-    [Parameter] public IReadOnlyDictionary<string, SetupInsights.PlayRecord>? Records { get; set; }
-
-    /// <summary>The history behind <see cref="Records"/>, for the detail modal's profile.</summary>
-    [Parameter] public IReadOnlyList<Application.Features.Statistics.SetupGameFact>? Facts { get; set; }
-
     /// <summary>
     /// The visitor's own layout library, on the signed-in route. Null on the public one — a
-    /// shape nobody is signed in to own has nothing to show.
+    /// shape nobody is signed in to own has nothing to show. Handed on to the layouts index.
     /// </summary>
     [Parameter] public IReadOnlyList<IslandLayoutResponse>? SavedLayouts { get; set; }
 
@@ -195,7 +91,7 @@
     /// Whether this is the route that loads the visitor's history. Not the same question as
     /// "is anyone signed in": someone with an account can read the public page, where there is
     /// no history to report because none was fetched. Only the route knows which it is, so it
-    /// says so rather than the sheets guessing from an empty <see cref="Facts"/>.
+    /// says so rather than the sheets guessing from an empty <see cref="CatalogueViewBase.Facts"/>.
     /// </summary>
     [Parameter] public bool SignedIn { get; set; }
 
@@ -204,138 +100,21 @@
     private readonly CatalogueFilter<Board> _filter = new(
         b => b.Id.Value, b => b.Name, b => b.ExpansionId);
 
-    private const string ByBoardsKey = "boards";
-
-    /// Layouts belong to no expansion — they are arrangements of boards, not things you buy — so
-    /// that row and ordering drop out. The board count is their one number, and it serves both as
-    /// the pills and as the ordering.
-    private readonly CatalogueFilter<LayoutEntry> _layoutFilter = new(
-        e => e.Key, e => e.Name,
-        numeric: (new SortOption(ByBoardsKey, "Boards", "Fewest", "Most"), e => e.BoardCount),
-        defaultSortKey: ByBoardsKey);
-
-    private FilterBar? _layoutBar;
-
-    // ---------- the layouts index ----------
-
-    /// <summary>Which kind of layout the index is showing; null is all of them.</summary>
-    private LayoutKind? _kind;
-
-    private enum LayoutKind
-    {
-        Standard,
-        Thematic,
-        Saved,
-    }
-
-    /// <summary>
-    /// One entry in the layouts index: a published setup or a shape from the player's library.
-    /// Both are islands built from the same boards, so they share one list, one filter and one
-    /// ordering — the kind is a pill over that list rather than a section of its own.
-    /// </summary>
-    private sealed record LayoutEntry(
-        string Key, string Name, int BoardCount, LayoutKind Kind,
-        IslandSetup? Setup, IslandLayoutResponse? Saved);
-
-    private sealed record KindTab(LayoutKind Kind, string Label, string Dot);
-
-    /// The tints the tiles carry, as a legend. A kind nobody has any of is left out.
-    private static readonly KindTab[] _kindTabs =
-    [
-        new(LayoutKind.Standard, "Standard", "bg-ink-300"),
-        new(LayoutKind.Thematic, "Thematic", "bg-sky-400"),
-        new(LayoutKind.Saved, "Yours", "bg-accent-500"),
-    ];
-
-    private IReadOnlyList<LayoutEntry> _entries = [];
-
-    /// <summary>
-    /// Every layout's record in one tally, keyed as the entries are: published layouts by setup
-    /// id, saved shapes by their guid. One dictionary because one filter orders the whole index.
-    /// </summary>
-    private Dictionary<string, SetupInsights.PlayRecord>? _entryRecords;
-
-    protected override void OnParametersSet()
-    {
-        _filter.UseHistory(Records);
-
-        var entries = GameData.PublishedIslandSetups
-            .Select(s => new LayoutEntry(
-                s.Id.Value, s.Name, s.NumberOfPlayers,
-                s.IsThematic ? LayoutKind.Thematic : LayoutKind.Standard, s, null))
-            .ToList();
-
-        if (SavedLayouts is { Count: > 0 })
-        {
-            entries.AddRange(SavedLayouts.Select(l => new LayoutEntry(
-                l.Id.ToString(), l.Name, l.BoardCount, LayoutKind.Saved, null, l)));
-        }
-
-        _entries = entries;
-
-        _entryRecords = null;
-        if (Facts is { Count: > 0 })
-        {
-            _entryRecords = new Dictionary<string, SetupInsights.PlayRecord>(
-                SetupInsights.LayoutRecords(Facts), StringComparer.Ordinal);
-            foreach (var (id, record) in SetupInsights.SavedLayoutRecords(Facts))
-            {
-                _entryRecords[id.ToString()] = record;
-            }
-        }
-
-        // The layouts filter gets the same history as the tiles below it, so it can offer the
-        // played/win-rate orderings and the never-played pill the boards filter has.
-        _layoutFilter.UseHistory(_entryRecords);
-    }
-
-    private IReadOnlyList<LayoutEntry> _visibleLayouts =>
-        _layoutFilter.Apply(_entries.Where(e => _kind is null || e.Kind == _kind));
-
-    /// <summary>Whether the index is cut into player-count lanes — only while that is the order.</summary>
-    private bool _groupsByCount => _layoutFilter.SortKey == ByBoardsKey;
-
-    private RenderFragment LayoutTile(LayoutEntry entry) => __builder =>
-    {
-        @* The board count is the lane's job while there are lanes; in any other order the tile
-           has to carry it. *@
-        <IslandLayoutTile @key="entry.Key" Setup="entry.Setup" Saved="entry.Saved"
-                          Record="_entryRecords?.GetValueOrDefault(entry.Key)"
-                          ShowRecord="_entryRecords is not null"
-                          ShowBoardCount="@(!_groupsByCount)"
-                          OnClick="() => OpenLayout(entry)"/>
-    };
-
-    private IslandLayoutDetailModal _layoutModal = default!;
-
-    private void OpenLayout(LayoutEntry entry)
-    {
-        if (entry.Setup is { } setup) _layoutModal.Show(setup);
-        else if (entry.Saved is { } saved) _layoutModal.Show(saved);
-    }
-
-    // ---------- the boards ----------
-
-    private IReadOnlyList<Board> _boardsInScope =>
-        GameData.Boards.Where(b => OwnedExpansions is null || OwnedExpansions.Contains(b.ExpansionId)).ToList();
-
-    private IReadOnlyList<Board> _visibleBoards => _filter.Apply(_boardsInScope);
+    protected override FilterState Filter => _filter;
 
     private BoardDetailModal _modal = default!;
 
     private void OpenDetail(Board b) => _modal.Show(b);
 
-    private string HeaderSummary
+    /// <summary>The page subtitle. Takes the board count rather than recomputing the owned
+    /// catalogue: the render has already worked it out for the list below.</summary>
+    private string HeaderSummary(int boards)
     {
-        get
-        {
-            var boards = _boardsInScope.Count;
-            var published = GameData.PublishedIslandSetups.Count;
-            var mine = SavedLayouts?.Count ?? 0;
-            var summary = $"{boards} boards used to assemble the island, arranged into {published} published layouts";
-            return mine > 0
-                ? $"{summary} and {mine} shape{(mine == 1 ? "" : "s")} of your own."
-                : $"{summary}.";
-        }
+        var published = GameData.PublishedIslandSetups.Count;
+        var mine = SavedLayouts?.Count ?? 0;
+        var summary = $"{Copy.Count(boards, "board")} used to assemble the island, arranged into {Copy.Count(published, "published layout")}";
+        return mine > 0
+            ? $"{summary} and {Copy.Count(mine, "shape")} of your own."
+            : $"{summary}.";
     }
 }

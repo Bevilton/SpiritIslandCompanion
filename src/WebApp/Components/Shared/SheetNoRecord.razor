@@ -1,0 +1,14 @@
+@* What a reference sheet says where the record would go and there is none — the board's and the
+   island layout's, the two subjects that carry no reference text of their own and so would
+   otherwise end in an empty body.
+
+   Only ever rendered where a record was actually looked for: on the public routes nothing was
+   fetched, so saying "no history" would be a claim about a reader the page knows nothing about.
+   The sheets gate that themselves (ReferenceOnly); this is only the sentence. *@
+
+<p class="no-value text-sm">No game history to show for this @Subject yet.</p>
+
+@code {
+    /// <summary>What the sheet is of, as a bare noun — "board", "layout".</summary>
+    [Parameter, EditorRequired] public string Subject { get; set; } = "";
+}

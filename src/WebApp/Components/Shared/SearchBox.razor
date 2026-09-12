@@ -1,0 +1,19 @@
+@* The immediate name search over a list — filters on every keystroke, and its accessible name
+   is its placeholder, so the box announces itself the way it looks. Six of these were spelled
+   out by hand; what legitimately differs per host is the width and what it searches, so that
+   is all a caller supplies. *@
+
+<input type="search" class="input @Class" placeholder="@Placeholder" aria-label="@Placeholder"
+       value="@Value" @oninput="e => ValueChanged.InvokeAsync(e.Value?.ToString() ?? string.Empty)"/>
+
+@code {
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+
+    /// <summary>What the box searches — doubles as the accessible name.</summary>
+    [Parameter] public string Placeholder { get; set; } = "Search by name…";
+
+    /// <summary>Width, per host: the reference pages run md:w-64; wider where the list is
+    /// the whole tab, full-width on a phone where the box heads the page.</summary>
+    [Parameter] public string Class { get; set; } = "md:w-64";
+}

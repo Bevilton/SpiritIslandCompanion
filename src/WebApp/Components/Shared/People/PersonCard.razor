@@ -9,9 +9,8 @@
 @if (OnClick.HasDelegate)
 {
     <button type="button" @onclick="OnClick" title="@Title"
-            class="@ShellClass text-left hover:-translate-y-px hover:shadow-sm
-                   focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40
-                   @(Selected ? "border-accent-400 ring-2 ring-accent-500/20" : "")">
+            class="@ShellClass card-lift text-left focus-ring
+                   @(Selected ? "border-accent-400 ring-2 ring-accent-500/20" : null)">
         @Body
     </button>
 }
@@ -27,14 +26,14 @@ else
     {
         <div class="flex items-start gap-3 px-5 pt-4">
             <PlayerAssigneeBadge Kind="Kind" Name="@Name" DetailLabel="@DetailLabel"
-                                 ContainerClass="inline-flex items-start gap-3 min-w-0 flex-1"/>
-            @if (Games > 0)
+                                 ContainerClass="@PlayerAssigneeBadge.RowLayout"/>
+            @if (Record.GamesPlayed > 0)
             {
-                <WinRateRing Pct="WinRate" Size="56" Caption="win"/>
+                <WinRateRing Pct="Record.WinRate" Size="56" Caption="win"/>
             }
         </div>
 
-        @if (Games > 0)
+        @if (Record.GamesPlayed > 0)
         {
             <div class="mt-3 grid grid-cols-3 divide-x divide-ink-100 border-y border-ink-100 bg-ink-50/40">
                 @* The count is the way to the games themselves — no extra action on a card that
@@ -43,28 +42,26 @@ else
                 @if (GamesHref is { } href && !OnClick.HasDelegate)
                 {
                     @* The tally's colours mean won and lost, so the link keeps the neutral one
-                       and says it is a link with a dotted rule instead — see LinkedCount. *@
+                       and says it is a link with a dotted rule instead — .linked-count, the same
+                       one the statistics tables' counts wear. *@
                     <a href="@href" title="@($"See the games {Name} sat in")"
-                       class="block px-3 py-2 text-center transition-colors hover:bg-white
-                              focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
-                        <div class="text-base font-bold tabular-nums text-ink-900 underline decoration-dotted decoration-ink-300 underline-offset-4"
-                             style="font-family: var(--font-serif);">@Games</div>
-                        <div class="text-[10px] uppercase tracking-wide text-ink-500">games</div>
+                       class="@TallyCell transition-colors hover:bg-white focus-ring">
+                        @TallyFace(Record.GamesPlayed, "games", "linked-count text-ink-900")
                     </a>
                 }
                 else
                 {
-                    @Tally(Games, "games", "text-ink-900")
+                    <div class="@TallyCell">@TallyFace(Record.GamesPlayed, "games", "text-ink-900")</div>
                 }
-                @Tally(Wins, "won", "text-accent-700")
-                @Tally(Losses, "lost", "text-red-600")
+                <div class="@TallyCell">@TallyFace(Record.Wins, "won", WinTone.ForOutcome(true))</div>
+                <div class="@TallyCell">@TallyFace(Record.Losses, "lost", WinTone.ForOutcome(false))</div>
             </div>
 
-            <div class="space-y-1.5 px-5 py-3 text-[11px] text-ink-500">
+            <div class="row-sub space-y-1.5 px-5 py-3">
                 @if (_favourite is not null)
                 {
                     <div class="flex min-w-0 items-center gap-2">
-                        <span class="inline-block h-3.5 w-1.5 shrink-0 rounded-full" style="background-color: @_favouriteColor;"></span>
+                        <ColorBar Size="xs" Color="@_favouriteColor"/>
                         <span class="truncate">Usually plays <span class="font-medium text-ink-800">@_favourite.Name</span></span>
                     </div>
                 }
@@ -73,7 +70,7 @@ else
         }
         else
         {
-            <div class="border-y border-ink-100 bg-ink-50/40 px-5 py-4 text-[11px] text-ink-500">
+            <div class="row-sub border-y border-ink-100 bg-ink-50/40 px-5 py-4">
                 @EmptyNote
             </div>
         }
@@ -88,22 +85,29 @@ else
         }
     };
 
-    private static RenderFragment Tally(int value, string label, string tone) =>
-        @<div class="px-3 py-2 text-center">
-            <div class="text-base font-bold tabular-nums @tone" style="font-family: var(--font-serif);">@value</div>
-            <div class="text-[10px] uppercase tracking-wide text-ink-500">@label</div>
-        </div>;
+    /// One of the three cells of the record strip. Split from its face because the games cell is
+    /// an <c>&lt;a&gt;</c> where the host has a list to send the reader to and a <c>&lt;div&gt;</c>
+    /// where it hasn't — the figure inside is the same either way, and had been written twice.
+    private const string TallyCell = "block px-3 py-2 text-center";
 
-    [Parameter, EditorRequired] public PlayerAssigneeBadge.AssigneeKind Kind { get; set; }
+    private static RenderFragment TallyFace(int value, string label, string tone) =>
+        @<text>
+            <div class="numeral text-base @tone">@value</div>
+            <div class="micro-label">@label</div>
+        </text>;
+
+    [Parameter, EditorRequired] public AssigneeKind Kind { get; set; }
     [Parameter, EditorRequired] public string Name { get; set; } = "";
 
     /// <summary>Line under the name — an email address, or what kind of person this is.</summary>
     [Parameter] public string? DetailLabel { get; set; }
 
-    [Parameter] public int Games { get; set; }
-    [Parameter] public int Wins { get; set; }
-    [Parameter] public int Losses { get; set; }
-    [Parameter] public double WinRate { get; set; }
+    /// <summary>
+    /// The record the two of you share — games, wins, losses and the rate. One tally rather than
+    /// four loose numbers: the People page hands over a <c>PersonSummary</c> and the statistics
+    /// tab a <c>PlayerStats</c>, and both already carry the four under the same names.
+    /// </summary>
+    [Parameter, EditorRequired] public IWinRateTally Record { get; set; } = default!;
 
     /// <summary>Resolved from the whole catalogue on purpose: a spirit from an expansion you
     /// don't own is still what they played, and the card has to be able to say so.</summary>
@@ -138,7 +142,6 @@ else
     protected override void OnParametersSet()
     {
         _favourite = GameLookups.SpiritFor(FavouriteSpiritId);
-        _favouriteColor = (_favourite is null ? null : SpiritDetails.For(_favourite.Id)?.ColorHex)
-                          ?? GameLookups.NeutralColor;
+        _favouriteColor = GameLookups.SpiritColor(_favourite);
     }
 }

@@ -2,7 +2,7 @@
 @layout PublicLayout
 @inject IMediator Mediator
 
-<PageTitle>Spirit Island Companion</PageTitle>
+<PageTitle>@AppPageTitle.SiteName</PageTitle>
 
 @* The landing page runs dark → light → dark: the hero and the community band are the sea, the
    middle is parchment, and the footer closes it back into the water. See the palette note at the
@@ -23,7 +23,7 @@
         </svg>
     </div>
 
-    <div class="mx-auto max-w-6xl px-4 md:px-6">
+    <div class="page-shell">
         <div class="grid items-center gap-8 py-16 md:grid-cols-[1.02fr_.98fr] md:py-24">
             <div>
                 <span class="eyebrow eyebrow-on-deep">
@@ -43,7 +43,7 @@
                     unhurried place — built for the cooperative board game by R. Eric Reuss.
                 </p>
                 <div class="mt-8 flex flex-wrap items-center gap-3">
-                    <a href="@(_signedIn ? "/app/dashboard" : "/login")" class="btn btn-primary btn-lg">
+                    <a href="@(_signedIn ? AppRoutes.Dashboard : AppRoutes.Login)" class="btn btn-primary btn-lg">
                         @(_signedIn ? "Go to dashboard" : "Get started")
                         <Icon Name="arrow-right" Class="w-4 h-4"/>
                     </a>
@@ -51,7 +51,7 @@
                        see the app full of games, and the reference pages have their own section
                        further down. The demo signs them into a throwaway sandbox — see
                        WebApp.Demo.DemoEndpoints. *@
-                    <a href="@(_signedIn ? "/app/games/new" : "/demo")" class="btn btn-glass btn-lg">
+                    <a href="@(_signedIn ? GamesLink.New : AppRoutes.Demo)" class="btn btn-glass btn-lg">
                         @(_signedIn ? "Record a game" : "Try the live demo")
                     </a>
                 </div>
@@ -84,15 +84,8 @@
                    coast sits at roughly 10–90% of it and these all fall outside that. Purely
                    decorative: no data, nothing interactive. *@
                 <div class="hero-fleet" aria-hidden="true">
-                    @* The sails' gradient, defined once for the whole fleet rather than per ship:
-                       an SVG id resolves across the whole document, so four identical copies were
-                       three too many. Zero-sized so it takes no space of its own. *@
-                    <svg width="0" height="0" class="absolute" aria-hidden="true">
-                        <linearGradient id="hero-sail" x1="0" y1="0" x2=".5" y2="1">
-                            <stop offset="0" stop-color="#FDFBF6"/>
-                            <stop offset="1" stop-color="#DCD2BC"/>
-                        </linearGradient>
-                    </svg>
+                    @* The sails' gradient, once for the whole fleet — see InvaderShip. *@
+                    @InvaderShip.SailGradient
                     @Ship(3,  58, 0.72, 0)
                     @Ship(23, 90, 1.00, -5200)
                     @Ship(62, 94, 1.06, -2600)
@@ -106,12 +99,12 @@
 @* ============================== COMMUNITY BAND ==============================
    Figures on the water rather than four cards floating on it — see .figure. *@
 <section class="deep relative overflow-hidden"
-         style="background-image: linear-gradient(180deg, #1a5b79 0%, var(--color-deep-800) 62%, var(--color-deep-900) 100%);">
-    <div class="mx-auto max-w-6xl px-4 md:px-6 py-12 md:py-16">
+         style="background-image: linear-gradient(180deg, var(--si-sea-crest) 0%, var(--color-deep-800) 62%, var(--color-deep-900) 100%);">
+    <div class="page-shell py-12 md:py-16">
         <div class="mb-10 flex flex-wrap items-end justify-between gap-4">
             <div>
                 <span class="eyebrow eyebrow-on-deep">Across the community</span>
-                <h2 class="on-deep-title mt-2 text-2xl md:text-3xl">
+                <h2 class="on-deep-title band-title">
                     Every island, every defeat, every victory.
                 </h2>
             </div>
@@ -122,7 +115,7 @@
 
         @if (_loading)
         {
-            <LoadingSpinner/>
+            <LoadingSpinner OnDeep="true"/>
         }
         else if (_stats is null || _stats.TotalGames == 0)
         {
@@ -173,10 +166,10 @@
 </section>
 
 @* ============================== FEATURES ============================== *@
-<section class="mx-auto max-w-6xl px-4 md:px-6 py-16 md:py-24">
+<section class="page-shell py-16 md:py-24">
     <div class="max-w-2xl">
         <span class="eyebrow">What's inside</span>
-        <h2 class="mt-2 text-2xl md:text-3xl">Built for groups who play often.</h2>
+        <h2 class="band-title">Built for groups who play often.</h2>
     </div>
     @* Four across rather than three: the island builder is the thing this app has that a
        spreadsheet doesn't, and leaving it off the landing page meant a visitor had to start a game
@@ -196,13 +189,13 @@
 @* ============================== WHAT THE COMMUNITY PLAYS ============================== *@
 @if (_stats is { TotalGames: > 0 } && _stats.TopSpirits.Count > 0)
 {
-    <section class="mx-auto max-w-6xl px-4 md:px-6 pb-16 md:pb-24">
+    <section class="page-shell pb-16 md:pb-24">
         @* Headed like its three sibling sections. Without this the page went from "Built for groups
            who play often" straight into a table of community figures, which is the one place a
            visitor reading top to bottom had to work out for themselves whose numbers they were. *@
         <div class="mb-10 max-w-2xl">
             <span class="eyebrow">Community trends</span>
-            <h2 class="mt-2 text-2xl md:text-3xl">What everyone plays.</h2>
+            <h2 class="band-title">What everyone plays.</h2>
         </div>
 
         @* How the island holds as it gets harder. This is here rather than as a third "top five"
@@ -219,34 +212,29 @@
             // every band here has games in it, so this is at least 1 and safe to divide by
             var busiest = bands.Max(b => b.Games);
             <div class="surface mb-5 overflow-hidden">
-                <div class="surface-head">
-                    <div>
-                        <h3 class="text-base font-semibold">How the island holds</h3>
-                        <p class="mt-0.5 text-xs text-ink-500">Win rate by difficulty, across every recorded game</p>
-                    </div>
-                    <span class="section-note">@_stats.CompletedGames completed</span>
-                </div>
+                <SectionHead Surface="true" Level="3" Title="How the island holds"
+                             Note="@($"{_stats.CompletedGames} completed")">
+                    <Sub>Win rate by difficulty, across every recorded game</Sub>
+                </SectionHead>
                 <div class="grid gap-x-6 gap-y-4 p-5 md:p-6 sm:grid-cols-2 lg:grid-cols-5">
                     @foreach (var b in bands)
                     {
                         <div @key="b.Label">
                             <div class="flex items-baseline justify-between gap-2">
-                                <span class="text-[11px] font-semibold uppercase tracking-wide text-ink-500">
+                                <span class="micro-label-strong">
                                     Difficulty @b.Label
                                 </span>
-                                <span class="text-sm font-semibold tabular-nums @(b.Completed > 0 ? WinTone.ForRate(b.WinRate) : "text-ink-400")">
-                                    @(b.Completed > 0 ? $"{b.WinRate:F0}%" : "—")
-                                </span>
+                                <WinRateFigure Value="b.WinRate" Completed="b.Completed" Class="text-sm"/>
                             </div>
                             @* Bar length is how much the community plays this band; its colour is
                                how they do in it. Two facts, one mark. *@
-                            <div class="mt-2 h-2 overflow-hidden rounded-full bg-ink-200">
-                                <div class="h-full rounded-full transition-all"
-                                     style="width: @($"{b.Games * 100.0 / busiest:F1}")%;
-                                            background-color: @WinTone.FillFor(b.WinRate, b.Completed);"></div>
-                            </div>
-                            <div class="mt-1.5 text-[11px] text-ink-500 tabular-nums">
-                                @b.Games @(b.Games == 1 ? "game" : "games")
+                            @* A darker track than .meter's own: this card sits on the landing
+                               page's parchment band, where ink-100 is barely a shade off it. *@
+                            <Meter Value="@Percent.Of(b.Games, busiest)"
+                                   FillColor="@WinTone.FillFor(b.WinRate, b.Completed)"
+                                   Class="mt-2 h-2 bg-ink-200"/>
+                            <div class="row-sub mt-1.5 tabular-nums">
+                                @Copy.Count(b.Games, "game")
                             </div>
                         </div>
                     }
@@ -256,51 +244,38 @@
 
         <div class="grid gap-5 md:grid-cols-2">
             <div class="surface overflow-hidden">
-                <div class="surface-head">
-                    <h3 class="text-base font-semibold">Most-played spirits</h3>
-                    <a href="/spirits" class="section-link">See all</a>
-                </div>
+                <SectionHead Surface="true" Level="3" Title="Most-played spirits">
+                    <Trailing><a href="@AppRoutes.PublicSpirits" class="section-link">See all</a></Trailing>
+                </SectionHead>
                 <ul class="divide-y divide-ink-100">
                     @foreach (var s in _stats.TopSpirits)
                     {
-                        <li @key="s.SpiritId" class="flex items-center gap-3 px-5 py-3">
-                            @* The spirit's own colour, the same one its card and its presence
-                               markers carry everywhere else in the app. *@
-                            <span class="h-2.5 w-2.5 shrink-0 rounded-full"
-                                  style="background-color: @SpiritColor(s.SpiritId);"></span>
-                            <span class="min-w-0 flex-1 truncate text-sm font-medium text-ink-800">@SpiritName(s.SpiritId)</span>
-                            <span class="shrink-0 text-xs text-ink-500 tabular-nums">@s.GamesPlayed games</span>
-                            @RatePill(s.WinRate, s.Completed)
-                        </li>
+                        @* The spirit's own colour, the same one its card and its presence markers
+                           carry everywhere else in the app. *@
+                        @TopRow(s.SpiritId, SpiritDot(s.SpiritId), SpiritName(s.SpiritId),
+                                s.GamesPlayed, s.WinRate, s.Completed)
                     }
                 </ul>
             </div>
 
             <div class="surface overflow-hidden">
-                <div class="surface-head">
-                    <h3 class="text-base font-semibold">Most-faced adversaries</h3>
-                    <a href="/adversaries" class="section-link">See all</a>
-                </div>
+                <SectionHead Surface="true" Level="3" Title="Most-faced adversaries">
+                    <Trailing><a href="@AppRoutes.PublicAdversaries" class="section-link">See all</a></Trailing>
+                </SectionHead>
                 @* An adversary is optional — difficulty comes from the scenario and the blight card
                    too — so a community that has only played open islands has spirits to show here
                    and no adversaries at all. Without this the card was a header over nothing. *@
                 @if (_stats.TopAdversaries.Count == 0)
                 {
-                    <p class="px-5 py-6 text-sm text-ink-500">No adversaries faced yet.</p>
+                    <p class="no-data">No adversaries faced yet.</p>
                 }
                 else
                 {
                     <ul class="divide-y divide-ink-100">
                         @foreach (var a in _stats.TopAdversaries)
                         {
-                            <li @key="a.AdversaryId" class="flex items-center gap-3 px-5 py-3">
-                                <span class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-ember-100 text-ember-700">
-                                    <Icon Name="shield" Class="w-3.5 h-3.5"/>
-                                </span>
-                                <span class="min-w-0 flex-1 truncate text-sm font-medium text-ink-800">@AdversaryName(a.AdversaryId)</span>
-                                <span class="shrink-0 text-xs text-ink-500 tabular-nums">@a.GamesPlayed games</span>
-                                @RatePill(a.WinRate, a.Completed)
-                            </li>
+                            @TopRow(a.AdversaryId, AdversaryShield, AdversaryName(a.AdversaryId),
+                                    a.GamesPlayed, a.WinRate, a.Completed)
                         }
                     </ul>
                 }
@@ -311,20 +286,20 @@
 
 @* ============================== BROWSE ============================== *@
 <section class="border-t border-ink-200 bg-ink-100">
-    <div class="mx-auto max-w-6xl px-4 md:px-6 py-16 md:py-20">
+    <div class="page-shell py-16 md:py-20">
         <div class="mb-10 max-w-xl">
             <span class="eyebrow">Reference</span>
-            <h2 class="mt-2 text-2xl md:text-3xl">Browse the game.</h2>
-            <p class="mt-2 text-ink-600">
+            <h2 class="band-title">Browse the game.</h2>
+            <p class="body-copy mt-2">
                 Every spirit, adversary, scenario, and board across the base game and expansions —
                 no account required.
             </p>
         </div>
         <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
-            @Browse("/spirits",     "sparkles", "Spirits",     GameData.Spirits.Count)
-            @Browse("/adversaries", "shield",   "Adversaries", GameData.Adversaries.Count)
-            @Browse("/scenarios",   "book",     "Scenarios",   GameData.Scenarios.Count)
-            @Browse("/boards",      "map",      "Boards",      GameData.Boards.Count)
+            @Browse(AppRoutes.PublicSpirits,     "sparkles", "Spirits",     GameData.Spirits.Count)
+            @Browse(AppRoutes.PublicAdversaries, "shield",   "Adversaries", GameData.Adversaries.Count)
+            @Browse(AppRoutes.PublicScenarios,   "book",     "Scenarios",   GameData.Scenarios.Count)
+            @Browse(AppRoutes.PublicBoards,      "map",      "Boards",      GameData.Boards.Count)
         </div>
     </div>
 </section>
@@ -339,96 +314,101 @@
     /// </summary>
     [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
 
-    private Application.Features.Statistics.GlobalStatisticsResponse? _stats;
+    private GlobalStatisticsResponse? _stats;
     private bool _loading = true;
     private bool _signedIn;
 
     /// <summary>Where "record a game" goes: the form itself, or the door.</summary>
-    private string RecordGameHref => _signedIn ? "/app/games/new" : "/login";
-
-    private static readonly Dictionary<string, string> _spiritNames =
-        GameData.Spirits.ToDictionary(s => s.Id.Value, s => s.Name);
-    private static readonly Dictionary<string, string> _adversaryNames =
-        GameData.Adversaries.ToDictionary(a => a.Id.Value, a => a.Name);
-    private static readonly Dictionary<string, string> _spiritColors =
-        GameData.Spirits.ToDictionary(s => s.Id.Value,
-                                      s => SpiritDetails.For(s.Id)?.ColorHex ?? GameLookups.NeutralColor);
+    private string RecordGameHref => _signedIn ? GamesLink.New : AppRoutes.Login;
 
     protected override async Task OnInitializedAsync()
     {
         _signedIn = (await AuthState).User.Identity?.IsAuthenticated ?? false;
 
-        var result = await Mediator.Send(new Application.Features.Statistics.GetGlobalStatisticsQuery());
+        var result = await Mediator.Send(new GetGlobalStatisticsQuery());
         if (result.IsSuccess) _stats = result.Value;
         _loading = false;
     }
 
-    private static string SpiritName(string id) => _spiritNames.GetValueOrDefault(id, id);
-    private static string AdversaryName(string id) => _adversaryNames.GetValueOrDefault(id, id);
-    private static string SpiritColor(string id) => _spiritColors.GetValueOrDefault(id, GameLookups.NeutralColor);
+    @* The community lists arrive as bare ids, and GameLookups is where an id becomes a name and a
+       colour. This page used to keep three dictionaries of its own to make those lookups cheap;
+       GameLookups indexes the catalogue itself now, so a per-row lookup costs nothing and the
+       fallbacks — an id the catalogue no longer lists — are stated once here instead. *@
+    private static string SpiritName(string id) => GameLookups.SpiritFor(id)?.Name ?? id;
+    private static string AdversaryName(string id) => GameLookups.AdversaryFor(id)?.Name ?? id;
+    private static string SpiritColor(string id) => GameLookups.SpiritColor(GameLookups.SpiritFor(id));
 
     /// <summary>
-    /// A win rate as a pill, for the two "most-played" lists. Toned by the rate rather than always
-    /// green — the difficulty bars above turn on the same threshold, and a fixed success pill called
-    /// a 38% win rate a win. A dash while nothing has finished: a spirit played three times with all
-    /// three still drafts has a rate of 0 by arithmetic, not a record of three defeats.
+    /// One line of a "most-played" list: what it is, what it is called, how often the community
+    /// has played it, and how they do. The two lists differ in nothing but the marker at the
+    /// front, so that is all either one supplies — written out twice, the adversary list had
+    /// already been left with a hand-rolled marker where the spirit list uses the shared one.
     /// </summary>
-    private static RenderFragment RatePill(double winRate, int completed) =>
-        @<span class="badge @WinTone.BadgeFor(winRate, completed) shrink-0 tabular-nums">@(completed > 0 ? $"{winRate:F0}%" : "—")</span>;
+    private static RenderFragment TopRow(
+        string key, RenderFragment marker, string name, int games, double winRate, int completed) =>
+        @<li @key="key" class="flex items-center gap-3 px-5 py-3">
+            @marker
+            <span class="row-title min-w-0 flex-1 truncate">@name</span>
+            <span class="block-note shrink-0 tabular-nums">@Copy.Count(games, "game")</span>
+            @* The rate is toned by the rate rather than always green — the difficulty bars above
+               turn on the same threshold, and a fixed success pill called a 38% win rate a win.
+               A dash while nothing has finished: a spirit played three times with all three still
+               drafts has a rate of 0 by arithmetic, not a record of three defeats. *@
+            <span class="badge @WinTone.BadgeFor(winRate, completed) shrink-0 tabular-nums">@(completed > 0 ? $"{winRate:F0}%" : "—")</span>
+        </li>;
+
+    private static RenderFragment SpiritDot(string spiritId) =>
+        @<ColorDot Size="sm" Color="@SpiritColor(spiritId)"/>;
+
+    private static readonly RenderFragment AdversaryShield =
+        @<IconChip Name="shield" Size="xs" Tone="bg-ember-100 text-ember-700"/>;
 
     /// <summary>
-    /// One invader ship for the hero's fleet. <paramref name="leftPct"/> and <paramref name="topPct"/>
-    /// place it around the island — both per cent of the island's own box, and the ship is centred
-    /// on that point. <paramref name="scale"/> is how near it is, which drives its size and its
-    /// haze together. <paramref name="delayMs"/> is negative so each ship starts part-way through
-    /// the swell rather than all four rising as one. The pennant is ember because these are the
-    /// invaders — the same colour a defeat is drawn in everywhere else in the app.
+    /// One invader ship for the hero's fleet — the drawing is <see cref="InvaderShip"/>'s, shared
+    /// with the setup screen. <paramref name="leftPct"/> and <paramref name="topPct"/> place it
+    /// around the island — both per cent of the island's own box, and the ship is centred on that
+    /// point. <paramref name="scale"/> is how near it is, which drives its size and its haze
+    /// together. <paramref name="delayMs"/> is negative so each ship starts part-way through the
+    /// swell rather than all four rising as one.
     /// </summary>
-    private RenderFragment Ship(double leftPct, double topPct, double scale, int delayMs) =>
-        @<span class="hero-ship" style="left: @(leftPct.ToString(Inv))%; top: @(topPct.ToString(Inv))%; --ship-scale: @(scale.ToString(Inv)); animation-delay: @(delayMs)ms;">
-            <svg viewBox="0 0 64 60" class="block h-full w-full" aria-hidden="true">
-                @* wake first, so the hull sits in it *@
-                <path d="M4 50q9-4.5 18 0t18 0 18 0" fill="none" stroke="#D9EDF9" stroke-opacity=".5"
-                      stroke-width="2.2" stroke-linecap="round"/>
-                <path d="M11 55q10-4 21 0t21 0" fill="none" stroke="#D9EDF9" stroke-opacity=".28"
-                      stroke-width="1.8" stroke-linecap="round"/>
-
-                <path d="M32 3v9l11-3.6z" fill="#DC5B3C"/>
-                <rect x="30.8" y="5" width="2.4" height="30" rx="1.2" fill="#4A3520"/>
-                @* two sails, both billowing away from the mast so the ship reads as under way *@
-                <path d="M34.4 10c13 5.6 14.6 18 0 24.6z" fill="url(#hero-sail)"/>
-                <path d="M29.4 14.5c-10.6 4.4-11.8 14.4 0 19.4z" fill="url(#hero-sail)" opacity=".9"/>
-                @* hull: dark below the waterline, lit deck strip above it *@
-                <path d="M7 36h50l-6 11q-19 4.6-38 0z" fill="#5C4326"/>
-                <path d="M7 36h50l-1.9 3.6H8.9z" fill="#886138"/>
-            </svg>
+    private static RenderFragment Ship(double leftPct, double topPct, double scale, int delayMs) =>
+        @<span class="hero-ship" style="left: @(leftPct.ToInvariant())%; top: @(topPct.ToInvariant())%; --ship-scale: @(scale.ToInvariant()); animation-delay: @(delayMs)ms;">
+            <InvaderShip/>
         </span>;
 
-    /// <summary>Invariant culture for the inline styles above — a comma decimal separator in a
-    /// CSS custom property is silently invalid and the ships would all render full size.</summary>
-    private static readonly System.Globalization.CultureInfo Inv =
-        System.Globalization.CultureInfo.InvariantCulture;
+    /// <summary>The tile a landing-page card leads with — the jade chip with a hairline round it,
+    /// which is what lets it sit on a card without reading as a button. Both card kinds wear it.</summary>
+    private const string CardChip = "border border-accent-200/70 bg-accent-50 text-accent-700";
 
+    /// <summary>
+    /// One of the four cards under "What's inside". The same card as <see cref="Browse"/> below —
+    /// a 2xl glyph, the subject's name, a line under it — and the two were naming that subject two
+    /// different ways: this one hand-written a size up and a tracking step tighter (an h3 takes the
+    /// base layer's tracking-tight), Browse's on .card-title, with two bands between them to make
+    /// the difference hard to catch. .card-title is the register, so both wear it. The lines under
+    /// them stay their own: a count is not a sentence.
+    /// </summary>
     private RenderFragment Feature(string icon, string title, string body) =>
         @<div class="surface p-6">
-            <span class="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-accent-200/70 bg-accent-50 text-accent-700">
-                <Icon Name="@icon" Class="w-5 h-5"/>
-            </span>
-            <h3 class="mt-4 text-lg font-semibold">@title</h3>
-            <p class="mt-2 text-sm leading-relaxed text-ink-600">@body</p>
+            <IconChip Name="@icon" Size="2xl" Tone="@CardChip"/>
+            <h3 class="card-title mt-4">@title</h3>
+            <p class="body-copy mt-2 text-sm">@body</p>
         </div>;
 
     private RenderFragment Browse(string href, string icon, string label, int count) =>
+        @* .card-lift is how a clickable card answers the pointer everywhere else in the app; this
+           was the one that had improvised its own rise and dropped the shadow that comes with it.
+           The accent border is this card's own — a utility, so it outranks .card-lift's ink. *@
         @<a href="@href"
-            class="surface group flex flex-col gap-4 p-6 transition-all hover:-translate-y-0.5 hover:border-accent-300
-                   focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
-            <span class="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-accent-200/70 bg-accent-50
-                         text-accent-700 transition-colors group-hover:bg-accent-100">
-                <Icon Name="@icon" Class="w-5 h-5"/>
-            </span>
-            <span>
-                <span class="block text-base font-semibold text-ink-900">@label</span>
-                <span class="mt-1 block text-xs text-ink-500">@count entries</span>
-            </span>
+            class="surface card-lift group flex flex-col gap-4 p-6 hover:border-accent-300
+                   focus-ring">
+            <IconChip Name="@icon" Size="2xl" Tone="@CardChip" Class="transition-colors group-hover:bg-accent-100"/>
+            @* An <h3> as Feature's is, so the two grids of tiles read the same to a screen
+               reader as well as on the page. A div rather than a span around them: a span may
+               only hold phrasing content, and a heading is not that. *@
+            <div>
+                <h3 class="card-title">@label</h3>
+                <span class="block-note mt-1 block">@count entries</span>
+            </div>
         </a>;
 }

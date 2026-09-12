@@ -1,100 +1,81 @@
-@* Visual spirit picker. Shown as a modal with search + filters; selecting a spirit
-   raises OnSelected and closes. Use as:
-       <SpiritPickerModal @ref="_picker" OnSelected="HandleSelected"/>
-       _picker.Show(currentSpiritId, context);
-   The context (history + what is already on the table + whose seat this is) comes in
-   with the call rather than as a parameter, so the stats always describe the seat
-   being opened — parameters would not have flowed in until the next render.
-   OwnedExpansions is read from the AppShell cascade — the modal is auth-agnostic.
+@* Visual spirit picker: a grid of cards with search and filters, each card opening into the
+   spirit's variants. Selecting one raises OnSelected and closes. Opened imperatively, like every
+   picker — see PickerModalBase, which also owns the lifecycle and the owned-expansions cascade.
 
    Filtering and ordering are SpiritFilter / FilterBar + SpiritFacets, shared with the browse page. *@
+@inherits PickerModalBase
 
-@if (_open)
+@* The catalogue this picker offers and the part of it the filter keeps, derived once per
+   render rather than from properties read all the way down it — see the note in SpiritsView. *@
+@if (IsOpen)
 {
+    var inScope = OwnedCatalogue.Spirits(OwnedExpansions);
+    var visible = _filter.Apply(inScope);
+
     <ModalShell OnClose="Close" MaxWidth="md:max-w-4xl">
-            @* Header *@
-            <div class="px-6 pt-5 pb-4 border-b border-ink-200 flex items-start gap-4">
-                <div class="min-w-0 flex-1">
-                    <h2 class="text-xl font-semibold text-ink-900 leading-tight" style="font-family: var(--font-serif);">
-                        Choose a spirit
-                    </h2>
-                    <p class="text-xs text-ink-500 mt-1">
-                        <span class="font-medium text-ink-700">Pick</span> takes the spirit — or one of
-                        its aspects@(HasStats ? ", with the record of each" : "").
-                        <span class="font-medium text-ink-700">@SheetLabel</span>
-                        opens its @(HasStats ? "full history" : "reference sheet").
-                    </p>
-                </div>
-                <input type="search" class="input md:w-56" placeholder="Search by name…" aria-label="Search by name"
-                       @bind="_filter.Query" @bind:event="oninput"/>
-                <button class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-500 hover:bg-ink-100 hover:text-ink-900 transition-colors shrink-0" @onclick="Close" aria-label="Close">
-                    <Icon Name="x" Class="w-5 h-5"/>
-                </button>
-            </div>
+        @* Header *@
+        <PickerModalHeader Title="Choose a spirit" OnClose="Close" @bind-Query="_filter.Query">
+            <Subtitle>
+                <span class="font-medium text-ink-700">Pick</span> takes the spirit — or one of
+                its aspects@(Context.HasHistory ? ", with the record of each" : "").
+                <span class="font-medium text-ink-700">@SheetLabel</span>
+                opens its @(Context.HasHistory ? "full history" : "reference sheet").
+            </Subtitle>
+        </PickerModalHeader>
 
-            @* The same filter the browse page uses, so a player meets one set of controls. *@
-            <div class="border-b border-ink-200 bg-ink-50/50 px-6 py-3">
-                <FilterBar @ref="_bar" Filter="_filter" OwnedExpansions="@OwnedExpansions"
-                           ShowingCount="_visible.Count" TotalCount="_inScope.Count"
-                           UntestedLabel="@UntestedLabel" UntestedHint="@UntestedHint"
-                           Changed="StateHasChanged">
-                    <Facets>
-                        @if (_bar is not null)
-                        {
-                            <SpiritFacets Filter="_filter" Bar="_bar"/>
-                        }
-                    </Facets>
-                </FilterBar>
-            </div>
+        @* The same filter the browse page uses, so a player meets one set of controls. *@
+        <div class="picker-filters">
+            <FilterBar Filter="_filter" OwnedExpansions="@OwnedExpansions"
+                       PresentExpansions="_filter.ExpansionsIn(inScope)"
+                       ShowingCount="visible.Count" TotalCount="inScope.Count"
+                       UntestedLabel="@UntestedLabel" UntestedHint="@UntestedHint"
+                       Changed="StateHasChanged">
+                <Facets Context="bar">
+                    <SpiritFacets Filter="_filter" Bar="bar"/>
+                </Facets>
+            </FilterBar>
+        </div>
 
-            @* Body. Grouped into expansions only while that is the order — see SpiritsView. *@
-            <div class="flex-1 overflow-y-auto px-6 py-5">
-                @if (_filter.GroupsByExpansion)
-                {
-                    @foreach (var grp in _visible.GroupBy(s => s.ExpansionId))
+        @* Body. Grouped into expansions only while that is the order — see SpiritsView.
+           One loop over labelled groups rather than the grid written out in both branches, the
+           way the board picker does it: an unlabelled single group is the flat list. *@
+        <div class="picker-body">
+            @foreach (var grp in _filter.GroupsByExpansion
+                ? visible.GroupBy(s => s.ExpansionId)
+                    .Select(g => (Label: (string?)GameLookups.ExpansionName(g.Key), Spirits: g.ToList()))
+                : [(Label: (string?)null, Spirits: visible.ToList())])
+            {
+                <div class="mb-6 last:mb-0">
+                    @if (grp.Label is { } label)
                     {
-                        <div class="mb-6 last:mb-0">
-                            <div class="text-[11px] font-medium uppercase tracking-wider text-ink-500 mb-2">@GameLookups.ExpansionName(grp.Key)</div>
-                            <div class="grid items-start sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                                @foreach (var s in grp)
-                                {
-                                    @SpiritCard(s)
-                                }
-                            </div>
-                        </div>
+                        <div class="micro-label mb-2">@label</div>
                     }
-                }
-                else
-                {
                     <div class="grid items-start sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                        @foreach (var s in _visible)
+                        @foreach (var s in grp.Spirits)
                         {
                             @SpiritCard(s)
                         }
                     </div>
-                }
+                </div>
+            }
 
-                @if (_visible.Count == 0)
-                {
-                    <div class="text-center py-10 text-ink-500 text-sm">
-                        No spirits match the current filters.
-                    </div>
-                }
-            </div>
+            @if (visible.Count == 0)
+            {
+                <div class="no-matches">@Copy.NoMatches("spirits")</div>
+            }
+        </div>
     </ModalShell>
 }
 
 <SpiritDetailModal @ref="_detailModal"
-                   OwnedExpansions="@OwnedExpansions"
-                   Facts="_context.Facts"
-                   SeatFilter="_context.SeatFilter"
-                   SubjectName="@_context.SubjectName"
+                   Facts="Context.Facts"
+                   SeatFilter="Context.SeatFilter"
+                   SubjectName="@Context.SubjectName"
                    OnSelected="Pick"/>
 
 @code {
     [Parameter] public EventCallback<SpiritPick> OnSelected { get; set; }
 
-    private bool _open;
     private string? _currentSpiritId;
     private string? _currentAspectId;
 
@@ -102,10 +83,6 @@
     private string? _choosingSpiritId;
 
     private SpiritDetailModal _detailModal = default!;
-
-    /// The setup this picker was opened for. Drives the per-card record
-    /// ("2× vs England L3 · 50%"), the never-played filter, and the detail profile.
-    private SetupInsights.MatchupContext _context = SetupInsights.MatchupContext.Empty;
 
     // Snapshotted when the modal opens: the form behind it can't change while it is
     // up, so there is no need to recompute on every keystroke in the search box.
@@ -118,91 +95,57 @@
 
     /// Ordered by expansion to start with, which is how the catalogue reads.
     private readonly SpiritFilter _filter = new();
-    private FilterBar? _bar;
-
-    [CascadingParameter(Name = "OwnedExpansions")]
-    public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
-
-    /// <summary>Any history to show at all.</summary>
-    private bool HasStats => _context.HasHistory;
 
     /// The door to the reference sheet is called after what is behind it — the same word
     /// RecordChip falls back to when there is no record to report.
-    private string SheetLabel => HasStats ? "Stats" : "Details";
+    private string SheetLabel => Context.HasHistory ? "Stats" : "Details";
 
     /// <summary>Whether the cards can show a record "against the current selection".</summary>
-    private bool ShowMatchups => _context.HasHistory && _context.HasSelection;
-
-    /// Only what the player owns is on their table, so only that is offered.
-    private IReadOnlyList<Spirit> _inScope =>
-        GameData.Spirits.Where(s => OwnedExpansions is null || OwnedExpansions.Contains(s.ExpansionId)).ToList();
-
-    private IReadOnlyList<Spirit> _visible => _filter.Apply(_inScope);
+    private bool ShowMatchups => Context.HasHistory && Context.HasSelection;
 
     public void Show(
         string? currentSpiritId = null,
         SetupInsights.MatchupContext? context = null,
         string? currentAspectId = null)
     {
-        _context = context ?? SetupInsights.MatchupContext.Empty;
+        BeginShow(context);
         _currentSpiritId = currentSpiritId;
         // The form stores "no aspect" as an empty string; the variant rows compare against a
         // null aspect, so normalise here or the "No aspect" row never reads as the current one.
         _currentAspectId = string.IsNullOrEmpty(currentAspectId) ? null : currentAspectId;
-        _matchups = ShowMatchups ? _context.SpiritMatchups() : [];
-        _overall = _context.HasHistory ? _context.SpiritRecords() : [];
+        _matchups = ShowMatchups ? Context.SpiritMatchups() : [];
+        _overall = Context.HasHistory ? Context.SpiritRecords() : [];
         // Across every spirit at once — one pass instead of one per card.
-        _aspectRecords = _context.HasHistory ? _context.AspectRecordsBySpirit() : [];
+        _aspectRecords = Context.HasHistory ? Context.AspectRecordsBySpirit() : [];
         _choosingSpiritId = null;
 
         _filter.Reset();
         // "Never played" means never in the matchup on the table when there is one, and never at
         // all otherwise — the same distinction the cards draw.
-        _filter.UseHistory(HasStats ? _overall : null, HasStats ? IsTested : null);
+        _filter.UseHistory(Context.HasHistory ? _overall : null, Context.HasHistory ? IsTested : null);
 
-        _open = true;
-        StateHasChanged();
+        Open();
     }
 
     /// With foes on the table the pill asks about them, not about the spirit's whole history — so
     /// it has to say so. A spirit played twenty times but never against England passes it.
     private string UntestedLabel =>
-        ShowMatchups ? $"New {_context.ExactLabel}" : "Never played";
-
-    /// The counts behind the pill are the seat's, not the reader's (MatchupContext.SeatFilter),
-    /// so the hint has to name the same person — or admit to the whole table when the seat is
-    /// still empty and there is nobody to scope by.
-    private string NeverPlayed =>
-        _context.SubjectName is { } name ? $"{name} has never played"
-        : _context.SeatFilter is not null ? "you have never played"
-        : "nobody at your table has played";
-
-    /// The concession the pill makes: a spirit played twenty times but never against these
-    /// foes still passes it.
-    private string Otherwise =>
-        _context.SubjectName is { } name ? $"however often {name} has played them otherwise"
-        : _context.SeatFilter is not null ? "however often you have played them otherwise"
-        : "however often they have been played otherwise";
+        ShowMatchups ? $"New {Context.ExactLabel}" : "Never played";
 
     private string UntestedHint =>
         ShowMatchups
-            ? $"Spirits {NeverPlayed} {_context.ExactLabel} — {Otherwise}"
-            : $"Spirits {NeverPlayed} at all";
+            ? $"Spirits {Context.UntestedIntro("played")} {Context.ExactLabel} — {Context.UntestedConcession("played")}"
+            : $"Spirits {Context.UntestedIntro("played")} at all";
 
     private bool IsTested(string spiritId) =>
         ShowMatchups
             ? _matchups.GetValueOrDefault(spiritId) is { Exact.Played: > 0 }
             : _overall.GetValueOrDefault(spiritId) is { Played: > 0 };
 
-    private void Close() => _open = false;
-
     private void ShowDetails(Spirit s) => _detailModal.Show(s, _currentAspectId);
 
     /// Only what the player owns is on their table, so only those aspects are offered.
-    private IReadOnlyList<Aspect> AspectsFor(Spirit s) =>
-        GameData.GetAspectsForSpirit(s.Id)
-            .Where(a => OwnedExpansions is null || OwnedExpansions.Contains(a.ExpansionId))
-            .ToList();
+    private IReadOnlyList<Aspect> AspectsFor(Spirit s) => OwnedCatalogue.AspectsFor(s.Id, OwnedExpansions);
 
     /// Pick was pressed. With nothing to choose between, that is the pick; otherwise it opens
     /// the card's variants — one card at a time, so the grid never fills with open lists.
@@ -215,7 +158,7 @@
 
     private async Task Pick(SpiritPick pick)
     {
-        _open = false;
+        Close();
         _choosingSpiritId = null;
         await OnSelected.InvokeAsync(pick);
     }
@@ -229,28 +172,27 @@
     private RenderFragment SpiritCard(Spirit s) => __builder =>
     {
         var detail = SpiritDetails.For(s.Id);
-        var color = detail?.ColorHex ?? GameLookups.NeutralColor;
+        var color = GameLookups.SpiritColor(detail);
         var isSelected = _currentSpiritId == s.Id.Value;
         var overall = _overall.GetValueOrDefault(s.Id.Value);
         var aspects = AspectsFor(s);
         var choosing = _choosingSpiritId == s.Id.Value;
 
         <div @key="s.Id.Value"
-             class="@(isSelected ? "ring-2 ring-accent-500 border-accent-300" : "border-ink-200")
-                    relative flex flex-col bg-white border rounded-xl transition-all"
-             style="border-top: 3px solid @color;">
+             class="pick-card top-accent @(isSelected ? "is-selected" : null) relative flex flex-col"
+             style="--top-accent: @color;">
             <div class="flex-1 p-4 pb-2">
                 <div class="min-w-0 pr-8">
-                    <h3 class="text-sm font-semibold leading-snug text-ink-900">@s.Name</h3>
+                    <h3 class="row-title">@s.Name</h3>
                     @if (detail is not null)
                     {
-                        <div class="mt-0.5 text-[11px] text-ink-500">@detail.PlayStyle</div>
+                        <div class="row-sub mt-0.5">@detail.PlayStyle</div>
                     }
                 </div>
                 @if (detail is not null)
                 {
                     <div class="mt-2 flex items-center gap-1.5 flex-wrap">
-                        <span class="badge text-[10px]" style="background-color: @(color)1f; color: @color;">
+                        <span class="badge badge-sm" style="@GameLookups.TintBadgeStyle(color)">
                             @SpiritFilter.ComplexityLabel(detail.Complexity)
                         </span>
                         <ElementBadges Elements="detail.Elements" Size="sm"/>
@@ -263,41 +205,41 @@
                 @* Which expansion it came from is otherwise only visible in the grouped order. *@
                 @if (!_filter.GroupsByExpansion)
                 {
-                    <div class="mt-1.5 text-[10px] text-ink-400">@GameLookups.ExpansionName(s.ExpansionId)</div>
+                    <div class="fine-note mt-1.5">@GameLookups.ExpansionName(s.ExpansionId)</div>
                 }
-                @if (HasStats)
+                @if (Context.HasHistory)
                 {
                     var matchup = ShowMatchups ? _matchups.GetValueOrDefault(s.Id.Value) : null;
                     <div class="mt-2 space-y-1">
                         @if (matchup is { Exact.Played: > 0 })
                         {
-                            <div class="flex flex-wrap items-center gap-1 text-[10px] text-ink-500">
-                                @if (_context.SubjectName is not null)
+                            <div class="fine-note flex flex-wrap items-center gap-1">
+                                @if (Context.SubjectName is not null)
                                 {
-                                    <span class="font-medium text-ink-700">@(_context.SubjectName):</span>
+                                    <span class="font-medium text-ink-700">@(Context.SubjectName):</span>
                                 }
                                 <span class="tabular-nums font-medium text-ink-700">@(matchup.Exact.Played)×</span>
-                                <span>@_context.ExactLabel</span>
+                                <span>@Context.ExactLabel</span>
                                 @if (matchup.Exact.Completed > 0)
                                 {
-                                    <span class="tabular-nums font-semibold @WinTone.ForRate(matchup.Exact.WinRate)">@($"{matchup.Exact.WinRate:F0}")%</span>
+                                    <WinRateFigure Value="matchup.Exact.WinRate"/>
                                 }
                             </div>
                         }
                         @* history at the levels of the picked adversary — its gaps say "untested here" *@
-                        @if (matchup is not null && matchup.ByLevel.Count > 0 && _context.BroadLabel is { } broadLabel)
+                        @if (matchup is not null && matchup.ByLevel.Count > 0 && Context.BroadLabel is { } broadLabel)
                         {
-                            <div class="flex flex-wrap items-center gap-1 text-[10px] text-ink-500">
+                            <div class="fine-note flex flex-wrap items-center gap-1">
                                 <span>@(broadLabel):</span>
                                 @foreach (var lvl in matchup.ByLevel.OrderBy(kv => kv.Key))
                                 {
-                                    <span class="inline-flex items-center gap-1 rounded border px-1 py-px tabular-nums
-                                                 @(_context.HighlightLevel == lvl.Key ? "border-accent-300 bg-accent-50" : "border-ink-100 bg-ink-50")">
+                                    <span @key="lvl.Key" class="inline-flex items-center gap-1 rounded border px-1 py-px tabular-nums
+                                                 @(Context.HighlightLevel == lvl.Key ? "border-accent-300 bg-accent-50" : "border-ink-100 bg-ink-50")">
                                         <span>L@(lvl.Key)</span>
                                         <span>@(lvl.Value.Played)×</span>
                                         @if (lvl.Value.Completed > 0)
                                         {
-                                            <span class="font-medium @WinTone.ForRate(lvl.Value.WinRate)">@($"{lvl.Value.WinRate:F0}")%</span>
+                                            <WinRateFigure Value="lvl.Value.WinRate"/>
                                         }
                                     </span>
                                 }
@@ -309,11 +251,11 @@
                 @* The headline record, stated not offered — the Stats button below is what opens
                    it. Nothing to state without a history: the button is then the only door, and
                    a passive "Details" pill beside it would be a dead copy of it. *@
-                @if (HasStats)
+                @if (Context.HasHistory)
                 {
                     <div class="mt-2">
                         <RecordChip Record="overall" Subject="@s.Name"
-                                    NeverLabel="@(_context.SubjectName is null ? "Never played" : $"{_context.SubjectName}: never played")"/>
+                                    NeverLabel="@(Context.SubjectName is null ? "Never played" : $"{Context.SubjectName}: never played")"/>
                     </div>
                 }
             </div>
@@ -321,12 +263,13 @@
             <div class="px-4 pb-3">
                 <div class="flex items-center gap-1.5">
                     <button type="button" @onclick="() => StartPick(s, aspects)"
-                            class="btn btn-sm btn-soft flex-1 gap-1.5 @(choosing ? "is-active" : "")">
+                            aria-expanded="@(aspects.Count > 0 ? Aria.Flag(choosing) : null)"
+                            class="btn btn-sm btn-soft flex-1 gap-1.5 @(choosing ? "is-active" : null)">
                         <Icon Name="check" Class="w-3.5 h-3.5"/>
                         Pick
                         @if (aspects.Count > 0)
                         {
-                            <Icon Name="chevron-down" Class="@($"w-3 h-3 transition-transform {(choosing ? "rotate-180" : "")}")"/>
+                            <Chevron Open="choosing" Class="w-3 h-3"/>
                         }
                     </button>
                     <button type="button" @onclick="() => ShowDetails(s)"
@@ -353,7 +296,7 @@
 
             @if (isSelected)
             {
-                <span class="absolute top-2 right-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-accent-600 text-white">
+                <span class="disc absolute top-2 right-2 h-5 w-5 bg-accent-600 text-white">
                     <Icon Name="check" Class="w-3 h-3"/>
                 </span>
             }
@@ -365,32 +308,25 @@
     private RenderFragment VariantRow(Spirit s, Aspect? aspect, string label, SetupInsights.PlayRecord? record) => __builder =>
     {
         var current = _currentSpiritId == s.Id.Value && _currentAspectId == aspect?.Id.Value;
-        var never = HasStats && record is not { Played: > 0 };
+        var never = Context.HasHistory && record is not { Played: > 0 };
 
-        <button type="button" @key="@(aspect?.Id.Value ?? "base")"
+        <button type="button" @key="@(aspect?.Id.Value ?? SetupInsights.BaseAspectKey)"
                 @onclick="() => Pick(new SpiritPick(s, aspect))"
-                title="@SetupInsights.RecordTooltip(label, record, _context.SubjectName, HasStats)"
+                title="@SetupInsights.RecordTooltip(label, record, Context.SubjectName, Context.HasHistory)"
                 class="@(current ? "border-accent-300 bg-accent-50" : "border-transparent hover:border-ink-200 hover:bg-ink-50")
                        flex w-full items-center gap-2 rounded-md border px-2 py-1 text-left text-[11px] transition-colors
-                       focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                       focus-ring">
             <span class="min-w-0 flex-1 truncate @(aspect is null ? "text-ink-600" : "text-ink-800")">@label</span>
             @* Without a history there is neither a count nor anything to be new against, so the
                row is the name alone. *@
             @if (never)
             {
-                <span class="shrink-0 text-[9px] font-semibold uppercase tracking-wide text-amber-700">new</span>
+                <span class="untried-mark shrink-0">new</span>
             }
             else if (record is { Played: > 0 })
             {
                 <span class="shrink-0 tabular-nums text-ink-500">@(record.Played)×</span>
-                @if (record.Completed > 0)
-                {
-                    <span class="w-8 shrink-0 text-right tabular-nums font-semibold @WinTone.ForRate(record.WinRate)">@($"{record.WinRate:F0}")%</span>
-                }
-                else
-                {
-                    <span class="w-8 shrink-0 text-right text-ink-300">—</span>
-                }
+                <WinRateFigure Value="record.WinRate" Completed="record.Completed" Class="w-8 shrink-0 text-right"/>
             }
         </button>
     };

@@ -1,5 +1,4 @@
 using System.IdentityModel.Tokens.Jwt;
-using Application.Abstractions;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
@@ -69,8 +68,6 @@ public static class AuthExtensions
                 // and the Auth0-specific /v2/logout redirect on sign-out.
                 options.EventsType = typeof(UserSyncOidcEvents);
             });
-
-        services.AddScoped<ICurrentUserService, CurrentUserService>();
 
         return services;
     }

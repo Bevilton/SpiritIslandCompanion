@@ -1,0 +1,16 @@
+@* One cell of a record readout: a .micro-label over the figure it captions, as a dt/dd pair for
+   the <dl> grids the saved result and the record sheet's headline are laid out in. The figure is
+   sans and semibold rather than .numeral, because half of these are words — "drafts only",
+   "1 h 30 min" — and all of them are tabular so a grid's second row lines up with its first.
+
+   The two grids had a copy each and had drifted a step apart on the weight. *@
+
+<div class="min-w-0">
+    <dt class="micro-label">@Label</dt>
+    <dd class="mt-0.5 truncate text-sm font-semibold tabular-nums text-ink-900">@Value</dd>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter, EditorRequired] public string Value { get; set; } = "";
+}

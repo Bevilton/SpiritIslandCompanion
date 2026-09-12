@@ -1,3 +1,35 @@
-<div class="flex items-center justify-center py-12">
-    <span class="inline-flex h-6 w-6 animate-spin rounded-full border-2 border-ink-200 border-t-accent-600" role="status" aria-label="Loading"></span>
-</div>
+@* The app's one spinner, in the places it appears: filling the page while it loads, Inline inside
+   a button that is saving, and OnDeep over the landing page's water. The button variant used to
+   be a second hand-written ring in Settings, with its own size and its own colours; the deep one
+   was the parchment ring drawn over night, where its track was invisible. *@
+
+@if (Inline)
+{
+    <span class="@Ring" role="status" aria-label="@Label"></span>
+}
+else
+{
+    <div class="flex items-center justify-center py-12">
+        <span class="@Ring" role="status" aria-label="@Label"></span>
+    </div>
+}
+
+@code {
+    /// <summary>Renders the ring alone, sized and coloured for a filled button, with no
+    /// surrounding block. Off by default, which is the whole-page wait.</summary>
+    [Parameter] public bool Inline { get; set; }
+
+    /// <summary>On deep chrome, where a parchment track disappears: the track is the water's own
+    /// light and the arc the jade the hero's eyebrow is lit in.</summary>
+    [Parameter] public bool OnDeep { get; set; }
+
+    /// <summary>What a screen reader is told is happening — "Saving" inside a save button.</summary>
+    [Parameter] public string Label { get; set; } = "Loading";
+
+    private string Ring =>
+        "inline-flex animate-spin rounded-full border-2 " + (Inline
+            ? "h-3.5 w-3.5 border-white/40 border-t-white"
+            : OnDeep
+                ? "h-6 w-6 border-deep-200/30 border-t-accent-300"
+                : "h-6 w-6 border-ink-200 border-t-accent-600");
+}

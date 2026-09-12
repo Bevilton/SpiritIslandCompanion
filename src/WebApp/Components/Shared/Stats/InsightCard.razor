@@ -1,13 +1,12 @@
-@* Compact "highlight" card for the overview page. Shows a title, a coloured
-   icon, a primary subject (e.g. a spirit's name), and a secondary stat.
-   With OnClick the whole card is a button — it opens the subject's record
-   sheet, the same affordance the catalogue cards have. *@
+@* Compact "highlight" card — the statistics tabs' answer to "most played", "highest win rate",
+   "toughest": a title, a coloured bar for a subject with a colour of its own, the subject's name,
+   and the one figure that earns it the card. With OnClick the whole card is a button — it opens
+   the subject's record sheet, the same affordance the catalogue cards have. *@
 
 @if (OnClick.HasDelegate)
 {
-    <button type="button" @onclick="OnClick" title="@($"{Subject} — details and full record")"
-            class="surface px-5 py-4 w-full text-left transition-all hover:-translate-y-px hover:shadow-sm
-                   focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+    <button type="button" @onclick="OnClick" title="@Copy.SheetTooltip(Subject)"
+            class="surface card-lift px-5 py-4 w-full text-left focus-ring">
         @Body
     </button>
 }
@@ -23,7 +22,8 @@ else
     [Parameter, EditorRequired] public string Metric { get; set; } = "";
     [Parameter] public string? MetricLabel { get; set; }
     [Parameter] public string? AccentColor { get; set; }
-    [Parameter] public string MetricColorClass { get; set; } = "text-ink-900";
+    /// <summary>Tone for the figure — usually WinTone's. Null leaves it in the body ink.</summary>
+    [Parameter] public string? MetricColorClass { get; set; }
 
     /// <summary>Opens the subject's record sheet. Omit for a passive card.</summary>
     [Parameter] public EventCallback OnClick { get; set; }
@@ -33,23 +33,23 @@ else
         <div class="flex items-start gap-3">
             @if (!string.IsNullOrEmpty(AccentColor))
             {
-                <span class="inline-block w-1.5 self-stretch rounded-full shrink-0" style="background-color: @AccentColor;"></span>
+                <ColorBar Size="full" Color="@AccentColor"/>
             }
             <div class="min-w-0 flex-1">
-                <div class="text-[10px] uppercase tracking-wide text-ink-500 font-medium">@Title</div>
+                <div class="micro-label">@Title</div>
                 <div class="mt-1 flex items-start justify-between gap-3">
                     <div class="min-w-0">
-                        <div class="text-base font-semibold text-ink-900 truncate" style="font-family: var(--font-serif);">@Subject</div>
+                        <div class="card-title truncate">@Subject</div>
                         @if (!string.IsNullOrEmpty(Secondary))
                         {
-                            <div class="mt-0.5 text-[11px] text-ink-500 truncate">@Secondary</div>
+                            <div class="row-sub mt-0.5 truncate">@Secondary</div>
                         }
                     </div>
                     <div class="text-right shrink-0">
-                        <div class="text-lg font-bold @MetricColorClass tabular-nums leading-none" style="font-family: var(--font-serif);">@Metric</div>
+                        <div class="numeral-display text-lg @(MetricColorClass ?? "text-ink-900")">@Metric</div>
                         @if (!string.IsNullOrEmpty(MetricLabel))
                         {
-                            <div class="text-[10px] uppercase tracking-wide text-ink-500 mt-1">@MetricLabel</div>
+                            <div class="micro-label mt-1">@MetricLabel</div>
                         }
                     </div>
                 </div>

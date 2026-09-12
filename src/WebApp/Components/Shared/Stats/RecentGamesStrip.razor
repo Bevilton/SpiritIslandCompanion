@@ -1,47 +1,39 @@
 @* Horizontal strip of the user's 5 most recent finished games — clickable cards that
-   navigate to the game detail. Drafts are filtered out upstream (see GetRecentGames);
-   the card still reads a game's status so the component works on any list of games. *@
+   navigate to the game detail. Drafts are filtered out upstream (see GetRecentGames), which is
+   why a RecentGameSummary carries an outcome and a score rather than the possibility of one:
+   the card reports a result, never a status.
+
+   A .surface like every other clickable card, with the outcome's edge as the one utility that
+   overrides its border — this was the one card in the app that spelled the surface out by hand
+   and so was the only raised card without the shadow. *@
 
 @if (Games.Count == 0)
 {
-    <div class="text-sm text-ink-500 py-6 text-center surface">No finished games yet.</div>
+    <div class="surface no-data">No finished games yet.</div>
 }
 else
 {
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
         @foreach (var g in Games)
         {
-            var isStandardGame = g.AdversaryIds.Count == 0 && g.ScenarioId is null;
-            var border = !g.IsCompleted ? "border-ink-200" : g.Win == true ? "border-accent-300" : "border-red-200";
-            var resultClass = !g.IsCompleted ? "text-ink-500" : g.Win == true ? "text-accent-700" : "text-red-700";
-            <a href="@GamesLink.Game(g.Id, null)" class="block rounded-xl border @border bg-white hover:shadow-sm hover:border-ink-300 transition-all p-4">
+            var title = GameLookups.MatchTitle(g.AdversaryIds, g.ScenarioId);
+            var border = g.Win ? "border-accent-300" : "border-red-200";
+            <a @key="g.Id" href="@GamesLink.Game(g.Id)" class="surface card-lift block p-4 @border focus-ring">
                 <div class="flex items-start justify-between gap-2 mb-2">
-                    <div class="text-[11px] uppercase tracking-wide text-ink-500">@g.StartedAt.DateTime.ToString("MMM dd")</div>
-                    <GameStatusBadge IsCompleted="g.IsCompleted" Win="g.Win"/>
+                    <div class="micro-label">@GameFormat.DayOnly(g.StartedAt.DateTime)</div>
+                    <GameStatusBadge IsCompleted="true" Win="g.Win"/>
                 </div>
-                <div class="text-sm font-semibold text-ink-900 truncate mb-1">
-                    @if (isStandardGame)
-                    {
-                        <span class="text-ink-500 font-normal italic">@GameLookups.StandardGameTitle</span>
-                    }
-                    else
-                    {
-                        @GameLookups.MatchTitle(g.AdversaryIds, g.ScenarioId)
-                    }
+                <div class="mb-1 truncate text-sm @GameLookups.MatchTitleTone(title)">@title</div>
+                <div class="row-sub mb-2 flex items-center justify-between">
+                    <span>@Copy.Count(g.PlayerCount, "player") · diff @g.Difficulty</span>
+                    <span class="numeral @WinTone.ForOutcome(g.Win)">@g.Score</span>
                 </div>
-                <div class="flex items-center justify-between text-[11px] text-ink-500 mb-2">
-                    <span>@g.PlayerCount @(g.PlayerCount == 1 ? "player" : "players") · diff @g.Difficulty</span>
-                    @if (g.IsCompleted && g.Score is { } sc)
-                    {
-                        <span class="@resultClass font-semibold tabular-nums" style="font-family: var(--font-serif);">@sc</span>
-                    }
-                </div>
-                <SpiritAvatarStack SpiritIds="g.SpiritIds" Max="4"/>
+                <SpiritAvatarStack SpiritIds="g.SpiritIds"/>
             </a>
         }
     </div>
 }
 
 @code {
-    [Parameter, EditorRequired] public IReadOnlyList<Application.Features.Statistics.RecentGameSummary> Games { get; set; } = [];
+    [Parameter, EditorRequired] public IReadOnlyList<RecentGameSummary> Games { get; set; } = [];
 }

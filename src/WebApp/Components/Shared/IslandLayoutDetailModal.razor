@@ -4,128 +4,82 @@
    from the player's library, whose picture is drawn from the geometry they saved.
 
    An island is the whole table's, so a host scopes it to a person by the games they sat
-   in rather than by seats — see AdversaryDetailModal.
+   in rather than by seats — see DetailSheetBase.
 
    The picture is the point of this sheet — it is the one place the island can be looked at
    properly rather than as a thumbnail in a grid — so it leads the body at full width instead
-   of sitting in the header at tile size.
-
-   z-60 keeps it above whatever opened it (the setup sidebar, the boards reference page). *@
-
-@using Application.Features.Statistics
+   of sitting in the header at tile size. *@
+@inherits DetailSheetBase
 
 @if (_open)
 {
-    <ModalShell OnClose="Close" ZIndex="z-[60]" MaxWidth="md:max-w-4xl">
-            <div class="relative border-b px-6 md:px-8 pt-6 pb-5 @HeaderTint">
-                <button class="absolute top-4 right-4 inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-500 hover:bg-white/60 hover:text-ink-900 transition-colors" @onclick="Close" aria-label="Close">
-                    <Icon Name="x" Class="w-5 h-5"/>
-                </button>
+    <ModalShell OnClose="Close" ZIndex="@SheetZIndex" MaxWidth="@SheetWidth">
+        <DetailModalHeader Title="@_name" OnClose="Close" TintClass="@HeaderTint">
+            <Badges>
+                <span class="badge badge-neutral">@Copy.Count(_boardCount, "board")</span>
+                @if (_setup?.IsThematic == true)
+                {
+                    <span class="badge badge-info">Thematic</span>
+                }
+                @if (_savedAt is { } saved)
+                {
+                    <span class="badge badge-success">Your shape</span>
+                    <span>· kept @SetupInsights.Ago(saved)</span>
+                }
+            </Badges>
+        </DetailModalHeader>
 
-                <div class="pr-10">
-                    <h2 class="text-2xl font-semibold text-ink-900 leading-tight" style="font-family: var(--font-serif);">@_name</h2>
-                    <div class="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
-                        <span class="badge badge-neutral">@_boardCount board@(_boardCount == 1 ? "" : "s")</span>
-                        @if (_setup?.IsThematic == true)
+        <div class="sheet-body space-y-6">
+            @* The island itself, as big as the sheet allows. *@
+            <div class="flex h-44 items-center justify-center rounded-xl border border-ink-200 bg-sky-50/40 p-3 md:h-72">
+                <IslandSetupDiagram Setup="_setup" Geometry="@_geometry" BoardCount="_boardCount"
+                                    Label="@_name"/>
+            </div>
+
+            @* The thematic island is the real island cut up, so which board goes where is
+               settled before anyone sits down — worth saying, since every other layout
+               leaves it entirely open. Slot order, as the picture is drawn. *@
+            @if (_regions is { Count: > 0 })
+            {
+                <div>
+                    <SectionHead Size="label" Level="3" Class="mb-2" Title="Boards on this island"
+                                 Note="Fixed — each board is a region"/>
+                    <div class="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                        @foreach (var boardId in _regions)
                         {
-                            <span class="badge badge-info">Thematic</span>
-                        }
-                        @if (_savedAt is { } saved)
-                        {
-                            <span class="badge badge-success">Your shape</span>
-                            <span class="text-ink-600">· kept @SetupInsights.Ago(saved)</span>
+                            var detail = BoardDetails.For(boardId);
+                            var color = GameLookups.BoardColor(detail);
+                            <div @key="boardId" class="flex items-center gap-2.5 rounded-lg border border-ink-200 bg-white px-2.5 py-2">
+                                <LetterTile Size="md" Color="@color" Text="@detail?.Letter"/>
+                                <span class="tile-title min-w-0 truncate">@detail?.ThematicName</span>
+                            </div>
                         }
                     </div>
                 </div>
-            </div>
+            }
 
-            <div class="overflow-y-auto px-6 md:px-8 py-5 space-y-6">
-                @* The island itself, as big as the sheet allows. *@
-                <div class="flex h-44 items-center justify-center rounded-xl border border-ink-200 bg-sky-50/40 p-3 md:h-72">
-                    <IslandSetupDiagram Setup="_setup" Geometry="@_geometry" BoardCount="_boardCount"
-                                        Label="@_name" Class="max-h-full max-w-full"/>
-                </div>
-
-                @* The thematic island is the real island cut up, so which board goes where is
-                   settled before anyone sits down — worth saying, since every other layout
-                   leaves it entirely open. Slot order, as the picture is drawn. *@
-                @if (_regions is { Count: > 0 })
-                {
-                    <div>
-                        <div class="mb-2 flex items-baseline justify-between gap-2">
-                            <h3 class="text-sm font-medium uppercase tracking-wide text-ink-500">Boards on this island</h3>
-                            <span class="text-[11px] text-ink-400">Fixed — each board is a region</span>
-                        </div>
-                        <div class="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                            @foreach (var boardId in _regions)
-                            {
-                                var detail = BoardDetails.For(boardId);
-                                var color = detail?.ColorHex ?? GameLookups.NeutralColor;
-                                <div class="flex items-center gap-2.5 rounded-lg border border-ink-200 bg-white px-2.5 py-2">
-                                    <span class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-[11px] font-semibold text-white"
-                                          style="background-color: @color; font-family: var(--font-serif);">@detail?.Letter</span>
-                                    <span class="min-w-0 truncate text-xs font-medium text-ink-900">@detail?.ThematicName</span>
-                                </div>
-                            }
-                        </div>
-                    </div>
-                }
-
-                @if (_profile is not null)
-                {
-                    <SetupProfileSection Profile="_profile" Name="@_name" Title="record on this island"
-                                         Scoped="@(SeatFilter is not null)" SubjectName="@SubjectName"
-                                         LinkGames="LinkGames"
-                                         AllGamesHref="@(LinkGames ? _gamesHref : null)"/>
-                }
-                else if (!ReferenceOnly)
-                {
-                    @* Only where a record was looked for. The public pages are a reference anyone
-                       can read and say nothing about the reader — as the spirit and adversary
-                       sheets don't either. *@
-                    <p class="text-sm text-ink-500 italic">No game history to show for this layout yet.</p>
-                }
-            </div>
+            @if (Profile is not null)
+            {
+                <SetupProfileSection Profile="Profile" Name="@_name" Title="record on this island"
+                                     Scoped="Scoped" SubjectName="@SubjectName"
+                                     LinkGames="LinkGames"
+                                     AllGamesHref="@_gamesHref"/>
+            }
+            else if (!ReferenceOnly)
+            {
+                <SheetNoRecord Subject="layout"/>
+            }
+        </div>
     </ModalShell>
 }
 
 @code {
-    /// <summary>
-    /// Personal game history. When there is any, the modal profiles the player's record on
-    /// this layout; empty or null falls back to a note (layouts carry no reference text).
-    /// </summary>
-    [Parameter] public IReadOnlyList<SetupGameFact>? Facts { get; set; }
-
-    /// <summary>
-    /// Set by a host that loads no history at all — the public reference pages. Without it an
-    /// empty <see cref="Facts"/> means "you have played nothing here", which is a claim about
-    /// the reader; a signed-in player browsing the public page has a record, just not one this
-    /// page went and fetched.
-    /// </summary>
-    [Parameter] public bool ReferenceOnly { get; set; }
-
-    /// <summary>Whether the record may link out to the games behind it — see AdversaryDetailModal.</summary>
-    [Parameter] public bool LinkGames { get; set; }
-
-    /// <summary>
-    /// Narrows the record to the games one person sat in — an island is the whole table's, so
-    /// there are no seats to filter. See AdversaryDetailModal.
-    /// </summary>
-    [Parameter] public Func<SetupFactSeat, bool>? SeatFilter { get; set; }
-
-    /// <summary>Whose record it is when it isn't the reader's own, e.g. "Anna".</summary>
-    [Parameter] public string? SubjectName { get; set; }
-
-    /// <summary>The same scope as a games-list <c>who</c> key, so the links out stay narrowed.</summary>
-    [Parameter] public string? ScopeWho { get; set; }
-
     private bool _open;
     private string _name = "";
     private int _boardCount;
     private IslandSetup? _setup;
     private string? _geometry;
     private DateTimeOffset? _savedAt;
-    private SetupProfiles.Profile? _profile;
 
     /// The games list narrowed to whichever island this sheet was opened for.
     private string? _gamesHref;
@@ -133,11 +87,13 @@
     /// <summary>The boards this island is made of, for a thematic layout; null for any other.</summary>
     private IReadOnlyList<BoardId>? _regions;
 
-    /// The header wears the kind's colour, the same three the tiles use.
-    private string HeaderTint =>
-        _savedAt is not null ? "border-accent-100 bg-accent-50/50"
-        : _setup?.IsThematic == true ? "border-sky-100 bg-sky-50/60"
-        : "border-ink-200 bg-ink-50/60";
+    /// The header wears the kind's tint — the same two classes the index tiles pick through
+    /// IslandTileBase.KindTint, so the sheet and the tile that opened it cannot drift apart. A
+    /// standard layout keeps DetailModalHeader's neutral band.
+    private string? HeaderTint =>
+        _savedAt is not null ? "tint-saved"
+        : _setup?.IsThematic == true ? "tint-thematic"
+        : null;
 
     /// <summary>A published layout, matched in the history by its setup id.</summary>
     public void Show(IslandSetup setup)
@@ -148,17 +104,11 @@
         _name = setup.Name;
         _boardCount = setup.NumberOfPlayers;
         _regions = ThematicIslandBoards.For(setup.Id);
-        var facts = Facts is { Count: > 0 } ? SetupProfiles.GamesWith(Facts, SeatFilter) : null;
-        _profile = facts is not null
-            ? SetupProfiles.Build(SetupSubjectKind.IslandLayout, setup.Id.Value, facts)
-            : null;
-        _gamesHref = GamesLink.ForIsland(setup.Id.Value, ScopeWho);
-        _open = true;
-        StateHasChanged();
+        Open(SetupSubjectKind.IslandLayout, setup.Id.Value, GamesLink.ForIsland(setup.Id.Value, ScopeWho));
     }
 
     /// <summary>A shape from the player's library, matched by the games' <c>CustomLayoutId</c>.</summary>
-    public void Show(Application.Features.IslandLayouts.IslandLayoutResponse saved)
+    public void Show(IslandLayoutResponse saved)
     {
         _setup = null;
         _geometry = saved.LayoutJson;
@@ -166,11 +116,16 @@
         _name = saved.Name;
         _boardCount = saved.BoardCount;
         _regions = null;
-        var facts = Facts is { Count: > 0 } ? SetupProfiles.GamesWith(Facts, SeatFilter) : null;
-        _profile = facts is not null
-            ? SetupProfiles.Build(SetupSubjectKind.SavedLayout, saved.Id.ToString(), facts)
-            : null;
-        _gamesHref = GamesLink.ForSavedLayout(saved.Id, ScopeWho);
+        Open(SetupSubjectKind.SavedLayout, saved.Id.ToString(), GamesLink.ForSavedLayout(saved.Id, ScopeWho));
+    }
+
+    /// The half of opening that is the same for either kind of island: profile it against the
+    /// scoped history and raise the sheet.
+    private void Open(SetupSubjectKind kind, string id, string gamesHref)
+    {
+        var facts = ScopedFacts();
+        Profile = facts is not null ? SetupProfiles.Build(kind, id, facts) : null;
+        _gamesHref = gamesHref;
         _open = true;
         StateHasChanged();
     }
@@ -182,7 +137,7 @@
         _geometry = null;
         _savedAt = null;
         _regions = null;
-        _profile = null;
+        Profile = null;
         _gamesHref = null;
     }
 }

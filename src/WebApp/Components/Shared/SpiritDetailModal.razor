@@ -8,145 +8,120 @@
    the profile below on that variant and a second tap widens back; in the picker a tap
    plays it, "No aspect" tile included, mirroring how a level is picked.
 
-   Whose history that is belongs to the host, not to this sheet: SeatFilter narrows it
-   to one person's seats and SubjectName names them. The catalogue pages pass neither,
-   so a sheet there is the whole account's; the statistics page passes its selector and
-   the setup screen the seat being filled. The sheet only reports which it is.
-
-   z-60 keeps it above the picker modals (z-50) that open it. *@
-
-@using Application.Features.Statistics
+   Whose history that is belongs to the host, not to this sheet — see DetailSheetBase.
+   The catalogue pages scope it to nobody, so a sheet there is the whole account's; the
+   statistics page passes its selector and the setup screen the seat being filled. The
+   sheet only reports which it is. *@
+@inherits DetailSheetBase
 
 @if (_spirit is not null)
 {
     var detail = _detail;
-    var color = detail?.ColorHex ?? GameLookups.NeutralColor;
+    var color = GameLookups.SpiritColor(detail);
 
-    <ModalShell OnClose="Close" ZIndex="z-[60]" MaxWidth="md:max-w-4xl">
-            @* Header band coloured by the spirit *@
-            <div class="px-6 md:px-8 pt-6 pb-5 relative" style="background: linear-gradient(135deg, @(color)18 0%, @(color)08 100%); border-bottom: 1px solid @(color)33;">
-                <button class="absolute top-4 right-4 inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-500 hover:bg-white/60 hover:text-ink-900 transition-colors" @onclick="Close" aria-label="Close">
-                    <Icon Name="x" Class="w-5 h-5"/>
-                </button>
-
-                <div class="flex items-start gap-4 pr-10">
-                    <span class="inline-block w-1.5 self-stretch rounded-full shrink-0" style="background-color: @color;"></span>
-                    <div class="min-w-0 flex-1">
-                        <h2 class="text-2xl font-semibold text-ink-900 leading-tight" style="font-family: var(--font-serif);">@_spirit.Name</h2>
-                        <div class="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
-                            <span class="badge badge-neutral">@GameLookups.ExpansionName(_spirit.ExpansionId)</span>
-                            @if (detail is not null)
-                            {
-                                <span class="badge" style="background-color: @(color)20; color: @color;">
-                                    @SpiritFilter.ComplexityLabel(detail.Complexity) complexity
-                                </span>
-                                <span class="text-ink-600">· @detail.PlayStyle</span>
-                            }
-                        </div>
-                        @if (detail is not null && (detail.Elements.Count > 0 || detail.Tokens.Count > 0))
+    <ModalShell OnClose="Close" ZIndex="@SheetZIndex" MaxWidth="@SheetWidth">
+        @* Header band coloured by the spirit *@
+        <DetailModalHeader Title="@_spirit.Name" OnClose="Close" TintStyle="@GameLookups.TintBandStyle(color)">
+            <Glyph>
+                <ColorBar Size="full" Color="@color"/>
+            </Glyph>
+            <Badges>
+                <span class="badge badge-neutral">@GameLookups.ExpansionName(_spirit.ExpansionId)</span>
+                @if (detail is not null)
+                {
+                    <span class="badge" style="@GameLookups.TintBadgeStyle(color)">
+                        @SpiritFilter.ComplexityLabel(detail.Complexity) complexity
+                    </span>
+                    <span>· @detail.PlayStyle</span>
+                }
+            </Badges>
+            <Extra>
+                @if (detail is not null && (detail.Elements.Count > 0 || detail.Tokens.Count > 0))
+                {
+                    <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+                        @if (detail.Elements.Count > 0)
                         {
-                            <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
-                                @if (detail.Elements.Count > 0)
-                                {
-                                    <div class="flex items-center gap-2">
-                                        <span class="text-[11px] uppercase tracking-wide text-ink-500">Elements</span>
-                                        <ElementBadges Elements="detail.Elements" Size="md"/>
-                                    </div>
-                                }
-                                @if (detail.Tokens.Count > 0)
-                                {
-                                    <div class="flex items-center gap-2">
-                                        <span class="text-[11px] uppercase tracking-wide text-ink-500">Tokens</span>
-                                        <TokenBadges Tokens="detail.Tokens" Size="md"/>
-                                    </div>
-                                }
+                            <div class="flex items-center gap-2">
+                                <span class="micro-label">Elements</span>
+                                <ElementBadges Elements="detail.Elements" Size="md"/>
+                            </div>
+                        }
+                        @if (detail.Tokens.Count > 0)
+                        {
+                            <div class="flex items-center gap-2">
+                                <span class="micro-label">Tokens</span>
+                                <TokenBadges Tokens="detail.Tokens" Size="md"/>
                             </div>
                         }
                     </div>
-                </div>
-            </div>
+                }
+            </Extra>
+        </DetailModalHeader>
 
-            @* Body *@
-            <div class="overflow-y-auto px-6 md:px-8 py-5 space-y-6">
-                @if (detail is not null)
+        @* Body *@
+        <div class="sheet-body space-y-6">
+            <SheetSummary Text="@detail?.Summary"/>
+
+            @* The variant strip: reference and switch in one, the spirit as printed leading
+               it. There used to be a chips row up here and a card list at the bottom saying
+               the same things twice — one strip in one shape, shared with nothing but styled
+               exactly like the adversary sheet's level tiles, replaces both. *@
+            @if (_aspects.Count > 0)
+            {
+                <div>
+                    <SectionHead Size="label" Level="3" Title="@AspectGridTitle"/>
+                    <div class="grid gap-1.5 sm:grid-cols-2">
+                        @AspectTile(null)
+                        @foreach (var aspect in _aspects)
+                        {
+                            @AspectTile(aspect)
+                        }
+                    </div>
+                    <p class="block-note mt-2">
+                        An aspect rewrites how the spirit plays.
+                        @if (OnSelected.HasDelegate)
+                        {
+                            <text>Tap a variant to play it.</text>
+                        }
+                        else if (Profile is not null)
+                        {
+                            <text>Tap one to focus the record on it — tap again for every variant.</text>
+                        }
+                    </p>
+                </div>
+            }
+
+            @if (Profile is not null)
+            {
+                <SetupProfileSection Profile="Profile" Name="@ProfileName"
+                                     Scoped="Scoped" SubjectName="@SubjectName"
+                                     Title="@ProfileTitle"
+                                     LinkGames="LinkGames"
+                                     AllGamesHref="@GamesLink.ForSpirit(_spirit.Id.Value, who: ScopeWho)"
+                                     AllGamesLabel="@(_scope is null ? "See all games" : "All games with this spirit")"
+                                     AllGamesSubject="@(_scope is null ? null : $"{_spirit.Name} (every variant)")"/>
+            }
+
+            <SheetWikiLink Name="@_spirit.Name"/>
+        </div>
+
+        @if (OnSelected.HasDelegate)
+        {
+            @* The variants above are the pick, exactly like the adversary sheet's levels
+               — except a spirit without any still needs a way to be taken. *@
+            <SheetFooter BackLabel="spirits" OnBack="Close">
+                @if (_aspects.Count > 0)
                 {
-                    @* Capped at prose width: the panel is wide for the record tables, not the text. *@
-                    <p class="max-w-prose text-ink-700 leading-relaxed">@detail.Summary</p>
+                    <span class="block-note">Pick a variant above to play this spirit.</span>
                 }
                 else
                 {
-                    <p class="text-ink-500 italic">No additional information available.</p>
-                }
-
-                @* The variant strip: reference and switch in one, the spirit as printed leading
-                   it. There used to be a chips row up here and a card list at the bottom saying
-                   the same things twice — one strip in one shape, shared with nothing but styled
-                   exactly like the adversary sheet's level tiles, replaces both. *@
-                @if (_aspects.Count > 0)
-                {
-                    <div>
-                        <h3 class="text-sm font-medium uppercase tracking-wide text-ink-500 mb-3">@AspectGridTitle</h3>
-                        <div class="grid gap-1.5 sm:grid-cols-2">
-                            @AspectTile(null)
-                            @foreach (var aspect in _aspects)
-                            {
-                                @AspectTile(aspect)
-                            }
-                        </div>
-                        <p class="mt-2 text-xs text-ink-500">
-                            An aspect rewrites how the spirit plays.
-                            @if (OnSelected.HasDelegate)
-                            {
-                                <text>Tap a variant to play it.</text>
-                            }
-                            else if (_profile is not null)
-                            {
-                                <text>Tap one to focus the record on it — tap again for every variant.</text>
-                            }
-                        </p>
-                    </div>
-                }
-
-                @if (_profile is not null)
-                {
-                    <SetupProfileSection Profile="_profile" Name="@ProfileName"
-                                         Scoped="@(SeatFilter is not null)" SubjectName="@SubjectName"
-                                         Title="@ProfileTitle"
-                                         LinkGames="LinkGames"
-                                         AllGamesHref="@(LinkGames ? GamesLink.ForSpirit(_spirit.Id.Value, who: ScopeWho) : null)"
-                                         AllGamesLabel="@(_scope is null ? "See all games" : "All games with this spirit")"
-                                         AllGamesSubject="@(_scope is null ? null : $"{_spirit.Name} (every variant)")"/>
-                }
-
-                <div class="pt-2">
-                    <a href="@GameLookups.WikiLink(_spirit.Name)" target="_blank" rel="noopener"
-                       class="inline-flex items-center gap-1 text-sm text-accent-700 hover:text-accent-800">
-                        Read on the Spirit Island wiki
-                        <Icon Name="arrow-right" Class="w-3.5 h-3.5"/>
-                    </a>
-                </div>
-            </div>
-
-            @if (OnSelected.HasDelegate)
-            {
-                <div class="flex items-center gap-3 border-t border-ink-100 bg-ink-50/40 px-6 md:px-8 py-3.5 md:rounded-b-2xl">
-                    <button type="button" class="btn btn-ghost btn-sm" @onclick="Close">
-                        <Icon Name="arrow-left" Class="w-3.5 h-3.5"/> Back to spirits
+                    <button type="button" class="btn btn-primary" @onclick="() => Select(null)">
+                        <Icon Name="check" Class="w-4 h-4"/> Play @_spirit.Name
                     </button>
-                    @* The variants above are the pick, exactly like the adversary sheet's levels
-                       — except a spirit without any still needs a way to be taken. *@
-                    @if (_aspects.Count > 0)
-                    {
-                        <span class="ml-auto text-xs text-ink-500">Pick a variant above to play this spirit.</span>
-                    }
-                    else
-                    {
-                        <button type="button" class="btn btn-primary ml-auto" @onclick="() => Select(null)">
-                            <Icon Name="check" Class="w-4 h-4"/> Play @_spirit.Name
-                        </button>
-                    }
-                </div>
-            }
+                }
+            </SheetFooter>
+        }
     </ModalShell>
 }
 
@@ -159,7 +134,7 @@
         var key = aspect?.Id.Value ?? SetupInsights.BaseAspectKey;
         var record = _aspectRecords?.GetValueOrDefault(key);
         var owned = aspect is null || Owns(aspect);
-        var tappable = OnSelected.HasDelegate ? owned : _profile is not null;
+        var tappable = OnSelected.HasDelegate ? owned : Profile is not null;
         var ringed = (OnSelected.HasDelegate ? _current : _scope) == key;
         var tile = TileClass(record is { Played: > 0 }, tappable, ringed);
         var tooltip = AspectTooltip(aspect, record, ringed, tappable);
@@ -167,7 +142,7 @@
         @if (tappable)
         {
             <button @key="key" type="button" @onclick="() => AspectTap(aspect)" title="@tooltip"
-                    class="@tile focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                    class="@tile focus-ring">
                 @AspectFace(aspect, record, owned)
             </button>
         }
@@ -182,7 +157,8 @@
     private RenderFragment AspectFace(Aspect? aspect, SetupInsights.PlayRecord? record, bool owned) => __builder =>
     {
         <div class="flex items-baseline gap-2">
-            <span class="text-sm font-medium text-ink-900">@(aspect?.Name ?? "No aspect")</span>
+            @* .row-title, as the pickers name the same variants — a name is a name. *@
+            <span class="row-title">@(aspect?.Name ?? "No aspect")</span>
             @if (!owned)
             {
                 <span class="badge badge-neutral shrink-0" title="Played at a table where someone else brought this expansion">
@@ -191,10 +167,10 @@
             }
             @if (aspect is not null)
             {
-                <span class="ml-auto shrink-0 text-[10px] uppercase tracking-wide text-ink-400">@GameLookups.ExpansionName(aspect.ExpansionId)</span>
+                <span class="ml-auto shrink-0 micro-label text-ink-400">@GameLookups.ExpansionName(aspect.ExpansionId)</span>
             }
         </div>
-        <p class="mt-1 text-xs leading-relaxed text-ink-600">
+        <p class="body-copy mt-1 text-xs">
             @(aspect is null ? "The spirit as printed, without a variant." : AspectDetails.For(aspect.Id)?.Summary)
         </p>
         @* The record line is drawn even when empty, so the tiles keep a common shape — the
@@ -202,9 +178,7 @@
         @if (_aspectRecords is not null)
         {
             <div class="mt-1.5 text-[10px] tabular-nums @WinTone.ForRecord(record)">
-                @(record is { Played: > 0 }
-                    ? $"{record.Played}×{(record.Completed > 0 ? $" · {record.WinRate:F0}%" : "")}"
-                    : "never played")
+                @(record is { Played: > 0 } ? SetupInsights.RecordLine(record) : "never played")
             </div>
         }
     };
@@ -212,47 +186,23 @@
 
 @code {
     /// <summary>
-    /// Null (default) shows every aspect; a non-null list restricts to aspects
-    /// from the listed expansions. The parent view passes this in; the modal
-    /// itself doesn't read auth state.
+    /// The reader's shelf, which decides which aspects are offered: null (an anonymous visitor,
+    /// the public routes) shows every aspect. The same cascade every picker reads — it was a
+    /// parameter, and the three hosts each forwarded the very value the cascade already carries.
     /// </summary>
-    [Parameter] public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
-
-    /// <summary>
-    /// Personal game history. When there is any, the modal profiles the player's record
-    /// with this spirit; empty or null hides the section entirely (plain reference sheet).
-    /// </summary>
-    [Parameter] public IReadOnlyList<SetupGameFact>? Facts { get; set; }
-
-    /// <summary>Whether the record may link out to the games behind it — see AdversaryDetailModal.</summary>
-    [Parameter] public bool LinkGames { get; set; }
-
-    /// <summary>
-    /// Narrows the record to one person's seats. Set by the hosts that have a scope of their own
-    /// — the statistics page's player selector, the seat being filled on the setup screen — and
-    /// left off by the reference pages, where a sheet is always the whole account's history. The
-    /// sheet states which of the two it is; there is no control inside it to change.
-    /// </summary>
-    [Parameter] public Func<SetupFactSeat, bool>? SeatFilter { get; set; }
-
-    /// <summary>Whose record it is when it isn't the reader's own, e.g. "Anna".</summary>
-    [Parameter] public string? SubjectName { get; set; }
-
-    /// <summary>The same scope as a games-list <c>who</c> key, so the links out stay narrowed.</summary>
-    [Parameter] public string? ScopeWho { get; set; }
+    [CascadingParameter(Name = CurrentUserState.OwnedExpansionsCascade)]
+    public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
 
     /// <summary>When set, the variant tiles pick this spirit as that variant — used when opened
     /// from the picker. A spirit without variants gets a footer action instead.</summary>
     [Parameter] public EventCallback<SpiritPick> OnSelected { get; set; }
 
     /// <summary>Whether the aspect is in the reader's collection — see the note in Show.</summary>
-    private bool Owns(Aspect aspect) =>
-        OwnedExpansions is null || OwnedExpansions.Contains(aspect.ExpansionId);
+    private bool Owns(Aspect aspect) => OwnedExpansions.Owns(aspect.ExpansionId);
 
     private Spirit? _spirit;
     private SpiritDetail? _detail;
     private IReadOnlyList<Aspect> _aspects = [];
-    private SetupProfiles.Profile? _profile;
 
     /// Per-aspect plays for this spirit; null when there is no history to report.
     private Dictionary<string, SetupInsights.PlayRecord>? _aspectRecords;
@@ -269,11 +219,10 @@
     private Aspect? ScopeAspect => _aspects.FirstOrDefault(a => a.Id.Value == _scope);
 
     /// The variant strip reports the same slice as the profile below it, so its heading names
-    /// the same owner — the way the adversary sheet's level grid does.
+    /// the same owner — RecordOwner, the way the adversary sheet's level grid does.
     private string AspectGridTitle =>
-        _profile is null ? "Aspects"
-        : SubjectName is { } name ? $"Aspects and {name}'s record"
-        : SeatFilter is not null ? "Aspects and your record"
+        Profile is null ? "Aspects"
+        : RecordOwner is { } owner ? $"Aspects and {owner} record"
         : "Aspects and record";
 
     /// What the profile is of follows the focus, so its heading and empty state name the
@@ -328,7 +277,7 @@
         _spirit = null;
         _detail = null;
         _aspects = [];
-        _profile = null;
+        Profile = null;
         _aspectRecords = null;
         _scope = null;
         _current = null;
@@ -356,10 +305,10 @@
     {
         if (_spirit is null || Facts is not { Count: > 0 })
         {
-            _profile = null;
+            Profile = null;
             return;
         }
-        _profile = _scope switch
+        Profile = _scope switch
         {
             null => SetupProfiles.Build(SetupSubjectKind.Spirit, _spirit.Id.Value, Facts, SeatFilter),
             SetupInsights.BaseAspectKey => SetupProfiles.Build(
@@ -369,16 +318,9 @@
         };
     }
 
-    /// <summary>Same shape the level tiles wear (AdversaryLevelGrid.TileClass), on a wider face.</summary>
+    /// <summary>Same chrome the level tiles wear, on a wider face.</summary>
     private static string TileClass(bool played, bool interactive, bool ringed) =>
-        string.Join(' ', new[]
-        {
-            "rounded-lg border p-3 text-left transition-colors",
-            ringed ? "border-accent-500 bg-accent-50 ring-1 ring-accent-500/30"
-                : played ? "border-ink-300 bg-white"
-                : "border-ink-200 bg-ink-50/60",
-            interactive ? "hover:border-accent-400 hover:bg-accent-50" : null,
-        }.Where(c => c is not null));
+        $"rounded-lg p-3 text-left {TileChrome.For(played, interactive, ringed)}";
 
     /// What the tile says on hover: the variant, the record with it, and what a tap will do —
     /// the same sentence shape the level tiles use.

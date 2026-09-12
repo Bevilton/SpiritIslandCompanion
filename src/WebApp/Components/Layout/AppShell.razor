@@ -16,10 +16,10 @@
    AppShell is the single subscriber to CurrentUserState. It loads the user context once and
    cascades the relevant pieces (currently OwnedExpansions) so descendant pages and shared
    components can stay auth-agnostic and just pull what they need via [CascadingParameter]. *@
-@inject WebApp.State.CurrentUserState UserState
+@inject CurrentUserState UserState
 @implements IDisposable
 
-<CascadingValue Value="@UserState.OwnedExpansions" Name="OwnedExpansions">
+<CascadingValue Value="@UserState.OwnedExpansions" Name="@CurrentUserState.OwnedExpansionsCascade">
 <div class="h-screen flex flex-col bg-ink-50">
 
 @* Full-width, above the sidebar, because it is about the whole app and not any one page. *@
@@ -28,10 +28,7 @@
 <div class="flex-1 flex min-h-0">
     <aside class="deep hidden md:flex w-60 shrink-0 flex-col">
         <div class="px-5 h-16 flex items-center border-b on-deep-rule">
-            <AuthorizeView>
-                <Authorized><Logo Href="/app/dashboard" OnDeep="true"/></Authorized>
-                <NotAuthorized><Logo Href="/" OnDeep="true"/></NotAuthorized>
-            </AuthorizeView>
+            @HomeLogo
         </div>
 
         <div class="flex-1 overflow-y-auto p-3">
@@ -49,7 +46,7 @@
                         var isDemo = DemoClaims.IsDemo(context.User);
                     }
                     <div class="flex items-center gap-3 px-2 py-1.5">
-                        <span class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold text-accent-900"
+                        <span class="disc h-8 w-8 text-sm font-semibold text-accent-900"
                               style="background-image: linear-gradient(160deg, var(--color-accent-300), var(--color-accent-500));">
                             @GetInitial(displayName)
                         </span>
@@ -57,14 +54,14 @@
                             <div class="text-sm font-medium text-ink-50 truncate" title="@displayName">
                                 @displayName
                             </div>
-                            <a href="@(isDemo ? "/demo/exit" : "/logout")" class="text-xs on-deep-muted hover:text-ink-50 inline-flex items-center gap-1 transition-colors">
+                            <a href="@(isDemo ? AppRoutes.DemoExit : AppRoutes.Logout)" class="link-on-deep inline-flex items-center gap-1 text-xs">
                                 <Icon Name="logout" Class="w-3.5 h-3.5"/> @(isDemo ? "Leave demo" : "Sign out")
                             </a>
                         </div>
                     </div>
                 </Authorized>
                 <NotAuthorized>
-                    <a href="/login" class="btn btn-glass w-full">
+                    <a href="@AppRoutes.Login" class="btn btn-glass w-full">
                         <Icon Name="login" Class="w-4 h-4"/> Sign in
                     </a>
                 </NotAuthorized>
@@ -74,14 +71,11 @@
 
     <div class="flex-1 flex flex-col min-w-0">
         <header class="deep md:hidden h-14 px-4 flex items-center justify-between">
-            <AuthorizeView>
-                <Authorized><Logo Href="/app/dashboard" OnDeep="true"/></Authorized>
-                <NotAuthorized><Logo Href="/" OnDeep="true"/></NotAuthorized>
-            </AuthorizeView>
-            <a href="/" class="text-sm on-deep-body hover:text-ink-50 transition-colors">Home</a>
+            @HomeLogo
+            <a href="@AppRoutes.Home" class="link-on-deep text-sm">Home</a>
         </header>
         <main class="flex-1 overflow-y-auto">
-            <div class="mx-auto max-w-6xl px-4 md:px-8 py-6 md:py-10">
+            <div class="page-shell py-6 md:py-10">
                 @ChildContent
             </div>
         </main>
@@ -92,19 +86,21 @@
 @* Asked once, on the first authenticated page an unnamed account lands on. *@
 <AuthorizeView>
     <Authorized>
-        <NicknamePrompt SuggestedName="@context.User.FindFirst(WebApp.Auth.UserSyncOidcEvents.SuggestedNameClaim)?.Value"/>
+        <NicknamePrompt SuggestedName="@AppClaims.GetSuggestedName(context.User)"/>
     </Authorized>
 </AuthorizeView>
 </CascadingValue>
 
-<div id="blazor-error-ui">
-    An unhandled error has occurred.
-    <a href="" class="reload">Reload</a>
-    <a class="dismiss">🗙</a>
-</div>
-
 @code {
     [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// Where the mark goes home to: the dashboard once signed in, the landing page in the moment
+    /// before RedirectToLogin lands. The sidebar and the mobile header each carry one, and they
+    /// sit far enough apart in the file to have drifted.
+    private RenderFragment HomeLogo => @<AuthorizeView>
+        <Authorized><Logo Href="@AppRoutes.Dashboard" OnDeep="true"/></Authorized>
+        <NotAuthorized><Logo Href="@AppRoutes.Home" OnDeep="true"/></NotAuthorized>
+    </AuthorizeView>;
 
     protected override async Task OnInitializedAsync()
     {

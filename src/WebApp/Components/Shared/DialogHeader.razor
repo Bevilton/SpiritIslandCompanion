@@ -1,0 +1,26 @@
+@* The band across the top of a workflow dialog: an eyebrow naming the act, the question the
+   dialog asks, a sentence of what will happen, and the close button. The two People dialogs
+   each carried a hand-rolled copy, and only one of them had remembered the ×. *@
+
+<div class="dialog-head">
+    <div class="flex items-start justify-between gap-4">
+        <div class="min-w-0">
+            <span class="eyebrow">@Eyebrow</span>
+            <h2 class="dialog-title-lg mt-2">@Title</h2>
+            <p class="body-note mt-1">@Subtitle</p>
+        </div>
+        <ModalCloseButton OnClick="OnClose"/>
+    </div>
+</div>
+
+@code {
+    /// <summary>What kind of act this is — "Link to an account", "Merge request".</summary>
+    [Parameter, EditorRequired] public string Eyebrow { get; set; } = "";
+
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+
+    /// <summary>The line under the title — what the dialog will do and who has to agree to it.</summary>
+    [Parameter, EditorRequired] public RenderFragment Subtitle { get; set; } = default!;
+
+    [Parameter, EditorRequired] public EventCallback OnClose { get; set; }
+}

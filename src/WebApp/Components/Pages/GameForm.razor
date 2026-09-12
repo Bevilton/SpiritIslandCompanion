@@ -4,21 +4,13 @@
 @inject ICurrentUserService CurrentUser
 @inject NavigationManager Nav
 
-<PageTitle>New Game</PageTitle>
+<AppPageTitle Title="New game"/>
 
-<div class="page-head">
-    <div>
-        <a href="/app/games" class="text-sm text-ink-500 hover:text-ink-700 flex w-fit items-center gap-1 mb-2">
-            <Icon Name="arrow-left" Class="w-3.5 h-3.5"/> Games
-        </a>
-        <span class="eyebrow">Record a match</span>
-        <h1 class="page-title mt-2">New game</h1>
-    </div>
-</div>
+<PageHeader Eyebrow="Record a match" Title="New game"
+            BackHref="@GamesLink.Path" BackLabel="Games" BackTitle="All your games"/>
 
 @* The only message this page raises is a save failure the error summary can't place on a field. *@
-<Alert Message="@_form.Message" Type="@_form.MessageType"/>
-<FormErrorSummary Errors="@_form.Errors" Attempt="_form.Attempt"/>
+<FormMessages Feedback="_form"/>
 
 @if (_loading)
 {
@@ -60,12 +52,12 @@ else
         @* --- top bar: scenario (left) · difficulty gauge (right) --- *@
         <div class="relative z-20 flex items-start justify-between gap-3 p-4 md:p-5">
             <div class="flex items-center gap-1.5">
-                <div class="inline-flex items-center rounded-full bg-white/85 backdrop-blur border border-white/70 shadow-sm">
-                    @{ var scen = ScenarioFor(_scenarioId); }
+                <div class="sea-chip inline-flex items-center">
+                    @{ var scen = GameLookups.ScenarioFor(_scenarioId); }
                     <button type="button" @onclick="OpenScenarioPicker"
-                            class="flex items-center gap-2 pl-1.5 pr-3 py-1.5 rounded-full hover:bg-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40"
+                            class="flex items-center gap-2 pl-1.5 pr-3 py-1.5 rounded-full hover:bg-white transition-colors focus-ring"
                             title="@(scen is null ? "Play a scenario (optional)" : $"Scenario: {scen.Name}")">
-                        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full @(scen is not null ? "bg-amber-100 text-amber-700" : "bg-ink-100 text-ink-500")">
+                        <span class="disc h-6 w-6 @(scen is not null ? "bg-amber-100 text-amber-700" : "bg-ink-100 text-ink-500")">
                             <Icon Name="book" Class="w-3.5 h-3.5"/>
                         </span>
                         @if (scen is not null)
@@ -74,7 +66,7 @@ else
                             @* Several scenarios are worth nothing extra — a "+0" badge is a number that says nothing. *@
                             @if (scen.Difficulty != 0)
                             {
-                                <span class="text-[10px] font-medium text-amber-700">+@scen.Difficulty</span>
+                                <span class="fine-note font-medium text-amber-700">+@scen.Difficulty</span>
                             }
                         }
                         else
@@ -85,107 +77,39 @@ else
                     @if (scen is not null)
                     {
                         <button type="button" @onclick="ClearScenario" aria-label="Remove scenario"
-                                class="mr-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-ink-400 hover:bg-red-50 hover:text-red-600 transition-colors">
+                                class="disc disc-remove mr-1 h-5 w-5 transition-colors">
                             <Icon Name="x" Class="w-3 h-3"/>
                         </button>
                     }
                 </div>
             </div>
 
-            <div class="relative">
-                <button type="button" @onclick="() => _difficultyBreakdownOpen = !_difficultyBreakdownOpen"
-                        class="relative z-30 flex h-20 w-20 flex-col items-center justify-center rounded-full bg-white border-2 border-amber-300 ring-4 ring-white/60 shadow-lg hover:scale-105 transition-transform focus:outline-none focus-visible:ring-amber-400/60"
-                        title="Total difficulty — tap for the breakdown">
-                    <span class="text-[9px] uppercase tracking-wider text-ink-500 font-semibold">Difficulty</span>
-                    <span class="text-3xl font-bold text-ink-900 leading-none" style="font-family: var(--font-serif);">@ComputedDifficulty</span>
-                </button>
-                @if (_difficultyBreakdownOpen)
-                {
-                    @* Full-page catcher so tapping anywhere dismisses the popover. *@
-                    <div class="fixed inset-0 z-20" @onclick="() => _difficultyBreakdownOpen = false"></div>
-                    <div class="absolute right-0 top-full mt-2 w-64 surface shadow-lg p-4 z-30 text-left">
-                        <div class="text-[10px] uppercase tracking-wider text-ink-500 font-semibold mb-2">Difficulty breakdown</div>
-                        @if (_adversaries.Count == 0 && string.IsNullOrEmpty(_scenarioId) && !_extraBoard && !_thematicMaps && _difficultyModifier == 0)
-                        {
-                            <div class="text-xs text-ink-600">Standard game — no adversary, scenario, or modifiers.</div>
-                        }
-                        else
-                        {
-                            <ul class="space-y-1 text-xs text-ink-700">
-                                @foreach (var a in _adversaries.Where(a => !string.IsNullOrEmpty(a.AdversaryId)))
-                                {
-                                    var adv = AdversaryFor(a.AdversaryId);
-                                    var mode = adv?.Modes.FirstOrDefault(m => m.Level == a.Level);
-                                    <li class="flex justify-between gap-2"><span class="truncate">@(adv?.Name ?? "Adversary") L@(a.Level)</span><span class="font-medium tabular-nums">+@(mode?.Difficulty ?? 0)</span></li>
-                                }
-                                @if (ScenarioFor(_scenarioId) is { } sc)
-                                {
-                                    <li class="flex justify-between gap-2"><span class="truncate">@sc.Name</span><span class="font-medium tabular-nums">+@sc.Difficulty</span></li>
-                                }
-                                @if (UsesExtraBoard)
-                                {
-                                    <li class="flex justify-between gap-2"><span>Extra board@(ExtraBoardLetter is { } el ? $" ({el})" : "")</span><span class="font-medium tabular-nums">+@GameRestrictions.ExtraBoardDifficultyBonus</span></li>
-                                }
-                                @if (_thematicMaps)
-                                {
-                                    <li class="flex justify-between gap-2"><span>Thematic maps</span><span class="font-medium tabular-nums">+@GameRestrictions.ThematicMapsDifficultyBonus</span></li>
-                                }
-                                @if (_difficultyModifier != 0)
-                                {
-                                    <li class="flex justify-between gap-2"><span>Manual modifier</span><span class="font-medium tabular-nums">@(_difficultyModifier > 0 ? "+" : "")@_difficultyModifier</span></li>
-                                }
-                                <li class="mt-1 flex justify-between gap-2 border-t border-ink-100 pt-1.5 font-semibold text-ink-900"><span>Total</span><span class="tabular-nums">@ComputedDifficulty</span></li>
-                            </ul>
-                        }
-                    </div>
-                }
-            </div>
+            <DifficultyDial Total="ComputedDifficulty" Lines="DifficultyContributions"/>
         </div>
 
         @* --- the sea: adversary ships --- *@
         <div class="relative z-10 mt-1 flex flex-wrap items-end justify-center gap-x-4 gap-y-3 px-4 md:px-8">
+            @* The sails' gradient, once for every ship on this water — see InvaderShip. *@
+            @InvaderShip.SailGradient
             @for (var i = 0; i < _adversaries.Count; i++)
             {
                 var idx = i;
                 var item = _adversaries[idx];
-                var adv = AdversaryFor(item.AdversaryId);
-                var mode = adv?.Modes.FirstOrDefault(m => m.Level == item.Level);
-                <div @key="item.Key" class="si-bob group relative" style="animation-delay: -@(idx * 1700)ms;">
-                    <button type="button" @onclick="() => OpenAdversaryPickerFor(idx)"
-                            class="flex flex-col items-center rounded-xl px-1 pb-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
-                            title="@(adv?.Name ?? "Adversary") — level @item.Level. Tap to change.">
-                        <svg viewBox="0 0 72 62" class="h-14 w-16 drop-shadow-md" aria-hidden="true">
-                            @* ember-500, the same pennant the landing page's fleet flies *@
-                            <path d="M36 3 L36 11 L47 7 Z" fill="#dc5b3c"/>
-                            <rect x="35" y="5" width="2.5" height="36" rx="1" fill="#44403c"/>
-                            <path d="M39.5 9 C53 15 55 29 39.5 37 Z" fill="#fef3c7" stroke="#e7e5e4" stroke-width="1"/>
-                            <path d="M34 13 C23.5 18 21.5 30 34 36 Z" fill="#ffffff" stroke="#e7e5e4" stroke-width="1"/>
-                            <path d="M13 41 L59 41 L53 54 Q36 58.5 19 54 Z" fill="#7c4a21"/>
-                            <path d="M13 41 L59 41 L57.2 45 L14.8 45 Z" fill="#96603a"/>
-                            <path d="M6 56 Q12 52.5 18 56 T30 56 T42 56 T54 56 T66 56" fill="none" stroke="#e0f2fe" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
-                        </svg>
-                        <span class="-mt-1 flex flex-col items-center rounded-xl bg-white/90 backdrop-blur px-2.5 py-1 shadow-sm border border-white/70 leading-tight">
-                            <span class="text-[11px] font-semibold text-ink-900 max-w-28 truncate">@(adv?.Name ?? "Adversary…")</span>
-                            <span class="text-[10px] text-ink-500">Level @item.Level · +@(mode?.Difficulty ?? 0)</span>
-                        </span>
-                    </button>
-                    <button type="button" @onclick="() => RemoveAdversary(idx)" aria-label="Remove adversary"
-                            class="absolute -top-1 -right-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white text-ink-400 border border-ink-200 shadow-sm opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-red-50 hover:text-red-600 transition-all">
-                        <Icon Name="x" Class="w-3 h-3"/>
-                    </button>
-                </div>
+                <AdversaryShip @key="item.Key" Adversary="GameLookups.AdversaryFor(item.AdversaryId)"
+                               Level="item.Level" Index="idx"
+                               OnOpen="() => OpenAdversaryPickerFor(idx)" OnRemove="() => RemoveAdversary(idx)"/>
             }
 
             @* ghost ship — add adversary. Light chip, dark text: this row sits in the pale sky
                band, where the white-on-dark styling of the ship chips below has nothing to
                contrast against. *@
             <button type="button" @onclick="OpenAdversaryPickerForNew"
-                    class="group flex flex-col items-center gap-1.5 rounded-xl px-2 py-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/50"
+                    class="group flex flex-col items-center gap-1.5 rounded-xl px-2 py-2 focus-ring-sea"
                     title="Add an adversary">
-                <span class="flex h-12 w-12 items-center justify-center rounded-full border-2 border-dashed border-sky-700/40 bg-white/50 text-sky-800 group-hover:border-sky-700/70 group-hover:bg-white/80 group-hover:scale-105 transition-all">
+                <span class="disc h-12 w-12 border-2 border-dashed border-sky-700/40 bg-white/50 text-sky-800 group-hover:border-sky-700/70 group-hover:bg-white/80 group-hover:scale-105 transition-all">
                     <Icon Name="plus" Class="w-5 h-5"/>
                 </span>
-                <span class="rounded-full border border-white/70 bg-white/85 px-2.5 py-0.5 text-[10px] font-medium text-ink-700 shadow-sm backdrop-blur">
+                <span class="sea-chip fine-note px-2.5 py-0.5 text-ink-700">
                     @(_adversaries.Count == 0 ? "Calm seas — add adversary" : "Add adversary")
                 </span>
             </button>
@@ -213,51 +137,51 @@ else
             {
                 var idx = i;
                 var p = _players[idx];
-                var spirit = SpiritFor(p.SpiritId);
-                var spiritDetail = spirit is null ? null : SpiritDetails.For(spirit.Id);
-                var color = spiritDetail?.ColorHex ?? GameLookups.NeutralColor;
-                var board = BoardFor(p.BoardId);
-                var letter = board is null ? null : GameLookups.BoardLetter(board);
+                var spirit = GameLookups.SpiritFor(p.SpiritId);
+                var color = GameLookups.SpiritColor(spirit);
+                var letter = GameLookups.BoardLetterFor(p.BoardId);
                 var hasError = HasPlayerError(idx);
 
                 <button @key="p.Key" type="button" @onclick="() => SelectPlayer(idx)"
-                        class="flex items-center gap-1.5 rounded-full border border-white/70 bg-white/90 px-2.5 py-1 text-[11px] font-medium text-ink-800 shadow-sm backdrop-blur transition-colors hover:bg-white">
-                    @if (spirit is not null)
-                    {
-                        <span class="h-2.5 w-2.5 shrink-0 rounded-full" style="background-color: @color;"></span>
-                    }
-                    else
-                    {
-                        <span class="h-2.5 w-2.5 shrink-0 rounded-full border border-dashed border-ink-400"></span>
-                    }
+                        class="sea-chip flex items-center gap-1.5 px-2.5 py-1 hover:bg-white">
+                    <ColorDot Size="sm" Color="@color" Empty="@(spirit is null)"/>
                     <span class="max-w-36 truncate">@(spirit?.Name ?? $"Player {idx + 1}")</span>
                     @if (letter is not null)
                     {
-                        <span class="rounded bg-ink-100 px-1 text-[9px] font-bold text-ink-600">@letter</span>
+                        <span class="@LetterChip">@letter</span>
                     }
                     @if (hasError)
                     {
-                        <span class="h-2 w-2 shrink-0 rounded-full bg-red-500 animate-pulse"></span>
+                        <ColorDot Class="bg-red-500 animate-pulse"/>
                     }
                 </button>
             }
             @if (UsesExtraBoard)
             {
                 @* Not a button on the thematic island: the letter comes with the position there,
-                   so there is nothing to choose. *@
+                   so there is nothing to choose. Wears the same bubble as the legend chips beside
+                   it, emptier and dashed: nothing is in it yet.
+
+                   Both remarks are up here rather than beside the attribute each is about, and
+                   that is not a style choice. A Razor comment written between two attributes is
+                   not stripped — it is emitted as an attribute NAME, so the browser is handed a
+                   setAttribute call whose name is the comment text and throws
+                   InvalidCharacterError, which takes the circuit down with it. It compiles
+                   clean and only fires the first time the element renders, which here is the
+                   moment the extra board is switched on. *@
                 <button type="button" @onclick="OpenExtraBoardPicker" disabled="@ThematicBoardsLocked"
                         title="@(ThematicBoardsLocked
                                   ? $"Board {ExtraBoardLetter} is the island position nobody plays — set by the thematic map"
                                   : ExtraBoardChosen
                                       ? $"Board {ExtraBoardLetter} is on the island with no spirit on it — tap to change"
                                       : "Choose which board is the extra one")"
-                        class="flex items-center gap-1.5 rounded-full border border-dashed px-2.5 py-1 text-[11px] font-medium backdrop-blur transition-colors
+                        class="sea-chip flex items-center gap-1.5 border-dashed px-2.5 py-1 shadow-none
                                @(ExtraBoardHasError
                                    ? "border-red-300 bg-red-50/80 text-red-700 enabled:hover:bg-red-50"
                                    : "border-white/80 bg-white/60 text-ink-600 enabled:hover:bg-white/85")">
                     @if (ExtraBoardChosen)
                     {
-                        <span class="rounded bg-ink-100 px-1 text-[9px] font-bold text-ink-600">@ExtraBoardLetter</span>
+                        <span class="@LetterChip">@ExtraBoardLetter</span>
                         <span>Extra board</span>
                         @if (ThematicBoardsLocked)
                         {
@@ -276,17 +200,20 @@ else
 
         @* --- player-count stepper --- *@
         <div class="relative z-10 flex justify-center pb-5 pt-4">
-            <div class="inline-flex items-center gap-1 rounded-full border border-white/70 bg-white/90 px-1.5 py-1 shadow-md backdrop-blur">
+            @* .sea-chip carries the shadow every other bubble on this water wears — this one had
+               its own heavier one, which is the single material property the register exists to
+               keep identical across the nine. *@
+            <div class="sea-chip inline-flex items-center gap-1 px-1.5 py-1">
                 <button type="button" @onclick="RemoveLastPlayer" disabled="@(_players.Count <= 1)"
-                        class="inline-flex h-7 w-7 items-center justify-center rounded-full text-ink-600 transition-colors hover:bg-ink-100 disabled:opacity-30 disabled:hover:bg-transparent"
+                        class="@StepperHandle"
                         aria-label="Remove last player">
                     <Icon Name="minus" Class="w-4 h-4"/>
                 </button>
                 <span class="px-2 text-sm font-semibold tabular-nums text-ink-900">
-                    @_players.Count <span class="font-normal text-ink-500">@(_players.Count == 1 ? "player" : "players")</span>
+                    @_players.Count <span class="font-normal text-ink-500">@Copy.Noun(_players.Count, "player")</span>
                 </span>
                 <button type="button" @onclick="AddPlayer" disabled="@(!CanAddPlayer)"
-                        class="inline-flex h-7 w-7 items-center justify-center rounded-full text-ink-600 transition-colors hover:bg-ink-100 disabled:opacity-30 disabled:hover:bg-transparent"
+                        class="@StepperHandle"
                         aria-label="Add player" title="@AddPlayerHint">
                     <Icon Name="plus" Class="w-4 h-4"/>
                 </button>
@@ -296,7 +223,7 @@ else
 
     @* Only what is actually on the table: no ship to tap until an adversary is out there, and
        no board to choose on the thematic island, which hands them out itself. *@
-    <p class="mt-2 text-xs text-ink-500">
+    <p class="block-note mt-2">
         Tap a board to select it, then <span class="font-medium text-ink-600">Set up</span>
         for its player, spirit@(ThematicBoardsLocked ? "" : " and board").
         @* On the thematic island the extra board's letter comes with its position, so there is
@@ -314,44 +241,34 @@ else
 
     @* ============================== OUTCOME (optional) ============================== *@
     <section class="mt-6">
-        <div class="rounded-2xl border transition-all
-                    @(_includeResult
-                        ? "border-amber-300 bg-gradient-to-br from-amber-50 via-white to-amber-50/40 shadow-sm"
-                        : "border-ink-200 bg-ink-50/40")">
+        @* Lit as the same amber invitation the game page uses only once the toggle is on;
+           until then it is one more quiet panel among the setup's. *@
+        <div class="transition-all @(_includeResult ? "panel-invite" : "panel-quiet")">
             <div class="px-5 md:px-6 py-4 flex flex-wrap items-center justify-between gap-3">
-                <div class="flex items-center gap-3">
-                    <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl @(_includeResult ? "bg-amber-100 text-amber-700" : "bg-ink-100 text-ink-500")">
-                        <Icon Name="trophy" Class="w-5 h-5"/>
-                    </span>
-                    <div>
-                        <div class="text-sm font-semibold text-ink-900">Did you finish this game?</div>
-                        <div class="text-xs text-ink-500">@(_includeResult ? "Recording outcome below." : "Toggle on to record victory/defeat and stats — or skip to save a draft.")</div>
-                    </div>
-                </div>
-                <label class="inline-flex items-center cursor-pointer select-none">
-                    <span class="text-xs font-medium text-ink-700 mr-2">@(_includeResult ? "Yes" : "Skip")</span>
-                    <span class="relative inline-flex h-6 w-11 items-center">
-                        <input type="checkbox" class="sr-only peer" @bind="_includeResult"/>
-                        <span class="absolute inset-0 rounded-full bg-ink-200 peer-checked:bg-amber-500 transition-colors"></span>
-                        <span class="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5"></span>
-                    </span>
+                <InviteHeader Title="Did you finish this game?" Lit="_includeResult"
+                              Sub="@(_includeResult ? "Recording outcome below." : "Toggle on to record victory/defeat and stats — or skip to save a draft.")"/>
+                @* Amber, not jade: this switch belongs to the invitation panel around it. The
+                   checkbox is what the label toggles and what paints the switch — see
+                   ToggleSwitch on why this one is a peer rather than a bool. *@
+                <label class="inline-flex cursor-pointer select-none items-center gap-2">
+                    <span class="text-xs font-medium text-ink-700">@(_includeResult ? "Yes" : "Skip")</span>
+                    <ToggleSwitch OnClass="peer-checked:bg-amber-500">
+                        <input type="checkbox" class="peer sr-only" @bind="_includeResult"/>
+                    </ToggleSwitch>
                 </label>
             </div>
 
             @if (_includeResult)
             {
                 <div class="border-t border-amber-200/60 bg-white/60 px-5 md:px-6 py-5">
-                    <GameResultEditor
-                        Difficulty="ComputedDifficulty"
-                        PlayerCount="_players.Count"
-                        Errors="_form.Errors"
-                        Win="_resultWin" WinChanged="v => _resultWin = v"
-                        TerrorLevel="_resultTerror" TerrorLevelChanged="v => _resultTerror = v"
-                        DurationMinutes="_resultDuration" DurationMinutesChanged="v => _resultDuration = v"
-                        Dahan="_resultDahan" DahanChanged="v => _resultDahan = v"
-                        Blight="_resultBlight" BlightChanged="v => _resultBlight = v"
-                        Cards="_resultCards" CardsChanged="v => _resultCards = v"
-                        ScoreModifier="_resultScoreMod" ScoreModifierChanged="v => _resultScoreMod = v"/>
+                    @* OnChanged is what pulls the action bar's live score along with the panel —
+                       the draft is this page's own object, so an edit inside the editor is not a
+                       parameter change the page would otherwise hear about. *@
+                    <GameResultEditor Result="_result"
+                                      Difficulty="ComputedDifficulty"
+                                      PlayerCount="_players.Count"
+                                      Errors="_form.Errors"
+                                      OnChanged="StateHasChanged"/>
                 </div>
             }
         </div>
@@ -372,10 +289,8 @@ else
         @* --- island shape: a published layout, one of your saved shapes, or a fresh
                hand-built arrangement. Thematic maps are the exception — see below. --- *@
         <section class="surface p-4">
-            <div class="mb-2.5 flex items-baseline justify-between gap-2">
-                <span class="text-xs font-medium uppercase tracking-wide text-ink-500">Island shape</span>
-                <span class="text-[11px] text-ink-500">@EffectiveBoardCount board@(EffectiveBoardCount == 1 ? "" : "s")@(_thematicMaps ? " · thematic" : "")</span>
-            </div>
+            <SectionHead Size="label" Class="mb-2.5" Title="Island shape"
+                         Note="@($"{Copy.Count(EffectiveBoardCount, "board")}{(_thematicMaps ? " · thematic" : "")}")"/>
 
             @if (_thematicMaps)
             {
@@ -385,14 +300,16 @@ else
                 {
                     <div class="flex items-center gap-3 rounded-xl border border-accent-300 bg-accent-50/60 p-2.5">
                         <div class="flex h-14 w-14 shrink-0 items-center justify-center">
-                            <IslandSetupDiagram Setup="thematic" Class="max-h-full max-w-full"/>
+                            <IslandSetupDiagram Setup="thematic"/>
                         </div>
                         <div class="min-w-0">
-                            <div class="flex items-center gap-1.5 text-[11px] font-semibold text-ink-900">
+                            @* .row-title over .row-sub at the sidebar's compact size — the pair every
+                               other named row is set in, which this card had spelled by hand. *@
+                            <div class="row-title flex items-center gap-1.5 text-[11px]">
                                 <Icon Name="lock" Class="w-3 h-3 text-accent-700"/> @thematic.Name island
                             </div>
-                            <p class="mt-0.5 text-[11px] leading-snug text-ink-600">
-                                One fixed arrangement for @EffectiveBoardCount board@(EffectiveBoardCount == 1 ? "" : "s"), and each board is a region of it — both are set for you.
+                            <p class="row-sub mt-0.5 leading-snug text-ink-600">
+                                One fixed arrangement for @Copy.Count(EffectiveBoardCount, "board"), and each board is a region of it — both are set for you.
                             </p>
                         </div>
                     </div>
@@ -405,10 +322,9 @@ else
                                 var boardId = regions[slot].Value;
                                 var detail = BoardDetails.For(regions[slot]);
                                 var unplayed = slot >= _players.Count;
-                                <span class="inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] @(unplayed ? "border-dashed border-ink-300 bg-white text-ink-400" : "border-ink-200 bg-white text-ink-700")"
+                                <span class="chip chip-sm px-1.5 @(unplayed ? "border-dashed border-ink-300 bg-white text-ink-400" : "chip-neutral")"
                                       title="@($"{ThematicPositionOf(boardId)} — board {detail?.Letter}{(unplayed ? " (extra board, nobody plays it)" : $", player {slot + 1}")}")">
-                                    <span class="inline-flex h-3.5 w-3.5 items-center justify-center rounded text-[8px] font-bold text-white"
-                                          style="background-color: @(unplayed ? "var(--color-ink-300)" : detail?.ColorHex ?? GameLookups.NeutralColor); font-family: var(--font-serif);">@detail?.Letter</span>
+                                    <LetterTile Size="2xs" Color="@(unplayed ? "var(--color-ink-300)" : GameLookups.BoardColor(detail))" Text="@detail?.Letter"/>
                                     <span>@detail?.ThematicName</span>
                                 </span>
                             }
@@ -426,10 +342,10 @@ else
                 }
                 else
                 {
-                    <div class="flex items-start gap-2 rounded-lg border border-red-300 bg-red-50/70 px-3 py-2.5 text-xs text-red-800">
+                    <div class="note flex items-start gap-2 border-red-300 bg-red-50/70 text-red-800">
                         <Icon Name="alert" Class="w-4 h-4 mt-px shrink-0"/>
                         <span>
-                            There is no thematic island for @EffectiveBoardCount board@(EffectiveBoardCount == 1 ? "" : "s") — the real
+                            There is no thematic island for @Copy.Count(EffectiveBoardCount, "board") — the real
                             island can't be divided that way. Turn <span class="font-medium">Thematic maps</span> off,
                             or change the number of boards.
                         </span>
@@ -440,8 +356,8 @@ else
             {
                 @if (SetupOptions.Count == 0 && SavedLayoutOptions.Count == 0)
                 {
-                    <div class="rounded-lg border border-dashed border-amber-300 bg-amber-50/60 px-3 py-2.5 text-xs text-amber-800">
-                        No layout is published for @EffectiveBoardCount boards —
+                    <div class="note untried">
+                        No layout is published for @Copy.Count(EffectiveBoardCount, "board") —
                         arrange the boards yourself on the island and it'll be saved as a custom shape.
                     </div>
                 }
@@ -456,7 +372,9 @@ else
                             <IslandChoiceTile @key="setup.Id.Value" Setup="setup"
                                               Selected="@(!IsCustomLayout && _islandSetupId == setup.Id.Value)"
                                               OnSelect="() => SelectIslandSetup(setup)"
-                                              Footer="@(_facts.Count > 0 ? SetupRecordPill(setup) : null)"/>
+                                              Footer="@(_facts.Count > 0
+                                                  ? RecordPill(_layoutRecords.GetValueOrDefault(setup.Id.Value), setup.Name, () => _layoutDetail.Show(setup))
+                                                  : null)"/>
                         }
                     </div>
                 }
@@ -465,7 +383,7 @@ else
                 @if (SavedLayoutOptions.Count > 0)
                 {
                     <div class="mt-3 border-t border-ink-100 pt-3">
-                        <div class="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-ink-500">Your saved shapes</div>
+                        <div class="micro-label mb-1.5">Your saved shapes</div>
                         @* The same tile as the published layouts above, drawn from the geometry the
                            shape was saved with: picking an island should be picking between pictures,
                            whoever the island came from. The bin is the one addition — these are the
@@ -476,7 +394,9 @@ else
                                 <IslandChoiceTile @key="saved.Id" Saved="saved"
                                                   Selected="@(_savedLayoutId == saved.Id)"
                                                   OnSelect="() => SelectSavedLayout(saved)"
-                                                  Footer="@(_facts.Count > 0 ? SavedRecordPill(saved) : null)"
+                                                  Footer="@(_facts.Count > 0
+                                                      ? RecordPill(_savedLayoutRecords.GetValueOrDefault(saved.Id), saved.Name, () => _layoutDetail.Show(saved))
+                                                      : null)"
                                                   Action="@SavedLayoutBin(saved)"/>
                             }
                         </div>
@@ -486,8 +406,8 @@ else
                 @* --- hand-built: name it to keep it --- *@
                 @if (IsCustomLayout)
                 {
-                    <div class="mt-3 rounded-lg border border-accent-300 bg-accent-50/60 px-3 py-2.5">
-                        <div class="flex items-start gap-2 text-[11px] text-accent-900">
+                    <div class="note mt-3 border-accent-300 bg-accent-50/60">
+                        <div class="flex items-start gap-2 text-accent-900">
                             <Icon Name="check-circle" Class="w-3.5 h-3.5 mt-px shrink-0"/>
                             <span>
                                 @if (SelectedSavedLayout is { } from)
@@ -519,7 +439,7 @@ else
                    panel away with it, and the confirmation would have gone with it. *@
                 @if (_layoutMessage is not null)
                 {
-                    <div class="mt-2 text-[11px] @(_layoutSaved ? "text-accent-800" : "text-red-700")">@_layoutMessage</div>
+                    <div class="section-note mt-2 @(_layoutSaved ? "text-accent-800" : "text-red-700")">@_layoutMessage</div>
                 }
             }
             <FieldError For="IslandSetupId" Errors="@_form.Errors"/>
@@ -530,94 +450,63 @@ else
            instead, so its hover fill still follows the card's corners. *@
         <section class="surface">
             <button type="button" @onclick="() => _fineTuneOpen = !_fineTuneOpen"
-                    class="@(_fineTuneOpen ? "rounded-t-xl" : "rounded-xl") flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors hover:bg-ink-50/60">
+                    aria-expanded="@Aria.Flag(_fineTuneOpen)"
+                    class="@(_fineTuneOpen ? "rounded-t-xl" : "rounded-xl") flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors hover:bg-ink-50/60 focus-ring">
                 <div class="flex min-w-0 items-center gap-2.5">
-                    <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-ink-100 text-ink-600">
-                        <Icon Name="settings" Class="w-4 h-4"/>
-                    </span>
+                    <IconChip Name="settings" Size="md" Tone="bg-ink-100 text-ink-600"/>
                     <div class="min-w-0">
-                        <div class="text-sm font-semibold text-ink-900">Fine-tune</div>
+                        <div class="row-title">Fine-tune</div>
                         <div class="mt-0.5 flex flex-wrap items-center gap-1">
-                            <span class="badge badge-neutral text-[10px]"><Icon Name="calendar" Class="w-3 h-3"/> @_datePlayed.ToString("MMM d, yyyy") · @_timePlayed.ToString("HH:mm")</span>
+                            <span class="badge badge-sm badge-neutral"><Icon Name="calendar" Class="w-3 h-3"/> @GameFormat.Date(_datePlayed) · @GameFormat.TimeOfDay(_timePlayed)</span>
                             @if (UsesExtraBoard)
                             {
-                                <span class="badge @(ExtraBoardHasError ? "badge-warn" : "badge-info") text-[10px]">
+                                <span class="badge badge-sm @(ExtraBoardHasError ? "badge-warn" : "badge-info")">
                                     Extra board@(ExtraBoardLetter is { } el ? $" {el}" : " — pick one")
                                 </span>
                             }
                             @if (_thematicMaps)
                             {
-                                <span class="badge badge-info text-[10px]">Thematic</span>
+                                <span class="badge badge-sm badge-info">Thematic</span>
                             }
                             @if (_difficultyModifier != 0)
                             {
-                                <span class="badge badge-warn text-[10px]">Mod @(_difficultyModifier > 0 ? "+" : "")@_difficultyModifier</span>
+                                <span class="badge badge-sm badge-warn">Mod @GameFormat.Signed(_difficultyModifier)</span>
                             }
                         </div>
                     </div>
                 </div>
-                <Icon Name="chevron-down" Class="@($"w-4 h-4 text-ink-400 shrink-0 transition-transform {(_fineTuneOpen ? "rotate-180" : "")}")"/>
+                <Chevron Open="_fineTuneOpen"/>
             </button>
 
             @if (_fineTuneOpen)
             {
                 <div class="space-y-4 border-t border-ink-100 px-4 py-4">
-                    @* aria-pressed has to be the literal "true"/"false": handed a bool, Blazor
-                       drops the attribute for false and renders it empty for true, so the
-                       toggle's state never reaches a screen reader. *@
-                    <div role="button" tabindex="0" aria-pressed="@(_extraBoard ? "true" : "false")"
-                         @onclick="ToggleExtraBoard"
-                         @onkeydown="OnExtraBoardKey"
-                         class="flex items-center justify-between gap-3 rounded-xl border @(_extraBoard ? "border-accent-300 bg-accent-50/50" : "border-ink-200 bg-white") px-3.5 py-3 select-none @(ExtraBoardAllowed ? "cursor-pointer hover:border-ink-300" : "opacity-50 cursor-not-allowed")">
-                        <div class="min-w-0 flex items-start gap-1.5">
-                            <div>
-                                <div class="text-sm font-semibold text-ink-900">Extra board</div>
-                                <div class="text-[11px] text-ink-500">
-                                    @(ExtraBoardAllowed
-                                        ? $"{_players.Count + 1} boards · +{GameRestrictions.ExtraBoardDifficultyBonus} difficulty"
-                                        : _players.Count > GameRestrictions.MaximumPlayersForExtraBoard
-                                            ? "Disabled for 6 players"
-                                            : $"You own {OwnedBoardCount} boards — all of them are in play")
-                                </div>
-                            </div>
-                            <span @onclick:stopPropagation="true" @onkeydown:stopPropagation="true" class="mt-0.5">
-                                @* Centred, not anchored to this trigger: the sidebar is barely wider
-                                   than the popover, so anchoring runs it off the card. *@
-                                @* Where the "which letter?" question gets explained — a hint beside
-                                   the field, not the error that fires when it is blank. *@
-                                <InfoHint Position="center">
-                                    Adds one extra board to the island (so @_players.Count @(_players.Count == 1 ? "player plays" : "players play") on @(_players.Count + 1) boards). Only allowed for 1–5 players. Adds <span class="text-ink-900">+@GameRestrictions.ExtraBoardDifficultyBonus</span> difficulty.
-                                    <span class="mt-1.5 block">You still choose <span class="text-ink-900">which</span> board it is: each letter has its own terrain, and there is only one copy of each, so it can't be a board somebody is playing.</span>
-                                </InfoHint>
-                            </span>
-                        </div>
-                        <span class="relative inline-flex h-6 w-11 items-center shrink-0 rounded-full transition-colors @(_extraBoard ? "bg-accent-500" : "bg-ink-200")">
-                            <span class="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform @(_extraBoard ? "translate-x-5" : "")"></span>
-                        </span>
-                    </div>
+                    <ToggleRow Title="Extra board" On="_extraBoard"
+                               Disabled="@(!ExtraBoardAllowed)" OnToggle="ToggleExtraBoard">
+                        <Sub>
+                            @(ExtraBoardAllowed
+                                ? $"{_players.Count + 1} boards · +{GameRestrictions.ExtraBoardDifficultyBonus} difficulty"
+                                : _players.Count > GameRestrictions.MaximumPlayersForExtraBoard
+                                    ? "Disabled for 6 players"
+                                    : $"You own {Copy.Count(OwnedBoardCount, "board")} — all of them are in play")
+                        </Sub>
+                        @* Where the "which letter?" question gets explained — a hint beside the
+                           field, not the error that fires when it is blank. *@
+                        <Hint>
+                            Adds one extra board to the island (so @_players.Count @(_players.Count == 1 ? "player plays" : "players play") on @(_players.Count + 1) boards). Only allowed for 1–5 players. Adds <span class="text-ink-900">+@GameRestrictions.ExtraBoardDifficultyBonus</span> difficulty.
+                            <span class="mt-1.5 block">You still choose <span class="text-ink-900">which</span> board it is: each letter has its own terrain, and there is only one copy of each, so it can't be a board somebody is playing.</span>
+                        </Hint>
+                    </ToggleRow>
 
-                    <div role="button" tabindex="0" aria-pressed="@(_thematicMaps ? "true" : "false")"
-                         @onclick="ToggleThematicMaps"
-                         @onkeydown="OnThematicMapsKey"
-                         class="flex items-center justify-between gap-3 rounded-xl border @(_thematicMaps ? "border-accent-300 bg-accent-50/50" : "border-ink-200 bg-white") px-3.5 py-3 select-none cursor-pointer hover:border-ink-300">
-                        <div class="min-w-0 flex items-start gap-1.5">
-                            <div>
-                                <div class="text-sm font-semibold text-ink-900">Thematic maps</div>
-                                <div class="text-[11px] text-ink-500">+@GameRestrictions.ThematicMapsDifficultyBonus difficulty · fixed island</div>
-                            </div>
-                            <span @onclick:stopPropagation="true" @onkeydown:stopPropagation="true" class="mt-0.5">
-                                <InfoHint Position="center">
-                                    Plays the real island's own shape instead of an arrangement of your own. There is one thematic island per board count, so the layout is fixed — and none exists for 5 boards. Adds <span class="text-ink-900">+@GameRestrictions.ThematicMapsDifficultyBonus</span> difficulty.
-                                </InfoHint>
-                            </span>
-                        </div>
-                        <span class="relative inline-flex h-6 w-11 items-center shrink-0 rounded-full transition-colors @(_thematicMaps ? "bg-accent-500" : "bg-ink-200")">
-                            <span class="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform @(_thematicMaps ? "translate-x-5" : "")"></span>
-                        </span>
-                    </div>
+                    <ToggleRow Title="Thematic maps" On="_thematicMaps" OnToggle="ToggleThematicMaps">
+                        <Sub>+@GameRestrictions.ThematicMapsDifficultyBonus difficulty · fixed island</Sub>
+                        <Hint>
+                            Plays the real island's own shape instead of an arrangement of your own. There is one thematic island per board count, so the layout is fixed — and none exists for 5 boards. Adds <span class="text-ink-900">+@GameRestrictions.ThematicMapsDifficultyBonus</span> difficulty.
+                        </Hint>
+                    </ToggleRow>
 
                     <div>
-                        <label class="label flex items-center gap-1.5">
+                        <label class="label label-hint">
                             <span>Difficulty modifier</span>
                             <InfoHint Position="center">
                                 Manual <strong class="text-ink-900">+/− adjustment</strong> for homemade variants or anything the standard formula doesn't cover. Leave at 0 for ordinary games. Allowed range: @GameRestrictions.DifficultyModifierMin to +@GameRestrictions.DifficultyModifierMax.
@@ -643,50 +532,43 @@ else
 
         @* --- note --- *@
         <section class="surface p-4">
-            <label class="label">Note</label>
-            <textarea class="textarea" rows="3" @bind="_note" placeholder="Optional game notes — anything memorable…"></textarea>
-            <FieldError For="Note" Errors="@_form.Errors"/>
+            <NoteField @bind-Value="_note" Errors="@_form.Errors"
+                       Placeholder="Optional game notes — anything memorable…"/>
         </section>
     </aside>
 
     </div> @* /lg:grid *@
 
     @* ============================== ACTIONS ============================== *@
-    <div class="sticky bottom-3 z-10 mt-6">
-        <div class="surface px-4 md:px-5 py-3 flex flex-wrap items-center gap-3 shadow-lg">
-            <span class="inline-flex items-center gap-1.5 rounded-full bg-accent-50 border border-accent-200 px-3 py-1.5 text-sm font-semibold text-accent-900">
-                <span class="text-[10px] uppercase tracking-wider text-accent-700 font-semibold">Difficulty</span>
-                <span class="tabular-nums" style="font-family: var(--font-serif);">@ComputedDifficulty</span>
-            </span>
+    <ActionBar Class="mt-6" HintClass="@(SetupBlockedReason is null ? null : "text-red-700")">
+        <Stats>
+            <ActionBarStat Label="Difficulty" Value="ComputedDifficulty"/>
             @if (_includeResult)
             {
-                <span class="inline-flex items-center gap-1.5 rounded-full @(_resultWin ? "bg-accent-50 border-accent-200 text-accent-900" : "bg-red-50 border-red-200 text-red-900") border px-3 py-1.5 text-sm font-semibold">
-                    <span class="text-[10px] uppercase tracking-wider font-semibold opacity-70">Score</span>
-                    <span class="tabular-nums" style="font-family: var(--font-serif);">@ComputedScore</span>
-                </span>
+                <ActionBarStat Label="Score" Value="ComputedScore" Loss="!_result.Win"/>
             }
-            @* min-w-0 + truncate: the hint gives way on narrow screens rather than pushing
-               Cancel onto a second line. *@
-            <div class="text-xs mr-auto hidden sm:block min-w-0 flex-1 truncate @(SetupBlockedReason is null ? "text-ink-500" : "text-red-700")">
-                @if (SetupBlockedReason is { } blocked) { <span>@blocked</span> }
-                else if (_includeResult) { <span>Saving as a <strong class="text-ink-800">finished game</strong>.</span> }
-                else { <span>Saving as a <strong class="text-ink-800">draft</strong> — fill in outcome anytime.</span> }
-            </div>
+        </Stats>
+        <Hint>
+            @if (SetupBlockedReason is { } blocked) { <span>@blocked</span> }
+            else if (_includeResult) { <span>Saving as a <strong class="text-ink-800">finished game</strong>.</span> }
+            else { <span>Saving as a <strong class="text-ink-800">draft</strong> — fill in outcome anytime.</span> }
+        </Hint>
+        <Actions>
             @if (_includeResult)
             {
-                <button class="btn btn-primary" @onclick="SaveCompleted" disabled="@(_saving || SetupBlockedReason is not null)">
-                    <Icon Name="check-circle" Class="w-4 h-4"/> Save completed game
+                <button type="button" class="btn btn-primary" @onclick="SaveCompleted" disabled="@(_saving || SetupBlockedReason is not null)">
+                    <ActionGlyph Icon="check-circle" Busy="_saving"/> Save completed game
                 </button>
             }
             else
             {
-                <button class="btn btn-primary" @onclick="SaveDraft" disabled="@(_saving || SetupBlockedReason is not null)">
-                    <Icon Name="save" Class="w-4 h-4"/> Save as draft
+                <button type="button" class="btn btn-primary" @onclick="SaveDraft" disabled="@(_saving || SetupBlockedReason is not null)">
+                    <ActionGlyph Icon="save" Busy="_saving"/> Save as draft
                 </button>
             }
-            <a href="/app/games" class="btn btn-ghost">Cancel</a>
-        </div>
-    </div>
+            <a href="@GamesLink.Path" class="btn btn-ghost">Cancel</a>
+        </Actions>
+    </ActionBar>
 
     @* ============================== PLAYER MODAL ============================== *@
     @* z-40 — deliberately below the spirit/board picker modals (z-50) so those stack on top. *@
@@ -694,36 +576,33 @@ else
     {
         var idx = _selectedPlayerIndex;
         var p = _players[idx];
-        var spirit = SpiritFor(p.SpiritId);
-        var spiritDetail = spirit is null ? null : SpiritDetails.For(spirit.Id);
-        var color = spiritDetail?.ColorHex ?? GameLookups.NeutralColor;
+        var spirit = GameLookups.SpiritFor(p.SpiritId);
+        var spiritDetail = GameLookups.DetailFor(spirit);
+        var color = GameLookups.SpiritColor(spiritDetail);
         var aspects = GetAspectsForSpirit(p.SpiritId);
-        var board = BoardFor(p.BoardId);
-        var boardDetail = board is null ? null : BoardDetails.For(board.Id);
+        var board = GameLookups.BoardFor(p.BoardId);
+        var boardDetail = GameLookups.DetailFor(board);
         var hasSpirit = spirit is not null;
 
         @* Scrollable: three steps plus a spirit's aspects outgrow a short phone screen, and the
-           Done button has to stay reachable. *@
+           Done button has to stay reachable.
+
+           Topped in the seat's spirit colour, the same band the seat's card on the saved game
+           wears — .top-accent's own fallback covers the seat before a spirit is chosen. *@
         <ModalShell OnClose="ClosePlayerModal" ZIndex="z-40"
-                    PanelStyle="@($"border-top: 4px solid {(hasSpirit ? color : "var(--color-ink-300)")};")">
-                <div class="flex shrink-0 items-center justify-between gap-3 px-5 pt-4 pb-3 border-b border-ink-100">
-                    <span class="inline-flex items-center gap-2 text-xs font-medium text-ink-500">
-                        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold"
-                              style="@(hasSpirit ? $"background-color: {color}; color: white;" : "background-color: var(--color-ink-100); color: var(--color-ink-600);")">
-                            @(idx + 1)
-                        </span>
-                        <span class="uppercase tracking-wide">Player @(idx + 1) of @_players.Count</span>
-                    </span>
-                    <button type="button" @onclick="ClosePlayerModal" aria-label="Close"
-                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-500 hover:bg-ink-100 hover:text-ink-900 transition-colors">
-                        <Icon Name="x" Class="w-5 h-5"/>
-                    </button>
+                    PanelClass="top-accent-lg"
+                    PanelStyle="@(hasSpirit ? $"--top-accent: {color};" : null)">
+                @* .dialog-head, the band every other dialog opens with — a step shallower here,
+                   since it holds only the seat badge and not a title over a line of prose. *@
+                <div class="dialog-head flex shrink-0 items-center justify-between gap-3 py-4">
+                    <SeatBadge Number="idx + 1" Total="_players.Count" Color="@(hasSpirit ? color : null)"/>
+                    <ModalCloseButton OnClick="ClosePlayerModal"/>
                 </div>
 
                 @* Player first, then spirit, then board — each step narrows the records the next
                    one is measured against: whose history, then which spirit's, then that pair
                    on each board. Choosing in any other order shows numbers for the wrong seat. *@
-                <div class="flex-1 overflow-y-auto p-5">
+                <div class="picker-body">
                     <div class="grid gap-4">
                         <div>
                             <label class="label">@StepLabel(1, "Played by")</label>
@@ -735,49 +614,34 @@ else
                             <FieldError For="@($"Players[{idx}].AssignedTo")" Errors="@_form.Errors"/>
                             @if (_facts.Count > 0)
                             {
-                                <div class="mt-1.5 flex items-start gap-1.5 text-[11px] text-ink-500">
-                                    <Icon Name="chart" Class="w-3.5 h-3.5 shrink-0 mt-px text-ink-400"/>
-                                    <span>@ScopeNote(p)</span>
-                                </div>
+                                <IconNote Icon="chart" Class="mt-1.5">@ScopeNote(p)</IconNote>
                             }
                         </div>
 
                         <div>
                             <label class="label">@StepLabel(2, "Spirit")</label>
+                            @* The same control the assignee step above it is — see .field-button.
+                               Dashed until a spirit is chosen, which is the one part that says
+                               something here. *@
                             <button type="button" @onclick="() => OpenSpiritPicker(idx)"
-                                    class="w-full flex items-center gap-3 px-3 py-2 rounded-lg border bg-white hover:bg-ink-50 transition-colors text-left
-                                           focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/30
-                                           @(hasSpirit ? "border-ink-200" : "border-dashed border-ink-300")">
+                                    class="field-button w-full gap-3
+                                           @(hasSpirit ? null : "border-dashed border-ink-300")">
                                 @if (spirit is not null)
                                 {
-                                    <span class="inline-block h-9 w-1.5 rounded-full shrink-0" style="background-color: @color;"></span>
-                                    <div class="min-w-0 flex-1">
-                                        <div class="text-sm font-semibold text-ink-900 truncate">@spirit.Name</div>
-                                        @if (spiritDetail is not null)
-                                        {
-                                            <div class="text-[11px] text-ink-500 truncate">@spiritDetail.PlayStyle</div>
-                                        }
-                                    </div>
-                                    @if (spiritDetail is not null)
-                                    {
-                                        <ElementBadges Elements="spiritDetail.Elements" Size="sm"/>
-                                    }
+                                    <SpiritLine Color="@color" Detail="spiritDetail">
+                                        <Name>@spirit.Name</Name>
+                                    </SpiritLine>
                                 }
                                 else
                                 {
-                                    <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-ink-100 text-ink-500 shrink-0">
-                                        <Icon Name="sparkles" Class="w-4 h-4"/>
-                                    </span>
+                                    <IconChip Name="sparkles" Tone="bg-ink-100 text-ink-500"/>
                                     <span class="text-sm text-ink-500 truncate min-w-0 flex-1">Choose a spirit…</span>
                                 }
                             </button>
                             <FieldError For="@($"Players[{idx}].SpiritId")" Errors="@_form.Errors"/>
                             @if (_facts.Count > 0 && hasSpirit && SeatInsightLine(p) is { } insight)
                             {
-                                <div class="mt-1.5 flex items-start gap-1.5 text-[11px] text-ink-500">
-                                    <Icon Name="chart" Class="w-3.5 h-3.5 shrink-0 mt-px text-ink-400"/>
-                                    <span>@insight</span>
-                                </div>
+                                <IconNote Icon="chart" Class="mt-1.5">@insight</IconNote>
                             }
                             @* An aspect is a variant of the spirit above, so it belongs to that step
                                rather than trailing the dialog as a fourth thing to decide. It can
@@ -785,7 +649,7 @@ else
                             @if (hasSpirit && aspects.Count > 0)
                             {
                                 <div class="mt-2 flex flex-wrap items-center gap-1.5">
-                                    <span class="mr-0.5 text-[10px] uppercase tracking-wide text-ink-500">Aspect</span>
+                                    <span class="mr-0.5 micro-label">Aspect</span>
                                     <AspectChips Aspects="aspects" ShowBase="true"
                                                  Records="@(_facts.Count > 0 ? SeatAspectRecords(p) : null)"
                                                  SelectedAspectId="@(string.IsNullOrEmpty(p.AspectId) ? SetupInsights.BaseAspectKey : p.AspectId)"
@@ -797,7 +661,7 @@ else
 
                         <div>
                             <div class="flex items-center justify-between gap-2">
-                                <label class="label mb-0 flex items-center gap-1.5">
+                                <label class="label label-hint mb-0">
                                     <span>@StepLabel(3, "Board")</span>
                                     @if (ThematicBoardsLocked)
                                     {
@@ -806,8 +670,10 @@ else
                                 </label>
                                 @if (!ThematicBoardsLocked)
                                 {
+                                    @* .section-link — the way onward at the end of a heading row,
+                                       like every other one in the app. *@
                                     <button type="button" @onclick="() => OpenBoardPicker(idx)"
-                                            class="text-[11px] text-accent-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40 rounded">
+                                            class="section-link rounded focus-ring">
                                         Board sheets →
                                     </button>
                                 }
@@ -816,15 +682,12 @@ else
                                the map, so it is shown rather than chosen. *@
                             @if (ThematicBoardsLocked && board is not null)
                             {
-                                var bColor = boardDetail?.ColorHex ?? GameLookups.NeutralColor;
+                                var bColor = GameLookups.BoardColor(boardDetail);
                                 <div class="mt-1.5 flex w-full items-center gap-2 rounded-lg border border-ink-200 bg-ink-50/60 px-3 py-2">
-                                    <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base font-semibold text-white"
-                                          style="background-color: @bColor; font-family: var(--font-serif);">
-                                        @GameLookups.BoardLetter(board)
-                                    </span>
+                                    <LetterTile Size="xl" Color="@bColor" Text="@GameLookups.BoardLetter(board)"/>
                                     <div class="min-w-0 flex-1">
-                                        <div class="truncate text-sm font-semibold text-ink-900">@board.Name</div>
-                                        <div class="truncate text-[11px] text-ink-500">
+                                        <div class="row-title truncate">@board.Name</div>
+                                        <div class="row-sub truncate">
                                             @(boardDetail?.ThematicName ?? "thematic position") · set by the island
                                         </div>
                                     </div>
@@ -847,16 +710,16 @@ else
                             <FieldError For="@($"Players[{idx}].BoardId")" Errors="@_form.Errors"/>
                             @if (BoardNote(p, idx) is { } boardNote)
                             {
-                                <div class="mt-1.5 flex items-start gap-1.5 text-[11px] text-ink-500">
-                                    <Icon Name="map" Class="w-3.5 h-3.5 shrink-0 mt-px text-ink-400"/>
-                                    <span>@boardNote</span>
-                                </div>
+                                <IconNote Icon="map" Class="mt-1.5">@boardNote</IconNote>
                             }
                         </div>
                     </div>
                 </div>
 
-                <div class="flex shrink-0 items-center justify-between gap-3 px-5 py-3.5 border-t border-ink-100 bg-ink-50/40 md:rounded-b-2xl">
+                @* An action at each end rather than a row of them at one, so it is not .dialog-foot:
+                   removing the seat and being done with it are opposite answers to the dialog. The
+                   band itself is .picker-foot, the same one the reference sheets end with. *@
+                <div class="picker-foot shrink-0 justify-between">
                     @if (_players.Count > 1)
                     {
                         <button type="button" class="btn btn-sm btn-danger-outline" @onclick="() => RemovePlayer(idx)">
@@ -889,6 +752,22 @@ else
 <IslandLayoutDetailModal @ref="_layoutDetail" Facts="_facts"/>
 
 @code {
+    /// <summary>
+    /// One end of the player-count stepper: a round handle that fades where it can go no further
+    /// rather than leaving the bubble lopsided. The two were spelled out separately, and a
+    /// stepper whose halves answer the pointer differently reads as broken.
+    /// </summary>
+    private const string StepperHandle =
+        "disc h-7 w-7 text-ink-600 transition-colors focus-ring "
+        + "hover:bg-ink-100 disabled:opacity-30 disabled:hover:bg-transparent";
+
+    /// <summary>
+    /// A board's letter inside the island legend's chip. Not a <see cref="LetterTile"/>: that
+    /// carries the board's own colour, and these sit inside a chip already tinted by whether the
+    /// seat is filled — a second colour there would be saying something the legend doesn't mean.
+    /// </summary>
+    private const string LetterChip = "rounded bg-ink-100 px-1 text-[9px] font-bold text-ink-600";
+
     private bool _loading = true;
     private bool _saving;
     /// Field errors are shown against their fields, anything left over becomes the page alert,
@@ -921,30 +800,38 @@ else
 
     private int _selectedPlayerIndex = -1; // which island tile has its player modal open; -1 = none
     private bool _fineTuneOpen;
-    private bool _difficultyBreakdownOpen;
 
-    [CascadingParameter(Name = "OwnedExpansions")]
+    [CascadingParameter(Name = CurrentUserState.OwnedExpansionsCascade)]
     public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
 
     private int ComputedDifficulty =>
-        Domain.Services.DifficultyCalculator.Compute(
-            scenarioDifficulty: string.IsNullOrEmpty(_scenarioId) ? 0 : ScenarioFor(_scenarioId)?.Difficulty ?? 0,
+        DifficultyCalculator.Compute(
+            scenarioDifficulty: string.IsNullOrEmpty(_scenarioId) ? 0 : GameLookups.ScenarioFor(_scenarioId)?.Difficulty ?? 0,
             adversaryDifficulties: _adversaries
                 .Where(a => !string.IsNullOrEmpty(a.AdversaryId))
-                .Select(a => AdversaryFor(a.AdversaryId)?.Modes.FirstOrDefault(m => m.Level == a.Level)?.Difficulty ?? 0),
+                .Select(a => GameLookups.AdversaryFor(a.AdversaryId)?.Modes.FirstOrDefault(m => m.Level == a.Level)?.Difficulty ?? 0),
             usesExtraBoard: UsesExtraBoard,
             usesThematicMaps: _thematicMaps,
             modifier: _difficultyModifier);
 
-    private int ComputedScore =>
-        Domain.Services.ScoreCalculator.Compute(
-            win: _resultWin,
-            difficulty: ComputedDifficulty,
-            dahan: _resultDahan,
-            cards: _resultCards,
-            blight: _resultBlight,
-            playerCount: _players.Count,
-            scoreModifier: _resultScoreMod);
+    /// <summary>
+    /// What the dial's breakdown lists — the same terms the number above it is computed from.
+    /// Empty means a standard game, which the panel says in words rather than as an empty list.
+    /// <para>
+    /// <see cref="UsesExtraBoard"/> rather than the raw toggle: a board the table can no longer
+    /// hold adds nothing to the difficulty, so a setup still carrying one is a standard game.
+    /// </para>
+    /// </summary>
+    private IReadOnlyList<BreakdownLine> DifficultyContributions =>
+        DifficultyBreakdown.Of(
+            _adversaries.Where(a => !string.IsNullOrEmpty(a.AdversaryId)).Select(a => (a.AdversaryId, a.Level)),
+            _scenarioId,
+            UsesExtraBoard,
+            ExtraBoardLetter,
+            _thematicMaps,
+            _difficultyModifier);
+
+    private int ComputedScore => _result.Score(ComputedDifficulty, _players.Count);
 
     /// <summary>
     /// The lettered boards the player actually has, since boards come with expansions: four in
@@ -952,8 +839,7 @@ else
     /// chooses from, and the cap on how many boards the island can hold — however many seats
     /// the rules would otherwise allow.
     /// </summary>
-    private IReadOnlyList<Board> OwnedBoards =>
-        GameData.Boards.Where(b => OwnedExpansions is null || OwnedExpansions.Contains(b.ExpansionId)).ToList();
+    private IReadOnlyList<Board> OwnedBoards => OwnedCatalogue.Boards(OwnedExpansions);
 
     private int OwnedBoardCount => OwnedBoards.Count;
 
@@ -974,10 +860,10 @@ else
 
     /// Whether the form has complained about the extra board — the same "only after a submit"
     /// rule the seats follow, so the island doesn't single this one field out for early scolding.
-    private bool ExtraBoardHasError => _form.Errors.HasFor(nameof(Application.Features.Games.DraftGameCommand.ExtraBoardId));
+    private bool ExtraBoardHasError => _form.Errors.HasFor(nameof(DraftGameCommand.ExtraBoardId));
 
     private string? ExtraBoardLetter =>
-        BoardFor(_extraBoardId) is { } b ? GameLookups.BoardLetter(b) : null;
+        GameLookups.BoardLetterFor(_extraBoardId);
 
     /// The extra board's letter is only meaningful while an extra board is on the table — sent
     /// as null otherwise, which is what the server insists on.
@@ -1016,16 +902,6 @@ else
         EnsureIslandSetup();
     }
 
-    private void OnExtraBoardKey(KeyboardEventArgs e)
-    {
-        if (e.Key is " " or "Enter") ToggleExtraBoard();
-    }
-
-    private void OnThematicMapsKey(KeyboardEventArgs e)
-    {
-        if (e.Key is " " or "Enter") ToggleThematicMaps();
-    }
-
     /// The single thematic island for the current board count, or null where the real
     /// island has no such division (five boards).
     private IslandSetup? ThematicSetup => IslandSetups.ThematicFor(EffectiveBoardCount);
@@ -1056,7 +932,7 @@ else
 
     /// The island region a seat's board stands for — "Northeast", "West".
     private static string? ThematicPositionOf(string boardId) =>
-        GameLookups.BoardFor(boardId) is { } board ? BoardDetails.For(board.Id)?.ThematicName : null;
+        GameLookups.DetailFor(GameLookups.BoardFor(boardId))?.ThematicName;
 
     /// <summary>
     /// Why this setup can't be saved at all, if it can't — only ever a contradiction between
@@ -1066,7 +942,7 @@ else
     /// </summary>
     private string? SetupBlockedReason =>
         _thematicMaps && ThematicSetup is null
-            ? $"No thematic island exists for {EffectiveBoardCount} boards — turn Thematic maps off or change the board count."
+            ? $"No thematic island exists for {Copy.Count(EffectiveBoardCount, "board")} — turn Thematic maps off or change the board count."
             : null;
 
     /// Keeps the selection consistent with the board count and the thematic toggle.
@@ -1112,8 +988,8 @@ else
     }
 
     private List<PlayerFormItem> _players = [new()];
-    private List<Application.Features.Friendships.FriendResponse> _friends = [];
-    private List<Application.Features.Players.ListPlayersResponse> _localPlayers = [];
+    private List<FriendResponse> _friends = [];
+    private List<ListPlayersResponse> _localPlayers = [];
 
     private List<AdversaryFormItem> _adversaries = [];
 
@@ -1122,23 +998,26 @@ else
     private int _difficultyModifier;
 
     private bool _includeResult;
-    private bool _resultWin = true;
-    private TerrorLevel _resultTerror = TerrorLevel.First;
-    private int _resultDuration = 60;
-    private int _resultDahan;
-    private int _resultBlight;
-    private int _resultCards;
-    private int _resultScoreMod;
+
+    /// The outcome, while the "did you finish this game?" panel is open. Kept whether or not the
+    /// panel is showing, so toggling it off and on again doesn't lose what was typed.
+    private readonly GameResultDraft _result = new();
+
     private string? _note;
 
     protected override async Task OnInitializedAsync()
     {
-        if (CurrentUser.UserId is not { } userId) return;
+        // Without a user there is nothing to load — drop the spinner rather than spin forever.
+        if (CurrentUser.UserId is not { } userId)
+        {
+            _loading = false;
+            return;
+        }
 
-        var friendsResult = await Mediator.Send(new Application.Features.Friendships.ListFriendsQuery(userId));
-        var playersResult = await Mediator.Send(new Application.Features.Players.ListPlayersQuery(userId));
-        var factsResult = await Mediator.Send(new Application.Features.Statistics.GetSetupFactsQuery(userId));
-        var layoutsResult = await Mediator.Send(new Application.Features.IslandLayouts.ListIslandLayoutsQuery(userId));
+        var friendsResult = await Mediator.Send(new ListFriendsQuery(userId));
+        var playersResult = await Mediator.Send(new ListPlayersQuery(userId));
+        var factsResult = await Mediator.Send(new GetSetupFactsQuery(userId));
+        var layoutsResult = await Mediator.Send(new ListIslandLayoutsQuery(userId));
 
         if (layoutsResult.IsSuccess) _savedLayouts = layoutsResult.Value;
         if (friendsResult.IsSuccess) _friends = friendsResult.Value;
@@ -1158,9 +1037,9 @@ else
 
     /// Personal game history, loaded once; all matchup stats on this page are
     /// computed from it in-memory, so browsing the setup costs no round-trips.
-    private List<Application.Features.Statistics.SetupGameFact> _facts = [];
-    private Dictionary<string, SetupInsights.PlayRecord> _layoutRecords = new();
-    private Dictionary<Guid, SetupInsights.PlayRecord> _savedLayoutRecords = new();
+    private List<SetupGameFact> _facts = [];
+    private Dictionary<string, SetupInsights.PlayRecord> _layoutRecords = [];
+    private Dictionary<Guid, SetupInsights.PlayRecord> _savedLayoutRecords = [];
 
     /// The table as it stands — what every picker measures its stats against.
     private SetupInsights.MatchupContext TableContext => new(_facts, AdversaryPicks, _scenarioId);
@@ -1172,7 +1051,7 @@ else
     {
         var filter = SeatFilterFor(seat.AssignedTo);
         // Your own numbers need no attribution; someone else's have to say whose they are.
-        var subject = seat.AssignedTo != "me" && filter is not null ? AssigneeLabel(seat.AssignedTo) : null;
+        var subject = !SeatAssignee.IsMe(seat.AssignedTo) && filter is not null ? AssigneeLabel(seat.AssignedTo) : null;
         return new SetupInsights.MatchupContext(_facts, AdversaryPicks, _scenarioId, filter, subject);
     }
 
@@ -1186,10 +1065,7 @@ else
         _players.Select(p => p.SpiritId).Where(id => !string.IsNullOrEmpty(id)).ToList();
 
     private IReadOnlyList<string> CandidateSpiritIds =>
-        GameData.Spirits
-            .Where(s => OwnedExpansions is null || OwnedExpansions.Contains(s.ExpansionId))
-            .Select(s => s.Id.Value)
-            .ToList();
+        OwnedCatalogue.Spirits(OwnedExpansions).Select(s => s.Id.Value).ToList();
 
     private bool HasOpenSeat => _players.Any(p => string.IsNullOrEmpty(p.SpiritId));
 
@@ -1205,13 +1081,11 @@ else
     /// Seat filter for the person assigned to a seat — a friend's or local
     /// player's stats when the seat is theirs, the user's own seats for "me",
     /// null (the own-seats heuristic) for unassigned seats.
-    private static Func<Application.Features.Statistics.SetupFactSeat, bool>? SeatFilterFor(string assignedTo)
+    private static Func<SetupFactSeat, bool>? SeatFilterFor(string assignedTo)
     {
-        if (assignedTo == "me") return s => s.IsMine;
-        if (assignedTo.StartsWith("friend:") && Guid.TryParse(assignedTo["friend:".Length..], out var uid))
-            return s => s.UserId == uid;
-        if (assignedTo.StartsWith("player:") && Guid.TryParse(assignedTo["player:".Length..], out var pid))
-            return s => s.PlayerId == pid;
+        if (SeatAssignee.IsMe(assignedTo)) return s => s.IsMine;
+        if (SeatAssignee.FriendId(assignedTo) is { } uid) return s => s.UserId == uid;
+        if (SeatAssignee.PlayerId(assignedTo) is { } pid) return s => s.PlayerId == pid;
         return null;
     }
 
@@ -1219,7 +1093,7 @@ else
     /// each one decides whose numbers the next step shows.
     private static RenderFragment StepLabel(int step, string text) => __builder =>
     {
-        <span class="inline-flex h-4 w-4 items-center justify-center rounded-full bg-ink-100 text-[9px] font-bold text-ink-600 mr-1.5 align-middle">@step</span>
+        <span class="disc mr-1.5 h-4 w-4 bg-ink-100 align-middle text-[9px] font-bold text-ink-600">@step</span>
         <span>@text</span>
     };
 
@@ -1232,11 +1106,11 @@ else
         if (SeatFilterFor(p.AssignedTo) is not { } filter)
             return "Records below cover every seat you have recorded.";
 
-        var whose = p.AssignedTo == "me" ? "yours" : $"{AssigneeLabel(p.AssignedTo)}'s";
+        var whose = SeatAssignee.IsMe(p.AssignedTo) ? "yours" : $"{AssigneeLabel(p.AssignedTo)}'s";
         var games = _facts.Count(g => g.Seats.Any(filter));
         return games == 0
             ? $"Records below are {whose} — no games recorded yet."
-            : $"Records below are {whose} — {games} game{(games == 1 ? "" : "s")} recorded.";
+            : $"Records below are {whose} — {Copy.Count(games, "game")} recorded.";
     }
 
     /// One-line history for the seat's assignee and spirit in the player modal,
@@ -1257,7 +1131,7 @@ else
         }
         else if (matchup?.Broad is { Played: > 0 } broad && context.BroadLabel is { } broadLabel)
         {
-            parts.Add($"First time {scope} — {broadLabel}: {broad.Played}×{(broad.Completed > 0 ? $" · {broad.WinRate:F0}%" : "")}");
+            parts.Add($"First time {scope} — {broadLabel}: {SetupInsights.RecordLine(broad)}");
         }
         else
         {
@@ -1278,7 +1152,7 @@ else
 
     /// What the strip's counts count, for its tooltips — "with Lightning's Swift Strike".
     private string? BoardScopeLabel(PlayerFormItem p) =>
-        SpiritFor(p.SpiritId) is { } spirit ? $"with {spirit.Name}" : null;
+        GameLookups.SpiritFor(p.SpiritId) is { } spirit ? $"with {spirit.Name}" : null;
 
     /// The line under the board strip: the chosen pairing once there is one, and otherwise a
     /// nudge towards the boards this seat has never used — which is what the strip is for.
@@ -1290,7 +1164,7 @@ else
         var records = SeatBoardRecords(p);
         var scope = BoardScopeLabel(p) is { } label ? $" {label}" : "";
 
-        if (BoardFor(p.BoardId) is { } board)
+        if (GameLookups.BoardFor(p.BoardId) is { } board)
         {
             var letter = GameLookups.BoardLetter(board);
             var detail = BoardDetails.For(board.Id);
@@ -1309,7 +1183,7 @@ else
             .ToList();
         return fresh.Count == 0
             ? $"Every free board has been played{scope}."
-            : $"Never played{scope}: board{(fresh.Count == 1 ? "" : "s")} {string.Join(", ", fresh)}.";
+            : $"Never played{scope}: {Copy.Noun(fresh.Count, "board")} {string.Join(", ", fresh)}.";
     }
 
     @* ============== Island playground ============== *@
@@ -1344,7 +1218,7 @@ else
 
     @* ============== Saved layouts (the player's own library) ============== *@
 
-    private List<Application.Features.IslandLayouts.IslandLayoutResponse> _savedLayouts = [];
+    private List<IslandLayoutResponse> _savedLayouts = [];
 
     /// The saved layout on the table, if the arrangement still is one. Cleared the moment
     /// the player moves a board — see OnIslandRearranged.
@@ -1356,29 +1230,22 @@ else
 
     /// The player's shapes that fit the current island. A layout is built for a fixed number
     /// of boards, so a four-board shape is simply not on offer at a three-board table.
-    private IReadOnlyList<Application.Features.IslandLayouts.IslandLayoutResponse> SavedLayoutOptions =>
+    private IReadOnlyList<IslandLayoutResponse> SavedLayoutOptions =>
         _savedLayouts.Where(l => l.BoardCount == EffectiveBoardCount).ToList();
 
-    private Application.Features.IslandLayouts.IslandLayoutResponse? SelectedSavedLayout =>
+    private IslandLayoutResponse? SelectedSavedLayout =>
         _savedLayoutId is { } id ? SavedLayoutOptions.FirstOrDefault(l => l.Id == id) : null;
 
-    /// What hangs under a published layout's tile: the record on it, and the way into its sheet.
-    private RenderFragment SetupRecordPill(IslandSetup setup) => __builder =>
-    {
-        <RecordChip Record="_layoutRecords.GetValueOrDefault(setup.Id.Value)"
-                    Subject="@setup.Name" OnClick="() => _layoutDetail.Show(setup)"/>
-    };
-
-    /// The same for a shape from the player's own library.
-    private RenderFragment SavedRecordPill(Application.Features.IslandLayouts.IslandLayoutResponse saved) => __builder =>
-    {
-        <RecordChip Record="_savedLayoutRecords.GetValueOrDefault(saved.Id)"
-                    Subject="@saved.Name" OnClick="() => _layoutDetail.Show(saved)"/>
-    };
+    /// What hangs under an island tile: the record on it, and the way into its sheet. One
+    /// fragment for a published layout and a saved shape alike — the two differed only in which
+    /// tally was read and which overload of Show the sheet was opened with, and both are the
+    /// caller's to say.
+    private RenderFragment RecordPill(SetupInsights.PlayRecord? record, string subject, Action open) =>
+        @<RecordChip Record="record" Subject="@subject" OnClick="open"/>;
 
     /// The bin, in the tile's corner — a saved shape is the player's own row to delete, and the
     /// published layouts beside it have nothing of the kind.
-    private RenderFragment SavedLayoutBin(Application.Features.IslandLayouts.IslandLayoutResponse saved) => __builder =>
+    private RenderFragment SavedLayoutBin(IslandLayoutResponse saved) => __builder =>
     {
         @* A shape with recorded games anchors their per-layout counts, so the server refuses to
            delete it — say so up front instead of letting the click fail. *@
@@ -1386,17 +1253,18 @@ else
 
         <button type="button" @onclick="() => DeleteSavedLayout(saved)" disabled="@(played > 0)"
                 title="@(played > 0
-                          ? $"\"{saved.Name}\" has {played} recorded game{(played == 1 ? "" : "s")} — it can't be deleted"
+                          ? $"\"{saved.Name}\" has {played} recorded {Copy.Noun(played, "game")} — it can't be deleted"
                           : $"Delete \"{saved.Name}\"")"
                 aria-label="@($"Delete {saved.Name}")"
-                class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-ink-200 bg-white/90 text-ink-400 shadow-sm transition-colors enabled:hover:border-red-200 enabled:hover:bg-red-50 enabled:hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400/40">
+                class="disc disc-remove h-6 w-6 border border-ink-200 bg-white shadow-sm transition-colors
+                       disabled:cursor-not-allowed disabled:opacity-40">
             <Icon Name="trash" Class="w-3 h-3"/>
         </button>
     };
 
     /// Puts a saved shape on the table: the setup becomes a hand-built one of this board
     /// count, and the playground re-seeds from the stored geometry.
-    private void SelectSavedLayout(Application.Features.IslandLayouts.IslandLayoutResponse layout)
+    private void SelectSavedLayout(IslandLayoutResponse layout)
     {
         _customLayoutJson = layout.LayoutJson;
         _savedLayoutId = layout.Id;
@@ -1423,7 +1291,7 @@ else
         var targetId = renaming && existing is not null ? Guid.NewGuid() : existing?.Id ?? Guid.NewGuid();
         var name = renaming ? _layoutNameDraft.Trim() : existing!.Name;
 
-        var result = await Mediator.Send(new Application.Features.IslandLayouts.SaveIslandLayoutCommand(
+        var result = await Mediator.Send(new SaveIslandLayoutCommand(
             targetId, userId, name, _customLayoutJson!, DateTimeOffset.UtcNow));
 
         if (result.IsFailure)
@@ -1440,12 +1308,12 @@ else
         _layoutMessage = $"Saved as \"{name}\".";
     }
 
-    private async Task DeleteSavedLayout(Application.Features.IslandLayouts.IslandLayoutResponse layout)
+    private async Task DeleteSavedLayout(IslandLayoutResponse layout)
     {
         if (CurrentUser.UserId is not { } userId) return;
 
         var result = await Mediator.Send(
-            new Application.Features.IslandLayouts.DeleteIslandLayoutCommand(layout.Id, userId));
+            new DeleteIslandLayoutCommand(layout.Id, userId));
         if (result.IsFailure)
         {
             _layoutSaved = false;
@@ -1462,7 +1330,7 @@ else
 
     private async Task ReloadSavedLayouts(Guid userId)
     {
-        var reloaded = await Mediator.Send(new Application.Features.IslandLayouts.ListIslandLayoutsQuery(userId));
+        var reloaded = await Mediator.Send(new ListIslandLayoutsQuery(userId));
         if (reloaded.IsSuccess) _savedLayouts = reloaded.Value;
     }
 
@@ -1490,15 +1358,15 @@ else
             for (var i = 0; i < _players.Count; i++)
             {
                 var p = _players[i];
-                var board = BoardFor(p.BoardId);
-                var boardDetail = board is null ? null : BoardDetails.For(board.Id);
-                var spirit = SpiritFor(p.SpiritId);
+                var board = GameLookups.BoardFor(p.BoardId);
+                var boardDetail = GameLookups.DetailFor(board);
+                var spirit = GameLookups.SpiritFor(p.SpiritId);
                 visuals.Add(new IslandPlayground.BoardVisual(
                     Key: p.Key,
-                    Letter: board is null ? null : GameLookups.BoardLetter(board),
-                    Color: boardDetail?.ColorHex ?? "#e8dcb8",
-                    SpiritColor: spirit is null ? null : SpiritDetails.For(spirit.Id)?.ColorHex ?? GameLookups.NeutralColor,
-                    Initials: AssigneeInitials(p.AssignedTo),
+                    Letter: GameLookups.BoardLetterFor(p.BoardId),
+                    Color: boardDetail?.ColorHex ?? IslandPlayground.UnassignedColor,
+                    SpiritColor: spirit is null ? null : GameLookups.SpiritColor(spirit),
+                    Initials: SeatAssignee.Initials(p.AssignedTo, _friends, _localPlayers),
                     Error: HasPlayerError(i)));
             }
             // Nobody plays the extra board, so it is marked unseated — the playground labels it
@@ -1506,12 +1374,12 @@ else
             // one of the lettered boards and still has to be chosen.
             if (UsesExtraBoard)
             {
-                var extra = BoardFor(_extraBoardId);
-                var extraDetail = extra is null ? null : BoardDetails.For(extra.Id);
+                var extra = GameLookups.BoardFor(_extraBoardId);
+                var extraDetail = GameLookups.DetailFor(extra);
                 visuals.Add(new IslandPlayground.BoardVisual(
                     Key: "extra",
                     Letter: ExtraBoardLetter,
-                    Color: extraDetail?.ColorHex ?? "#ded2ae",
+                    Color: extraDetail?.ColorHex ?? IslandPlayground.UnassignedColor,
                     SpiritColor: null,
                     Initials: null,
                     Error: ExtraBoardHasError,
@@ -1561,36 +1429,14 @@ else
         }
     }
 
-
     private bool HasPlayerError(int idx) =>
         _form.Errors.HasFor($"Players[{idx}].SpiritId")
         || _form.Errors.HasFor($"Players[{idx}].BoardId")
         || _form.Errors.HasFor($"Players[{idx}].AssignedTo");
 
-    private string AssigneeLabel(string value) => value switch
-    {
-        "me" => "You",
-        _ when value.StartsWith("friend:") =>
-            _friends.FirstOrDefault(f => $"friend:{f.FriendUserId}" == value)?.Name ?? "Friend",
-        _ when value.StartsWith("player:") =>
-            _localPlayers.FirstOrDefault(p => $"player:{p.Id}" == value)?.Name ?? "Player",
-        _ => "Unassigned"
-    };
-
-    /// Initials for the board chip on the island — null for your own seat, which every seat
-    /// starts as: a "Y" for "You" on all four boards labels nothing, and once someone else is
-    /// at the table the unlabelled board is the one that is yours.
-    private string? AssigneeInitials(string value)
-    {
-        if (value == "me") return null;
-        var parts = AssigneeLabel(value).Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        return parts.Length switch
-        {
-            0 => "?",
-            1 => parts[0][..1],
-            _ => $"{parts[0][..1]}{parts[1][..1]}"
-        };
-    }
+    /// Who sits in a seat, for the legend and the scope notes — SeatAssignee's wording, shared with
+    /// the board chips on the island.
+    private string AssigneeLabel(string value) => SeatAssignee.Label(value, _friends, _localPlayers);
 
     @* ============== Player editing ============== *@
     /// A board on the island was tapped. The seats come first and open their dialog; the last
@@ -1623,7 +1469,7 @@ else
         _players.Count >= GameRestrictions.MaximumPlayers
             ? $"Spirit Island supports up to {GameRestrictions.MaximumPlayers} players"
             : EffectiveBoardCount >= OwnedBoardCount
-                ? $"You own {OwnedBoardCount} island board{(OwnedBoardCount == 1 ? "" : "s")} — every board on the island needs to be one of them"
+                ? $"You own {OwnedBoardCount} island {Copy.Noun(OwnedBoardCount, "board")} — every board on the island needs to be one of them"
                 : "Add player";
 
     private void AddPlayer()
@@ -1657,13 +1503,12 @@ else
         _players[idx].AspectId = aspectId ?? "";
     }
 
-    private IReadOnlyList<Aspect> GetAspectsForSpirit(string spiritId)
-    {
-        if (string.IsNullOrEmpty(spiritId)) { return []; }
-        var aspects = GameData.GetAspectsForSpirit(new SpiritId(spiritId));
-        if (OwnedExpansions is null) { return aspects; }
-        return aspects.Where(a => OwnedExpansions.Contains(a.ExpansionId)).ToList();
-    }
+    /// Only what the player owns is on their table, so only those aspects are offered — the same
+    /// rule, through the same helper, as the spirit picker's own variant list.
+    private IReadOnlyList<Aspect> GetAspectsForSpirit(string spiritId) =>
+        string.IsNullOrEmpty(spiritId)
+            ? []
+            : OwnedCatalogue.AspectsFor(new SpiritId(spiritId), OwnedExpansions);
 
     @* ============== Spirit picker ============== *@
     private void OpenSpiritPicker(int idx)
@@ -1732,7 +1577,7 @@ else
         if (_editingBoardIndex == ExtraBoardSlot)
         {
             _extraBoardId = board.Id.Value;
-            _form.Resolve(nameof(Application.Features.Games.DraftGameCommand.ExtraBoardId));
+            _form.Resolve(nameof(DraftGameCommand.ExtraBoardId));
         }
         else if (_editingBoardIndex >= 0 && _editingBoardIndex < _players.Count)
         {
@@ -1772,21 +1617,15 @@ else
 
     private void OnAdversaryPicked((Adversary Adversary, int Level) pick)
     {
+        var item = new AdversaryFormItem { AdversaryId = pick.Adversary.Id.Value, Level = pick.Level };
+
         if (_editingAdversaryIndex >= 0 && _editingAdversaryIndex < _adversaries.Count)
         {
-            _adversaries[_editingAdversaryIndex] = new AdversaryFormItem
-            {
-                AdversaryId = pick.Adversary.Id.Value,
-                Level = pick.Level
-            };
+            _adversaries[_editingAdversaryIndex] = item;
         }
         else
         {
-            _adversaries.Add(new AdversaryFormItem
-            {
-                AdversaryId = pick.Adversary.Id.Value,
-                Level = pick.Level
-            });
+            _adversaries.Add(item);
         }
         _editingAdversaryIndex = -1;
     }
@@ -1801,86 +1640,71 @@ else
         _scenarioId = scenario?.Id.Value;
     }
 
-    @* ============== Lookups ============== *@
-    private static Spirit? SpiritFor(string id) => GameLookups.SpiritFor(id);
-    private static Board? BoardFor(string id) => GameLookups.BoardFor(id);
-    private static Adversary? AdversaryFor(string id) => GameLookups.AdversaryFor(id);
-    private static Scenario? ScenarioFor(string? id) => GameLookups.ScenarioFor(id);
-
     @* ============== Save ============== *@
-    private List<Application.Features.Games.Dtos.GamePlayerDto> BuildPlayerDtos()
+    private List<GamePlayerDto> BuildPlayerDtos()
     {
         return _players.Select(p =>
         {
-            Guid? userId = null;
-            Guid? playerId = null;
+            var userId = SeatAssignee.IsMe(p.AssignedTo)
+                ? CurrentUser.UserId
+                : SeatAssignee.FriendId(p.AssignedTo);
+            var playerId = SeatAssignee.PlayerId(p.AssignedTo);
 
-            if (p.AssignedTo == "me")
-                userId = CurrentUser.UserId;
-            else if (p.AssignedTo.StartsWith("friend:"))
-                userId = Guid.Parse(p.AssignedTo["friend:".Length..]);
-            else if (p.AssignedTo.StartsWith("player:"))
-                playerId = Guid.Parse(p.AssignedTo["player:".Length..]);
-
-            return new Application.Features.Games.Dtos.GamePlayerDto(
+            return new GamePlayerDto(
                 p.SpiritId, string.IsNullOrEmpty(p.AspectId) ? null : p.AspectId,
                 p.BoardId, userId, playerId);
         }).ToList();
     }
 
-    private List<Application.Features.Games.Dtos.GameAdversaryDto> BuildAdversaryDtos()
-        => _adversaries.Select(a => new Application.Features.Games.Dtos.GameAdversaryDto(a.AdversaryId, a.Level)).ToList();
+    private List<GameAdversaryDto> BuildAdversaryDtos()
+        => _adversaries.Select(a => new GameAdversaryDto(a.AdversaryId, a.Level)).ToList();
 
-    private async Task SaveDraft()
+    private Task SaveDraft() => Save(new DraftGameCommand(
+        CurrentUser.RequireUserId(),
+        StartedAt,
+        EffectiveSetupId,
+        UsesExtraBoard,
+        ExtraBoardIdForSave,
+        _thematicMaps,
+        _difficultyModifier,
+        BuildPlayerDtos(), BuildAdversaryDtos(),
+        ScenarioIdForSave,
+        NoteForSave,
+        IsCustomLayout ? _customLayoutJson : null,
+        IsCustomLayout ? _savedLayoutId : null));
+
+    private Task SaveCompleted() => Save(new CreateGameCommand(
+        CurrentUser.RequireUserId(),
+        StartedAt,
+        EffectiveSetupId,
+        UsesExtraBoard,
+        ExtraBoardIdForSave,
+        _thematicMaps,
+        _difficultyModifier,
+        BuildPlayerDtos(), BuildAdversaryDtos(),
+        ScenarioIdForSave,
+        _result.ToDto(),
+        NoteForSave,
+        IsCustomLayout ? _customLayoutJson : null,
+        IsCustomLayout ? _savedLayoutId : null));
+
+    /// The two commands differ only in whether an outcome rides along; what happens around them
+    /// — the in-flight flag, where a failure is reported, where a success goes — is the page's
+    /// and was written twice.
+    private async Task Save(ICommand command)
     {
         _saving = true;
-        var cmd = new Application.Features.Games.DraftGameCommand(
-            CurrentUser.UserId!.Value,
-            StartedAt,
-            EffectiveSetupId,
-            UsesExtraBoard,
-            ExtraBoardIdForSave,
-            _thematicMaps,
-            _difficultyModifier,
-            BuildPlayerDtos(), BuildAdversaryDtos(),
-            string.IsNullOrEmpty(_scenarioId) ? null : _scenarioId,
-            string.IsNullOrEmpty(_note) ? null : _note,
-            IsCustomLayout ? _customLayoutJson : null,
-            IsCustomLayout ? _savedLayoutId : null);
-
-        var result = await Mediator.Send(cmd);
+        var result = await Mediator.Send(command);
         _saving = false;
 
-        if (_form.Apply(result)) Nav.NavigateTo("/app/games");
+        if (_form.Apply(result)) Nav.NavigateTo(GamesLink.Path);
     }
 
-    private async Task SaveCompleted()
-    {
-        _saving = true;
-        var resultDto = new Application.Features.Games.Dtos.GameResultDto(
-            _resultWin, TimeSpan.FromMinutes(_resultDuration),
-            _resultCards, _resultTerror, _resultBlight, _resultDahan, _resultScoreMod);
+    /// Empty is not a scenario and an empty note is not a note — both go as null, which is what
+    /// the server distinguishes.
+    private string? ScenarioIdForSave => string.IsNullOrEmpty(_scenarioId) ? null : _scenarioId;
 
-        var cmd = new Application.Features.Games.CreateGameCommand(
-            CurrentUser.UserId!.Value,
-            StartedAt,
-            EffectiveSetupId,
-            UsesExtraBoard,
-            ExtraBoardIdForSave,
-            _thematicMaps,
-            _difficultyModifier,
-            BuildPlayerDtos(), BuildAdversaryDtos(),
-            string.IsNullOrEmpty(_scenarioId) ? null : _scenarioId,
-            resultDto,
-            string.IsNullOrEmpty(_note) ? null : _note,
-            IsCustomLayout ? _customLayoutJson : null,
-            IsCustomLayout ? _savedLayoutId : null);
-
-        var result = await Mediator.Send(cmd);
-        _saving = false;
-
-        if (_form.Apply(result)) Nav.NavigateTo("/app/games");
-    }
+    private string? NoteForSave => string.IsNullOrEmpty(_note) ? null : _note;
 
     private class PlayerFormItem
     {
@@ -1891,7 +1715,7 @@ else
         public string SpiritId { get; set; } = "";
         public string AspectId { get; set; } = "";
         public string BoardId { get; set; } = "";
-        public string AssignedTo { get; set; } = "me";
+        public string AssignedTo { get; set; } = SeatAssignee.Me;
     }
 
     private class AdversaryFormItem

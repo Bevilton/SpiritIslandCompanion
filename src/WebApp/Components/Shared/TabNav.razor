@@ -1,0 +1,59 @@
+@* The row of pills a page is cut into sections by — the statistics page's six, the People
+   page's three. Real links rather than switches, because a tab is an address on both: it can be
+   opened in a new tab, sent to somebody, and returned to after following a game or a person out
+   of the page. That is also why this is a <nav> with a name: it is the page's own navigation.
+
+   The two were written out separately and had already begun to differ in the ways a hand-copied
+   row does — one passed a tooltip per pill and the other didn't, and each decided for itself what
+   a zero count should do. What actually differs between them is the list, the addresses and the
+   counts, so that is all either one supplies; the shape, the spacing and the aria are the row's.
+
+   The pill itself is FilterPill in its link form, so a tab row and a filter row are visibly the
+   same control doing two jobs — which is the point: both are "which slice of this page am I
+   looking at".
+
+   Not the games list's status row: those four are toggles over one list rather than addresses,
+   and they sit above a filter bar that owns the rest of the question. *@
+
+<nav class="pill-row mb-6" aria-label="@Label">
+    @foreach (var (key, label) in Tabs)
+    {
+        <FilterPill @key="key" Active="@(key == Current)" Href="@Href(key)"
+                    Title="@Title?.Invoke(key, label)"
+                    Count="@Count?.Invoke(key)">@label</FilterPill>
+    }
+    @Trailing
+</nav>
+
+@code {
+    /// <summary>Every tab, in the order the page shows them — <c>StatsLink.Tabs</c> and its
+    /// siblings, which are the same shape for exactly this reason.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<(string Key, string Label)> Tabs { get; set; } = [];
+
+    /// <summary>The key of the tab being shown.</summary>
+    [Parameter, EditorRequired] public string Current { get; set; } = "";
+
+    /// <summary>Where a tab lives — the page's own link helper, carrying whatever else rides in
+    /// the URL alongside the tab (the statistics page's player scope).</summary>
+    [Parameter, EditorRequired] public Func<string, string> Href { get; set; } = default!;
+
+    /// <summary>What the row is, for a screen reader listing the page's landmarks —
+    /// "Statistics sections", "People lists".</summary>
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+
+    /// <summary>
+    /// How many things are behind a tab, set faintly after its name. Return null where the tab
+    /// has nothing to count — an overview is not a list — and null rather than zero for an empty
+    /// one, since a list with nothing in it says so by being empty and a "0" beside its name is
+    /// one more number to read past.
+    /// </summary>
+    [Parameter] public Func<string, int?>? Count { get; set; }
+
+    /// <summary>A tab's tooltip, where the label alone doesn't say what the tab will show — the
+    /// statistics tabs name whose games they are counting.</summary>
+    [Parameter] public Func<string, string, string>? Title { get; set; }
+
+    /// <summary>Anything the row carries after the tabs — the People page's "waiting on you"
+    /// badge, which is a way into a tab rather than one of them.</summary>
+    [Parameter] public RenderFragment? Trailing { get; set; }
+}

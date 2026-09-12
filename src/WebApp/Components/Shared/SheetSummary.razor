@@ -1,0 +1,18 @@
+@* The paragraph a reference sheet opens with — the subject's summary from the catalogue, or an
+   honest shrug when the catalogue has no entry. The three sheets that say this (spirit,
+   adversary, scenario) said it identically, three times. *@
+
+@if (Text is not null)
+{
+    @* Capped at prose width: the panel is wide for the record tables, not the text. *@
+    <p class="body-copy max-w-prose">@Text</p>
+}
+else
+{
+    <p class="no-value">No additional information available.</p>
+}
+
+@code {
+    /// <summary>The catalogue's summary of the subject; null when it has no entry.</summary>
+    [Parameter, EditorRequired] public string? Text { get; set; }
+}

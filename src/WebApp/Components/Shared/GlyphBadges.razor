@@ -1,0 +1,42 @@
+@* A row of small round chips, each a glyph on its own tint — the shape both ElementBadges and
+   TokenBadges wear. They had a copy each of the row, the two sizes and the three class ladders;
+   what actually differs between them is only which glyph and which colours, so that is all
+   either one supplies now.
+
+   Size is "sm" on a browse card and "md" in a sheet's header, where the chips are a legend
+   rather than an aside. The glyph is handed the icon class for the chosen size, because an SVG
+   built as markup cannot pick it up from anywhere else. *@
+
+@typeparam TValue
+
+@if (Values is { Count: > 0 })
+{
+    <div class="inline-flex items-center @(Large ? "gap-1.5" : "gap-1")">
+        @foreach (var value in Values)
+        {
+            var (bg, fg) = Colour(value);
+            @* The glyph is drawn aria-hidden and a title is not reliably read, so the chip names
+               itself for a screen reader — a spirit's elements were otherwise a row of nothing. *@
+            <span @key="value" class="disc @(Large ? "h-7 w-7" : "h-6 w-6")"
+                  style="background-color: @bg; color: @fg;" title="@value">
+                @Glyph(value, Large ? "w-4 h-4" : "w-3.5 h-3.5")
+                <span class="sr-only">@value</span>
+            </span>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<TValue>? Values { get; set; }
+
+    /// <summary>The chip's fill and the glyph's colour on it.</summary>
+    [Parameter, EditorRequired] public Func<TValue, (string Bg, string Fg)> Colour { get; set; } = default!;
+
+    /// <summary>The glyph, given the icon class for the chosen size.</summary>
+    [Parameter, EditorRequired] public Func<TValue, string, MarkupString> Glyph { get; set; } = default!;
+
+    /// <summary>"sm" (default) for a card, "md" for a sheet header.</summary>
+    [Parameter] public string Size { get; set; } = "sm";
+
+    private bool Large => Size == "md";
+}

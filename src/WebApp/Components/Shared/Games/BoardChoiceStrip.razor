@@ -8,7 +8,7 @@
    Tiles follow the same three states as RecordChip — never played, played, most played. *@
 
 @{
-    var mostPlayed = Records.Count == 0 ? 0 : Records.Values.Max(r => r.Played);
+    var mostPlayed = SetupInsights.Leader(Records);
 }
 
 <div class="grid grid-cols-4 gap-1.5 sm:grid-cols-8">
@@ -16,30 +16,24 @@
     {
         var id = b.Id.Value;
         var detail = BoardDetails.For(b.Id);
-        var color = detail?.ColorHex ?? GameLookups.NeutralColor;
+        var color = GameLookups.BoardColor(detail);
         var isSelected = SelectedId == id;
         var isTaken = Taken.Contains(id) && !isSelected;
         var record = Records.GetValueOrDefault(id);
         var played = record?.Played ?? 0;
-        @* A lead of one play is no lead — with everything at 1× every board would be
-           marked, which marks nothing. Same rule the board picker's star follows. *@
-        var isFavourite = played > 0 && played == mostPlayed && mostPlayed > 1;
+        var isFavourite = SetupInsights.IsFavourite(record, mostPlayed);
 
         <button @key="id" type="button" disabled="@isTaken"
                 @onclick="() => OnSelect.InvokeAsync(b)"
                 title="@Tooltip(b, record, isTaken)"
                 class="@TileClass(isSelected, isTaken, isFavourite, HasHistory && played == 0)
-                       relative flex flex-col items-center gap-1 rounded-lg border px-1 py-1.5 transition-all
-                       enabled:hover:-translate-y-px enabled:hover:shadow-sm
-                       focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
-            <span class="inline-flex h-8 w-8 items-center justify-center rounded-md text-base font-semibold text-white"
-                  style="background-color: @color; font-family: var(--font-serif);">
-                @GameLookups.BoardLetter(b)
-            </span>
+                       card-lift relative flex flex-col items-center gap-1 rounded-lg border px-1 py-1.5
+                       focus-ring">
+            <LetterTile Size="lg" Color="@color" Text="@GameLookups.BoardLetter(b)"/>
             @* The accent border alone would read like the most-played tile, which also wears one. *@
             @if (isSelected)
             {
-                <span class="absolute -right-1 -top-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-accent-600 text-white">
+                <span class="disc absolute -right-1 -top-1 h-4 w-4 bg-accent-600 text-white">
                     <Icon Name="check" Class="w-2.5 h-2.5"/>
                 </span>
             }
@@ -91,26 +85,39 @@
 
     private string Scope => string.IsNullOrEmpty(ScopeLabel) ? "" : $" {ScopeLabel}";
 
+    /// The selected and resting states are TileChrome's, shared with the island tile beside it —
+    /// the two mark the current pick and the plain choice identically, and each had its own
+    /// spelling of both.
     private static string TileClass(bool selected, bool taken, bool favourite, bool never) =>
         taken ? "border-ink-200 bg-ink-50 opacity-40 cursor-not-allowed"
-        : selected ? "border-accent-500 bg-accent-50/70 ring-2 ring-accent-500/30"
+        : selected ? TileChrome.Selected
         : favourite ? "border-accent-300 bg-accent-50/40 hover:border-accent-400"
-        : never ? "border-dashed border-amber-300 bg-amber-50/50 hover:border-amber-400"
-        : "border-ink-200 bg-white hover:border-ink-300";
+        : never ? "untried"
+        : TileChrome.Resting;
 
+    /// The colour of an untried tile's caption comes from .untried on the tile itself, so the
+    /// "new" it says is the same amber as every other untried thing in the app.
     private static string CountClass(bool taken, bool favourite, bool never) =>
         taken ? "text-ink-400"
         : favourite ? "font-semibold text-accent-700"
-        : never ? "font-medium text-amber-700"
+        : never ? "font-medium"
         : "text-ink-500";
 
+    /// <summary>
+    /// What a tile can't fit: the board's thematic name, whether another seat holds it, and the
+    /// record behind it. The record half is <see cref="SetupInsights.WonLostSuffix"/>'s wording,
+    /// shared with every other record tooltip in the app — this was the one still ordering it its
+    /// own way ("3× played, 67% wins" against the family's "played 3×, 2 won / 1 lost").
+    /// </summary>
     private string Tooltip(Board b, SetupInsights.PlayRecord? record, bool taken)
     {
         var name = BoardDetails.For(b.Id) is { } d ? $"{b.Name} — {d.ThematicName}" : b.Name;
         if (taken) return $"{name} · already on another seat";
         if (!HasHistory) return name;
         if (record is not { Played: > 0 }) return $"{name} · never played{Scope}";
-        var wins = record.Completed > 0 ? $" · {record.WinRate:F0}% wins" : "";
-        return $"{name} · {record.Played}× played{Scope}{wins}";
+        var results = record.Completed > 0
+            ? SetupInsights.WonLostSuffix(record)
+            : ", no results yet";
+        return $"{name} · played {record.Played}×{Scope}{results}";
     }
 }

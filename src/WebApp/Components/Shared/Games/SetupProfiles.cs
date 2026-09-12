@@ -1,5 +1,7 @@
 using Application.Features.Statistics;
+using Domain.Models.Static;
 using Domain.Models.Static.Data;
+using WebApp.Components.Shared.Stats;
 
 namespace WebApp.Components.Shared.Games;
 
@@ -19,11 +21,12 @@ public enum SetupSubjectKind
 }
 
 /// <summary>
-/// Builds the "everything you've done with this thing" profile shown in the
-/// spirit/board/adversary/scenario detail modals: a headline record plus
-/// breakdowns of what it was paired with. Like <see cref="SetupInsights"/> this is
-/// pure in-memory math over the <see cref="SetupGameFact"/> history the page has
-/// already loaded, so opening a detail view costs no round-trip.
+/// Builds the "everything you've done with this thing" profile a record sheet shows — for a
+/// spirit or one of its aspects, a board, an adversary, a scenario, a published island or a
+/// shape from the player's library (every <see cref="SetupSubjectKind"/>): a headline record
+/// plus breakdowns of what it was paired with. Like <see cref="SetupInsights"/> this is pure
+/// in-memory math over the <see cref="SetupGameFact"/> history the page has already loaded, so
+/// opening a sheet costs no round-trip.
 /// </summary>
 public static class SetupProfiles
 {
@@ -96,7 +99,7 @@ public static class SetupProfiles
 
         return new Profile(
             kind,
-            RecordOf(games),
+            SetupInsights.GameRecord(games),
             scored.Count > 0 ? scored.Max(g => g.Score) : null,
             scored.Count > 0 ? scored.Average(g => g.Score!.Value) : null,
             games.Count > 0 ? games.Average(g => g.Difficulty) : null,
@@ -162,15 +165,6 @@ public static class SetupProfiles
         _ => m.Game.ScenarioId == id
     };
 
-    private static SetupInsights.PlayRecord RecordOf(IEnumerable<SetupGameFact> games)
-    {
-        var list = games as ICollection<SetupGameFact> ?? games.ToList();
-        return new SetupInsights.PlayRecord(
-            list.Count,
-            list.Count(g => g.IsCompleted && g.Win == true),
-            list.Count(g => g.IsCompleted && g.Win == false));
-    }
-
     private static IReadOnlyList<ProfileBreakdown> Breakdowns(
         SetupSubjectKind kind, List<Match> matched, bool includePlayers)
     {
@@ -232,14 +226,21 @@ public static class SetupProfiles
         return all.Where(b => b.Rows.Count > 0).ToList();
     }
 
-    /// <summary>Adversary keys, with an empty key standing for an unopposed game.</summary>
+    /// <summary>
+    /// The key standing for an unopposed game in the adversary breakdown — the same empty-string
+    /// convention <see cref="SetupInsights.NoScenarioKey"/> and <see cref="SetupInsights.BaseAspectKey"/>
+    /// follow, named so the row that reads it cannot spell it differently from the walk that writes it.
+    /// </summary>
+    private const string NoAdversaryKey = "";
+
+    /// <summary>Adversary keys, with <see cref="NoAdversaryKey"/> standing for an unopposed game.</summary>
     private static IEnumerable<(string Key, SetupGameFact Game)> AdversaryKeys(List<Match> matched)
     {
         foreach (var m in matched)
         {
             if (m.Game.Adversaries.Count == 0)
             {
-                yield return ("", m.Game);
+                yield return (NoAdversaryKey, m.Game);
                 continue;
             }
             foreach (var adversary in m.Game.Adversaries)
@@ -251,7 +252,7 @@ public static class SetupProfiles
         Breakdown(
             "Adversaries faced",
             AdversaryKeys(matched),
-            key => key.Length == 0
+            key => key == NoAdversaryKey
                 ? new RowLabel("No adversary", null, null)
                 : GameLookups.AdversaryFor(key) is { } adv ? new RowLabel(adv.Name, null, null) : null);
 
@@ -278,7 +279,7 @@ public static class SetupProfiles
         var rows = Breakdown(
             "Aspects played",
             matched.SelectMany(m => m.Seats.Select(s => (Key: s.AspectId ?? SetupInsights.BaseAspectKey, Game: m.Game))),
-            key => key.Length == 0
+            key => key == SetupInsights.BaseAspectKey
                 ? new RowLabel("No aspect", null, null)
                 : GameLookups.AspectFor(key) is { } aspect ? new RowLabel(aspect.Name, null, null) : null);
         return rows.Rows.Count > 1 ? rows : rows with { Rows = [] };
@@ -289,21 +290,28 @@ public static class SetupProfiles
             "Spirits played",
             matched.SelectMany(m => m.Seats.Select(s => (Key: s.SpiritId, Game: m.Game))),
             key => GameLookups.SpiritFor(key) is { } spirit
-                ? new RowLabel(spirit.Name, null, SpiritDetails.For(spirit.Id)?.ColorHex)
+                ? new RowLabel(spirit.Name, null, GameLookups.SpiritAccent(spirit))
                 : null);
 
     /// <summary>
     /// Groups the subject's seats by who sat in them. Equality is on the resolved
     /// label, so "You" is one row and two unnamed seats stay together. Dot colours
     /// follow the assignee badge: accent for you, sky for friends, ink for locals.
+    /// <para>
+    /// Through <see cref="StatsTheme"/> rather than spelled out, which is how the promise above
+    /// stopped being true: written as literals, all three kept Tailwind's stock emerald, sky and
+    /// stone when the palette moved under them, so a friend's seat was marked in a blue the app
+    /// no longer used anywhere. Raw hex because the row tint concatenates an alpha suffix onto
+    /// it — see <c>SetupProfileSection.ShareStyle</c> — which a custom property cannot do.
+    /// </para>
     /// </summary>
     private sealed record SeatOwner(string Label, string? ColorHex);
 
     private static SeatOwner OwnerOf(SetupFactSeat s) => s switch
     {
-        { IsMine: true }       => new SeatOwner("You", "#059669"),
-        { UserId: not null }   => new SeatOwner(s.PlayerName ?? "Friend", "#0284c7"),
-        { PlayerId: not null } => new SeatOwner(s.PlayerName ?? "Player", "#a8a29e"),
+        { IsMine: true }       => new SeatOwner("You", StatsTheme.Accent600),
+        { UserId: not null }   => new SeatOwner(s.PlayerName ?? "Friend", StatsTheme.Sky600),
+        { PlayerId: not null } => new SeatOwner(s.PlayerName ?? "Player", StatsTheme.Ink400),
         _                      => new SeatOwner("Unassigned", null)
     };
 
@@ -324,8 +332,8 @@ public static class SetupProfiles
     private static ProfileBreakdown ScenarioRows(List<Match> matched) =>
         Breakdown(
             "Scenarios",
-            matched.Select(m => (Key: m.Game.ScenarioId ?? "", Game: m.Game)),
-            key => key.Length == 0
+            matched.Select(m => (Key: m.Game.ScenarioId ?? SetupInsights.NoScenarioKey, Game: m.Game)),
+            key => key == SetupInsights.NoScenarioKey
                 ? new RowLabel("No scenario", null, null)
                 : GameLookups.ScenarioFor(key) is { } scen ? new RowLabel(scen.Name, null, null) : null);
 
@@ -354,7 +362,7 @@ public static class SetupProfiles
         var groups = pairs
             .DistinctBy(p => (p.Key, p.Game.GameId))
             .GroupBy(p => p.Key)
-            .Select(g => (g.Key, Label: describe(g.Key), Record: RecordOf(g.Select(x => x.Game))))
+            .Select(g => (g.Key, Label: describe(g.Key), Record: SetupInsights.GameRecord(g.Select(x => x.Game))))
             .Where(x => x.Label is not null)
             .ToList();
 
@@ -397,7 +405,7 @@ public static class SetupProfiles
         {
             var boards = m.Seats
                 .Select(s => GameLookups.BoardFor(s.BoardId))
-                .OfType<Domain.Models.Static.Board>()
+                .OfType<Board>()
                 .Select(GameLookups.BoardLetter)
                 .Distinct()
                 .ToList();

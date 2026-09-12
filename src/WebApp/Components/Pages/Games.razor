@@ -1,26 +1,21 @@
 @page "/app/games"
 @attribute [Authorize]
-@using Application.Features.Games
 @inject IMediator Mediator
 @inject ICurrentUserService CurrentUser
 @inject NavigationManager Nav
 
-<PageTitle>Games</PageTitle>
+<AppPageTitle Title="Games"/>
 
-<div class="page-head">
-    <div>
-        <span class="eyebrow">Match history</span>
-        <h1 class="page-title mt-2">Games</h1>
-        <p class="page-sub">@HeaderSummary</p>
-    </div>
-    <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-        <input type="search" class="input w-full sm:w-64" placeholder="Search games…" aria-label="Search games"
-               @bind="_filter.Query" @bind:event="oninput"/>
-        <a href="/app/games/new" class="btn btn-primary shrink-0">
+@* The actions row runs full width on a phone so the search box can — see PageHeader.ActionsClass. *@
+<PageHeader Eyebrow="Match history" Title="Games" ActionsClass="w-full sm:w-auto">
+    <Sub>@HeaderSummary</Sub>
+    <Actions>
+        <SearchBox @bind-Value="_filter.Query" Placeholder="Search games…" Class="w-full sm:w-64"/>
+        <a href="@GamesLink.New" class="btn btn-primary shrink-0">
             <Icon Name="plus" Class="w-4 h-4"/> New game
         </a>
-    </div>
-</div>
+    </Actions>
+</PageHeader>
 
 @if (_loading)
 {
@@ -28,23 +23,25 @@
 }
 else if (_games.Count == 0)
 {
-    <div class="surface px-6 py-16 text-center">
-        <div class="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-50 text-accent-700">
-            <Icon Name="trophy" Class="w-6 h-6"/>
-        </div>
-        <h2 class="text-lg font-semibold text-ink-900" style="font-family: var(--font-serif);">No games yet</h2>
-        <p class="mx-auto mt-1 max-w-sm text-sm text-ink-500">
-            Set up your first island and the record starts here — victories, defeats and drafts alike.
-        </p>
-        <a href="/app/games/new" class="btn btn-primary mt-5">
-            <Icon Name="plus" Class="w-4 h-4"/> Record your first game
-        </a>
-    </div>
+    <EmptyState Icon="trophy" Title="No games yet"
+                Body="Set up your first island and the record starts here — victories, defeats and drafts alike.">
+        <Action>
+            <a href="@GamesLink.New" class="btn btn-primary">
+                <Icon Name="plus" Class="w-4 h-4"/> Record your first game
+            </a>
+        </Action>
+    </EmptyState>
 }
 else
 {
-    var facets = ActiveFacets;
-    var inSlice = FacetFiltered;
+    @* Derived once at the top of the render rather than from properties read all the way down it —
+       the filter is mutated in place, so there is no parameter change to cache against, and every
+       mutation is followed by a render. As properties the list was filtered three times a render.
+       inSlice is everything the filters allow before the status tab has its say, which is what the
+       tab counts are taken over. *@
+    var facets = _filter.ActiveFacets(_games);
+    var inSlice = _games.Where(_filter.MatchesFacets).ToList();
+    var visible = _filter.Apply(_games);
 
     @* What the list is currently narrowed to, spelled out and undoable one pill at a time. It
        leads the page because a slice is often arrived at by link — from an adversary's level
@@ -52,24 +49,24 @@ else
        history has to say so, and has to be wideable again without starting over. *@
     @if (facets.Count > 0)
     {
-        <div class="mb-3 flex flex-wrap items-center gap-1.5">
-            <span class="mr-0.5 text-[11px] uppercase tracking-wide text-ink-500">Showing</span>
+        <div class="pill-row mb-3">
+            <span class="mr-0.5 micro-label">Showing</span>
             @foreach (var facet in facets)
             {
-                <button type="button" @onclick="() => RemoveFacet(facet)"
-                        title="@($"{facet.Group}: {facet.Label} — remove this filter")"
-                        class="inline-flex items-center gap-1.5 rounded-full border border-accent-300 bg-accent-100 px-2.5 py-1
-                               text-xs font-medium text-accent-800 transition-colors hover:bg-accent-200
-                               focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                @* The same pill the rows below are made of, held in its active state: a facet is
+                   a filter that is on, and clicking it turns it off. *@
+                <FilterPill @key="@($"{facet.Group}:{facet.Label}")" Active="true" OnToggle="() => RemoveFacet(facet)"
+                            Title="@($"{facet.Group}: {facet.Label} — remove this filter")">
                     @facet.Label
                     <Icon Name="x" Class="w-3 h-3 opacity-60"/>
-                </button>
+                </FilterPill>
             }
             @if (facets.Count > 1)
             {
+                @* .section-link, which is what the four utilities here spelled out a pixel
+                   smaller — the identical Clear in the filter bar directly below wears it. *@
                 <button type="button" @onclick="ClearFacets"
-                        class="ml-0.5 rounded px-1 text-[11px] text-accent-700 hover:underline
-                               focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40">
+                        class="section-link ml-0.5 rounded px-1 focus-ring">
                     Clear all
                 </button>
             }
@@ -82,60 +79,55 @@ else
        The tallies are over the games the filters above already allow, not the whole history:
        on a list narrowed to one foe, "38 victories" would be counting games the page is
        refusing to show. *@
-    <div class="mb-3 flex flex-wrap items-center gap-2">
-        <FilterPill Active="@(_filter.Status == GameStatusTab.All)" OnToggle="() => SetStatus(GameStatusTab.All)">
-            All <span class="tabular-nums opacity-60">@inSlice.Count</span>
-        </FilterPill>
-        <FilterPill Active="@(_filter.Status == GameStatusTab.Victories)" OnToggle="() => SetStatus(GameStatusTab.Victories)">
-            Victories <span class="tabular-nums opacity-60">@inSlice.Count(g => g.Win == true)</span>
-        </FilterPill>
-        <FilterPill Active="@(_filter.Status == GameStatusTab.Defeats)" OnToggle="() => SetStatus(GameStatusTab.Defeats)">
-            Defeats <span class="tabular-nums opacity-60">@inSlice.Count(g => g.Win == false)</span>
-        </FilterPill>
-        <FilterPill Active="@(_filter.Status == GameStatusTab.Drafts)" OnToggle="() => SetStatus(GameStatusTab.Drafts)">
-            Drafts <span class="tabular-nums opacity-60">@inSlice.Count(g => !g.IsCompleted)</span>
-        </FilterPill>
+    <div class="pill-row mb-3">
+        <FilterPill Active="@(_filter.Status == GameStatusTab.All)" OnToggle="() => SetStatus(GameStatusTab.All)"
+                    Count="inSlice.Count">All</FilterPill>
+        <FilterPill Active="@(_filter.Status == GameStatusTab.Victories)" OnToggle="() => SetStatus(GameStatusTab.Victories)"
+                    Count="inSlice.Count(g => g.Win == true)">Victories</FilterPill>
+        <FilterPill Active="@(_filter.Status == GameStatusTab.Defeats)" OnToggle="() => SetStatus(GameStatusTab.Defeats)"
+                    Count="inSlice.Count(g => g.Win == false)">Defeats</FilterPill>
+        <FilterPill Active="@(_filter.Status == GameStatusTab.Drafts)" OnToggle="() => SetStatus(GameStatusTab.Drafts)"
+                    Count="inSlice.Count(g => !g.IsCompleted)">Drafts</FilterPill>
     </div>
 
-    <FilterBar @ref="_bar" Filter="_filter"
-               ShowingCount="Visible.Count" TotalCount="_games.Count"
+    <FilterBar Filter="_filter"
+               ShowingCount="visible.Count" TotalCount="_games.Count"
                Changed="FilterChanged">
-        <Facets>
-            @if (_bar is not null)
-            {
-                <GameFacets Filter="_filter" Bar="_bar" Games="_games"/>
-            }
+        <Facets Context="bar">
+            <GameFacets Filter="_filter" Bar="bar" Games="_games"/>
         </Facets>
     </FilterBar>
 
-    @if (Visible.Count == 0)
+    @if (visible.Count == 0)
     {
-        <div class="surface mt-6 py-10 text-center text-ink-500">
-            <p class="text-sm">No games match the current filters.</p>
-            <button type="button" class="btn btn-secondary btn-sm mt-4" @onclick="ResetFilters">Reset filters</button>
+        <div class="surface no-matches mt-6">
+            @Copy.NoMatches("games")
+            <div><button type="button" class="btn btn-secondary btn-sm mt-4" @onclick="ResetFilters">Reset filters</button></div>
         </div>
     }
     else if (_filter.GroupsByMonth)
     {
         @* Month sections only while the list is in date order — cutting a difficulty ordering
            into months would show neither. *@
-        @foreach (var month in Visible.GroupBy(g => new { g.StartedAt.Year, g.StartedAt.Month }))
+        @foreach (var month in visible.GroupBy(g => new { g.StartedAt.Year, g.StartedAt.Month }))
         {
             var games = month.ToList();
             var wins = games.Count(g => g.Win == true);
             var losses = games.Count(g => g.Win == false);
-            <section class="mt-6">
-                <div class="mb-2 flex items-baseline justify-between px-1">
-                    <h2 class="text-base font-semibold" style="font-family: var(--font-serif);">
-                        @games[0].StartedAt.DateTime.ToString("MMMM yyyy")
-                    </h2>
-                    <span class="text-xs tabular-nums text-ink-500">
-                        @games.Count game@(games.Count == 1 ? "" : "s")@if (wins + losses > 0)
-                        {
-                            <span title="@wins won, @losses lost"> · @wins–@losses</span>
-                        }
-                    </span>
-                </div>
+            <section @key="month.Key" class="mt-6">
+                @* px-1 lines the heading up with the rows of the panel below it, which sit
+                   inside a rounded surface. *@
+                <SectionHead Class="px-1" Title="@GameFormat.Month(games[0].StartedAt.DateTime)">
+                    <Trailing>
+                        <span class="section-note tabular-nums">
+                            @Copy.Count(games.Count, "game")
+                            @if (wins + losses > 0)
+                            {
+                                <span title="@wins won, @losses lost"> · @wins–@losses</span>
+                            }
+                        </span>
+                    </Trailing>
+                </SectionHead>
                 <div class="surface divide-y divide-ink-100 overflow-hidden">
                     @foreach (var g in games)
                     {
@@ -148,7 +140,7 @@ else
     else
     {
         <div class="surface mt-6 divide-y divide-ink-100 overflow-hidden">
-            @foreach (var g in Visible)
+            @foreach (var g in visible)
             {
                 @GameRow(g)
             }
@@ -178,19 +170,15 @@ else
     private bool _loading = true;
 
     private readonly GamesFilter _filter = new();
-    private FilterBar? _bar;
-
-    private List<ListGamesResponse> Visible => _filter.Apply(_games);
-
-    /// <summary>Everything the filters allow before the status tab has its say — what the tab
-    /// counts are taken over.</summary>
-    private List<ListGamesResponse> FacetFiltered => _games.Where(_filter.MatchesFacets).ToList();
-
-    private IReadOnlyList<GamesFilter.ActiveFacet> ActiveFacets => _filter.ActiveFacets(_games);
 
     protected override async Task OnInitializedAsync()
     {
-        if (CurrentUser.UserId is not { } userId) return;
+        // Without a user there is nothing to load — drop the spinner rather than spin forever.
+        if (CurrentUser.UserId is not { } userId)
+        {
+            _loading = false;
+            return;
+        }
         var result = await Mediator.Send(new ListGamesQuery(userId));
         if (result.IsSuccess) _games = result.Value;
         _loading = false;
@@ -259,24 +247,26 @@ else
             var completed = _games.Count(g => g.IsCompleted);
             var wins = _games.Count(g => g.Win == true);
             var drafts = _games.Count - completed;
-            var parts = new List<string> { $"{_games.Count} match{(_games.Count == 1 ? "" : "es")}" };
-            if (completed > 0) parts.Add($"{100.0 * wins / completed:F0}% victories");
-            if (drafts > 0) parts.Add($"{drafts} draft{(drafts == 1 ? "" : "s")} waiting");
+            var parts = new List<string> { Copy.Count(_games.Count, "match") };
+            if (completed > 0) parts.Add($"{Percent.Of(wins, completed):F0}% victories");
+            if (drafts > 0) parts.Add(StatsFormat.DraftsCaption(drafts));
             return string.Join(" · ", parts);
         }
     }
 
     private void Open(Guid id) => Nav.NavigateTo(GameHref(id));
 
-    private void Finish(Guid id)
-    {
-        var href = GameHref(id);
-        Nav.NavigateTo(href.Contains('?') ? $"{href}&finish=true" : $"{href}?finish=true");
-    }
+    private void Finish(Guid id) => Nav.NavigateTo(GamesLink.Finish(id, BackQuery));
+
+    /// <summary>
+    /// How a note beside a match's title is laid out — see <see cref="SetupChip"/>. Dropped below
+    /// the sm breakpoint: on a phone the title itself is already competing with the date, the
+    /// spirits and the result for one row.
+    /// </summary>
+    private const string MetaChipLayout = "hidden shrink-0 sm:inline-flex";
 
     private RenderFragment GameRow(ListGamesResponse g) => __builder =>
     {
-        var isStandardGame = g.Adversaries.Count == 0 && g.ScenarioId is null;
         var title = GameLookups.MatchTitle(g.Adversaries, g.ScenarioId);
         // The scenario gets its own chip only when the adversaries took the title.
         var scenarioChip = g.Adversaries.Count > 0 ? GameLookups.ScenarioFor(g.ScenarioId) : null;
@@ -287,48 +277,33 @@ else
 
         <div @key="g.Id" @onclick="() => Open(g.Id)"
              class="group flex cursor-pointer items-center gap-3 px-4 py-3.5 transition-colors hover:bg-ink-50/70 md:gap-4 md:px-5">
-            @* StartedAt is read back as stored, not converted: it carries the wall clock the
-               player wrote down at offset zero (see GameDetail). *@
-            @* The title carries the year, which the cell has no room for and month sections
-               only show while grouping by date. *@
-            <div class="w-11 shrink-0 text-center" title="@g.StartedAt.DateTime.ToString("MMMM d, yyyy")">
-                <div class="text-lg font-semibold leading-none tabular-nums text-ink-900" style="font-family: var(--font-serif);">
-                    @g.StartedAt.DateTime.ToString("dd")
-                </div>
-                <div class="mt-0.5 text-[10px] uppercase tracking-wide text-ink-500">@g.StartedAt.DateTime.ToString("MMM")</div>
-            </div>
+            <GameDateTile Date="g.StartedAt.DateTime"/>
 
             <div class="min-w-0 flex-1">
                 <div class="flex min-w-0 items-center gap-2">
                     @* A real link inside the clickable row, so the game is reachable by keyboard
                        and middle-click too. *@
                     <a href="@GameHref(g.Id)"
-                       class="truncate rounded text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40
-                              @(isStandardGame ? "font-normal italic text-ink-500" : "font-semibold text-ink-900")">
+                       class="truncate rounded text-sm focus-ring @GameLookups.MatchTitleTone(title)">
                         @title
                     </a>
                     @if (scenarioChip is not null)
                     {
-                        <span class="hidden shrink-0 items-center gap-1 rounded-full border border-amber-200/70 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800 sm:inline-flex">
-                            <Icon Name="book" Class="w-3 h-3"/> @scenarioChip.Name
-                        </span>
+                        <SetupChip Icon="book" Label="@scenarioChip.Name" Tone="chip-scenario" Class="@MetaChipLayout"/>
                     }
                     @if (islandChip is not null)
                     {
-                        <span class="hidden shrink-0 items-center gap-1 rounded-full border border-sky-200/70 bg-sky-50 px-2 py-0.5 text-[10px] font-medium text-sky-800 sm:inline-flex"
-                              title="Played on a hand-built island">
-                            <Icon Name="map" Class="w-3 h-3"/> @islandChip
-                        </span>
+                        <SetupChip Icon="map" Label="@islandChip" Title="Played on a hand-built island" Class="@MetaChipLayout"/>
                     }
                 </div>
                 <div class="mt-1 flex min-w-0 items-center gap-2">
-                    <SpiritAvatarStack SpiritIds="spiritIds" Max="4"/>
-                    <span class="truncate text-xs text-ink-500">@string.Join(", ", g.Players.Select(p => p.Name))</span>
+                    <SpiritAvatarStack SpiritIds="spiritIds"/>
+                    <span class="block-note truncate">@string.Join(", ", g.Players.Select(p => p.Name))</span>
                 </div>
             </div>
 
-            <span class="hidden h-8 min-w-8 shrink-0 items-center justify-center rounded-lg bg-accent-50 px-2 text-sm font-semibold tabular-nums text-accent-800 md:inline-flex"
-                  style="font-family: var(--font-serif);" title="Difficulty @g.Difficulty">
+            <span class="numeral hidden h-8 min-w-8 shrink-0 items-center justify-center rounded-lg bg-accent-50 px-2 text-sm text-accent-800 md:inline-flex"
+                  title="Difficulty @g.Difficulty">
                 @g.Difficulty
             </span>
 
@@ -339,27 +314,28 @@ else
                    flow would fail at the server, so it must not be held out here. *@
                 @if (!g.IsCompleted && g.OwnerId == CurrentUser.UserId)
                 {
-                    <button type="button" @onclick="() => Finish(g.Id)" @onclick:stopPropagation="true"
+                    <button type="button" @onclick="() => Finish(g.Id)" @onclick:stopPropagation
                             title="Record the outcome and finish this draft"
-                            class="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800 transition-colors hover:bg-amber-100">
+                            class="pill-action pill-warn hover:bg-amber-100 focus-ring">
                         Finish <Icon Name="arrow-right" Class="w-3 h-3"/>
                     </button>
                 }
                 else if (!g.IsCompleted)
                 {
-                    <span class="inline-flex items-center gap-1 text-[11px] text-ink-400"
+                    @* Somebody else's draft: a word where the score would go, in the register a
+                       missing figure takes rather than a tone of its own. *@
+                    <span class="no-figure inline-flex items-center gap-1 text-[11px]"
                           title="Only the player who recorded this game can finish it">
                         <Icon Name="lock" Class="w-3 h-3"/> theirs
                     </span>
                 }
                 else if (g.Score is { } score)
                 {
-                    <span class="text-base font-semibold tabular-nums @(g.Win == true ? "text-accent-800" : "text-red-700")"
-                          style="font-family: var(--font-serif);" title="Score">@score</span>
+                    <span class="numeral text-base @WinTone.ForOutcome(g.Win == true)" title="Score">@score</span>
                 }
                 else
                 {
-                    <span class="text-sm text-ink-400">—</span>
+                    <span class="no-figure text-sm">—</span>
                 }
             </div>
 

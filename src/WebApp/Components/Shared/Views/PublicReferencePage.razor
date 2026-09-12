@@ -1,0 +1,20 @@
+@* The frame every public reference page is: the tab's title and the column the catalogue is
+   read in. The four pages — spirits, adversaries, scenarios, boards — were the same eight lines
+   apiece with the catalogue's name changed, which is four places for the column or the title's
+   shape to drift. Each page now keeps only what is its own: the route (a @@page directive has to
+   be literal), the layout, and which view it shows. *@
+
+<AppPageTitle Title="@Title"/>
+
+<div class="public-page">
+    @ChildContent
+</div>
+
+@code {
+    /// <summary>The catalogue's name — "Spirits", "Boards" — for the browser tab.</summary>
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+
+    /// <summary>The catalogue's view, rendered with no record: the public route has nobody to
+    /// have one.</summary>
+    [Parameter, EditorRequired] public RenderFragment ChildContent { get; set; } = default!;
+}

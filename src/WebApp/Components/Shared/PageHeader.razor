@@ -1,0 +1,84 @@
+@* The band every page opens with: an eyebrow saying which part of the app this is, the page's
+   name, a line of what it holds, and whatever the page's own actions are on the right.
+
+   Eleven pages were building this by hand and it had come apart in small ways — Settings had lost
+   its eyebrow entirely (and with it the `mt-2` that only exists because there is one above), the
+   back link above the eyebrow was written twice with the icon a different size each time, and the
+   heading's own classes were retyped at every call site. The shape is the same everywhere, so it
+   is one component and the differences are parameters.
+
+   Back / TitleSuffix / Actions cover the three places a page has ever wanted to add something:
+   above the eyebrow, beside the heading, and at the right-hand end of the band. *@
+
+<div class="page-head">
+    <div class="min-w-0">
+        @if (BackHref is not null)
+        {
+            <a href="@BackHref" title="@BackTitle"
+               class="mb-2 flex w-fit items-center gap-1 text-sm text-ink-500 transition-colors hover:text-ink-700">
+                <Icon Name="arrow-left" Class="w-3.5 h-3.5"/> @BackLabel
+            </a>
+        }
+        <span class="eyebrow">@Eyebrow</span>
+        @if (TitleSuffix is null)
+        {
+            <h1 class="page-title mt-2 @TitleClass">@Title</h1>
+        }
+        else
+        {
+            @* The badge shares the heading's baseline rather than sitting under it, so a game's
+               name and its outcome read as one line. *@
+            <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                <h1 class="page-title @TitleClass">@Title</h1>
+                @TitleSuffix
+            </div>
+        }
+        @if (Sub is not null)
+        {
+            <p class="page-sub">@Sub</p>
+        }
+    </div>
+    @if (Actions is not null)
+    {
+        @* One row, whatever the page puts in it: a search box beside a button, a dropdown, a pair
+           of buttons. Two pages had wrapped their actions in this same row by hand and the rest
+           had not, which is how a third action can end up a different distance from its neighbour
+           than on the page beside it. *@
+        <div class="flex flex-wrap items-center gap-2 @ActionsClass">@Actions</div>
+    }
+</div>
+
+@code {
+    /// <summary>Which part of the app this is — "Match history", "Reference", "Your table".</summary>
+    [Parameter, EditorRequired] public string Eyebrow { get; set; } = "";
+
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+
+    /// <summary>The line under the heading: what the page holds, in a phrase. Omit where the
+    /// heading says all there is to say.</summary>
+    [Parameter] public RenderFragment? Sub { get; set; }
+
+    /// <summary>Extra classes on the heading — in practice only <c>italic</c>, for a game with
+    /// no name of its own.</summary>
+    [Parameter] public string? TitleClass { get; set; }
+
+    /// <summary>Sits on the heading's baseline — a game's status badge.</summary>
+    [Parameter] public RenderFragment? TitleSuffix { get; set; }
+
+    /// <summary>The page's own actions, at the right-hand end of the band — laid out as one row.</summary>
+    [Parameter] public RenderFragment? Actions { get; set; }
+
+    /// <summary>Extra classes on the actions row — the games list runs it full width on a phone,
+    /// so the search box in it can be.</summary>
+    [Parameter] public string? ActionsClass { get; set; }
+
+    /// <summary>Where the way back goes, for a page opened out of a list. Omit for a page that
+    /// is reached from the sidebar and has nothing to go back to.</summary>
+    [Parameter] public string? BackHref { get; set; }
+
+    [Parameter] public string BackLabel { get; set; } = "Back";
+
+    /// <summary>The link's tooltip, where "back" needs saying more precisely — the game page
+    /// returns to the filtered slice it was opened from, not to the whole history.</summary>
+    [Parameter] public string? BackTitle { get; set; }
+}

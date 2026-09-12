@@ -10,19 +10,19 @@
    re-announced, which is exactly the repeat-submit case. @key on the attempt is what makes the
    node genuinely new, so the announcement and the flash both happen again.
 
-   Pass Attempt from FormFeedback.Attempt — see that class. *@
+   Takes the whole FormFeedback rather than its errors and its attempt count as two parameters —
+   as Alert does, and for the same reason: every one of the four pages passed the same pair, and
+   the two halves are only meaningful together. *@
 
-@using WebApp.Validation
-
-@if (Errors is { Any: true })
+@if (Feedback.Errors.Any)
 {
     <div @key="_shownAttempt" @ref="_summary" tabindex="-1" role="alert"
          class="alert alert-danger mb-4 scroll-mt-6 si-attention">
-        <Icon Name="x" Class="w-5 h-5 shrink-0 mt-0.5"/>
+        <Icon Name="alert" Class="w-5 h-5 shrink-0 mt-0.5"/>
         <div class="flex-1">
-            <div class="font-medium">@(Errors.All.Count == 1 ? "Please fix the following:" : $"Please fix the following {Errors.All.Count} issues:")</div>
+            <div class="font-medium">@(Feedback.Errors.All.Count == 1 ? "Please fix the following:" : $"Please fix the following {Feedback.Errors.All.Count} issues:")</div>
             <ul class="mt-1 list-disc list-inside text-sm space-y-0.5">
-                @foreach (var msg in Errors.All)
+                @foreach (var msg in Feedback.Errors.All)
                 {
                     <li>@msg</li>
                 }
@@ -32,14 +32,9 @@
 }
 
 @code {
-    [Parameter] public FormErrors? Errors { get; set; }
-
-    /// <summary>
-    /// Failed submits so far — <c>FormFeedback.Attempt</c>. Every increase pulls the page back
-    /// here. Left at zero the summary still renders, it just never moves the page, which is what
-    /// a form that only ever shows errors passively wants.
-    /// </summary>
-    [Parameter] public int Attempt { get; set; }
+    /// <summary>The form's voice — this renders its <see cref="FormFeedback.Errors"/>, and moves
+    /// the page back here on every rise in its <see cref="FormFeedback.Attempt"/>.</summary>
+    [Parameter, EditorRequired] public FormFeedback Feedback { get; set; } = default!;
 
     private ElementReference _summary;
     private int _shownAttempt;
@@ -47,10 +42,10 @@
 
     protected override void OnParametersSet()
     {
-        if (Attempt <= _shownAttempt) return;
-        _shownAttempt = Attempt;
+        if (Feedback.Attempt <= _shownAttempt) return;
+        _shownAttempt = Feedback.Attempt;
         // Nothing to move to when the failure had no field errors — the page's Alert carries it.
-        _pending = Errors is { Any: true };
+        _pending = Feedback.Errors.Any;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

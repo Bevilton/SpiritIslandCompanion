@@ -2,19 +2,15 @@
 @attribute [Authorize]
 @inject IMediator Mediator
 @inject ICurrentUserService CurrentUser
-@inject WebApp.State.CurrentUserState UserState
+@inject CurrentUserState UserState
 
-<PageTitle>Settings</PageTitle>
+<AppPageTitle Title="Settings"/>
 
-<div class="page-head">
-    <div>
-        <h1 class="page-title">Settings</h1>
-        <p class="page-sub">Configure your collection and preferences.</p>
-    </div>
-</div>
+<PageHeader Eyebrow="Account" Title="Settings">
+    <Sub>Configure your collection and preferences.</Sub>
+</PageHeader>
 
-<Alert Message="@_form.Message" Type="@_form.MessageType"/>
-<FormErrorSummary Errors="@_form.Errors" Attempt="_form.Attempt"/>
+<FormMessages Feedback="_form"/>
 
 @if (_loading)
 {
@@ -23,37 +19,28 @@
 else
 {
     <section class="surface max-w-2xl mb-5">
-        <div class="surface-head">
-            <h2 class="text-base font-semibold">Your name</h2>
-        </div>
+        <SectionHead Surface="true" Title="Your name"/>
         <div class="surface-body">
-            <p class="text-sm text-ink-500 mb-4">
+            <p class="body-note mb-5">
                 What friends see on shared games and in their statistics. Until you pick one,
                 your email address is used instead.
             </p>
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-start">
-                <div class="flex-1">
-                    <input type="text" class="input w-full" maxlength="@Domain.Models.User.Nickname.MaxLength"
-                           placeholder="@_email" @bind="_nickname" @bind:event="oninput"/>
-                    <FieldError For="Nickname" Errors="@_form.Errors"/>
-                </div>
-                <button class="btn btn-primary sm:self-start" @onclick="SaveNickname"
-                        disabled="@(_savingName || string.IsNullOrWhiteSpace(_nickname) || _nickname.Trim() == _savedNickname)">
-                    <Icon Name="check" Class="w-4 h-4"/> Save name
-                </button>
-            </div>
-            <p class="mt-2 text-xs text-ink-500">
+            @* The same field-and-button the People page adds a friend or a guest with. Held closed
+               while the name is blank or is the one already saved. *@
+            <SubmitField @bind-Value="_nickname" Placeholder="@_email" AriaLabel="Display name"
+                         MaxLength="Nickname.MaxLength" ErrorFor="Nickname" Errors="@_form.Errors"
+                         Icon="check" SubmitLabel="Save name"
+                         CanSubmit="@(_nickname.Trim() != _savedNickname)" OnSubmit="SaveNickname"/>
+            <p class="block-note mt-2">
                 Signed in as <span class="font-medium text-ink-700">@_email</span>. Friend requests are sent to this address.
             </p>
         </div>
     </section>
 
     <section class="surface max-w-2xl">
-        <div class="surface-head">
-            <h2 class="text-base font-semibold">Owned expansions</h2>
-        </div>
+        <SectionHead Surface="true" Title="Owned expansions"/>
         <div class="surface-body">
-            <p class="text-sm text-ink-500 mb-5">
+            <p class="body-note mb-5">
                 Pick the expansions you own — content throughout the app filters to match. The base game is always included.
             </p>
             <div class="space-y-2">
@@ -61,24 +48,35 @@ else
                 {
                     var isBase = expansion.Id == Expansions.BaseGame;
                     var isOwned = isBase || _ownedExpansions.Contains(expansion.Id.Value);
-                    var counts = _counts[expansion.Id.Value];
+                    var counts = ExpansionTotals[expansion.Id.Value];
+                    @* .option-row, the same on/off row the setup form's fine-tune switches are —
+                       with a checkbox where those have a switch. The base game's row cannot be
+                       switched, so it answers neither the pointer nor the hover. *@
                     <label for="@($"exp-{expansion.Id.Value}")"
-                           class="flex items-center justify-between p-3 rounded-lg border @(isOwned ? "border-accent-300 bg-accent-50/40" : "border-ink-200 bg-white") @(isBase ? "" : "cursor-pointer hover:border-accent-300") transition-colors">
+                           class="option-row @(isOwned ? "is-on" : null) @(isBase ? null : "cursor-pointer hover:border-ink-300")">
                         <div class="flex items-center gap-3">
                             <input class="checkbox" type="checkbox"
                                    id="@($"exp-{expansion.Id.Value}")"
                                    checked="@isOwned"
                                    disabled="@isBase"
                                    @onchange="e => ToggleExpansion(expansion.Id.Value, (bool)(e.Value ?? false))"/>
+                            @* The same name-over-caption pair every other option row in the app
+                               is set in (.row-title / .row-sub) — this one had been written by
+                               hand a size larger and a weight lighter than the fine-tune rows it
+                               is a sibling of. *@
                             <div>
-                                <div class="font-medium text-ink-900 flex items-center gap-2">
+                                <div class="row-title flex items-center gap-2">
                                     @expansion.Name
                                     @if (isBase)
                                     {
                                         <span class="badge badge-neutral">Required</span>
                                     }
                                 </div>
-                                <div class="text-xs text-ink-500 mt-0.5">@counts.Spirits spirits · @counts.Adversaries adversaries · @counts.Scenarios scenarios</div>
+                                <div class="row-sub mt-0.5">
+                                    @Copy.Count(counts.Spirits, "spirit") ·
+                                    @Copy.Count(counts.Adversaries, "adversary") ·
+                                    @Copy.Count(counts.Scenarios, "scenario")
+                                </div>
                             </div>
                         </div>
                     </label>
@@ -86,16 +84,8 @@ else
             </div>
         </div>
         <div class="surface-foot">
-            <button class="btn btn-primary" @onclick="Save" disabled="@_saving">
-                @if (_saving)
-                {
-                    <span class="inline-flex h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
-                }
-                else
-                {
-                    <Icon Name="check" Class="w-4 h-4"/>
-                }
-                Save
+            <button type="button" class="btn btn-primary" @onclick="Save" disabled="@_saving">
+                <ActionGlyph Icon="check" Busy="_saving"/> Save
             </button>
         </div>
     </section>
@@ -108,13 +98,12 @@ else
     private string _email = "";
     private bool _loading = true;
     private bool _saving;
-    private bool _savingName;
     /// Field errors, the general alert and the failed-attempt count in one place — see FormFeedback.
     private readonly FormFeedback _form = new();
 
     private record ExpansionCounts(int Spirits, int Adversaries, int Scenarios);
 
-    private static readonly Dictionary<string, ExpansionCounts> _counts =
+    private static readonly Dictionary<string, ExpansionCounts> ExpansionTotals =
         GameData.Expansions.ToDictionary(
             e => e.Id.Value,
             e => new ExpansionCounts(
@@ -124,8 +113,13 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        if (CurrentUser.UserId is not { } userId) return;
-        var result = await Mediator.Send(new Application.Features.Users.GetUserQuery(userId));
+        // Without a user there is nothing to load — drop the spinner rather than spin forever.
+        if (CurrentUser.UserId is not { } userId)
+        {
+            _loading = false;
+            return;
+        }
+        var result = await Mediator.Send(new GetUserQuery(userId));
         if (result.IsSuccess)
         {
             _ownedExpansions = result.Value.OwnedExpansionIds.ToHashSet();
@@ -136,12 +130,11 @@ else
         _loading = false;
     }
 
+    /// The in-flight state is SubmitField's — it holds its button while this runs.
     private async Task SaveNickname()
     {
-        _savingName = true;
-        var result = await Mediator.Send(new Application.Features.Users.SetNicknameCommand(
-            CurrentUser.UserId!.Value, _nickname));
-        _savingName = false;
+        var result = await Mediator.Send(new SetNicknameCommand(
+            CurrentUser.RequireUserId(), _nickname));
 
         if (!_form.Apply(result, "Name saved.")) return;
 
@@ -160,8 +153,8 @@ else
     private async Task Save()
     {
         _saving = true;
-        var result = await Mediator.Send(new Application.Features.Users.UpdateUserSettingsCommand(
-            CurrentUser.UserId!.Value, _ownedExpansions.ToList()));
+        var result = await Mediator.Send(new UpdateUserSettingsCommand(
+            CurrentUser.RequireUserId(), _ownedExpansions.ToList()));
         _saving = false;
 
         if (_form.Apply(result, "Settings saved."))

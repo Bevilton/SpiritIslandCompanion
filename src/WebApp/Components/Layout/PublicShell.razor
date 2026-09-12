@@ -25,22 +25,22 @@
     <DemoRibbon/>
 
     <header class="sticky top-0 z-30 border-b on-deep-rule bg-deep-950">
-        <div class="mx-auto max-w-6xl px-4 md:px-6 h-16 flex items-center justify-between">
-            <Logo Href="/" OnDeep="true"/>
+        <div class="page-shell h-16 flex items-center justify-between">
+            <Logo Href="@AppRoutes.Home" OnDeep="true"/>
 
             <nav class="hidden md:flex items-center gap-6">@Links</nav>
 
             <div class="flex items-center gap-2">
                 <AuthorizeView>
                     <Authorized>
-                        <a href="/app/dashboard" class="btn btn-sm btn-ghost-deep">Dashboard</a>
-                        <a href="/app/games/new" class="btn btn-sm btn-primary">
-                            <Icon Name="plus" Class="w-4 h-4"/> New Game
+                        <a href="@AppRoutes.Dashboard" class="btn btn-sm btn-ghost-deep">Dashboard</a>
+                        <a href="@GamesLink.New" class="btn btn-sm btn-primary">
+                            <Icon Name="plus" Class="w-4 h-4"/> New game
                         </a>
                     </Authorized>
                     <NotAuthorized>
-                        <a href="/login" class="btn btn-sm btn-ghost-deep">Sign in</a>
-                        <a href="/login" class="btn btn-sm btn-primary hidden sm:inline-flex">Get started</a>
+                        <a href="@AppRoutes.Login" class="btn btn-sm btn-ghost-deep">Sign in</a>
+                        <a href="@AppRoutes.Login" class="btn btn-sm btn-primary hidden sm:inline-flex">Get started</a>
                     </NotAuthorized>
                 </AuthorizeView>
             </div>
@@ -56,26 +56,20 @@
     </main>
 
     <footer class="deep">
-        <div class="mx-auto max-w-6xl px-4 md:px-6 py-10 flex flex-col md:flex-row items-center justify-between gap-5 text-sm">
+        <div class="page-shell py-10 flex flex-col md:flex-row items-center justify-between gap-5 text-sm">
             <div class="flex flex-col md:flex-row md:items-center gap-3 text-center md:text-left">
-                <Logo Href="/" OnDeep="true"/>
+                <Logo Href="@AppRoutes.Home" OnDeep="true"/>
                 <span class="on-deep-muted hidden md:inline">·</span>
                 <span class="on-deep-body">An unofficial companion for the Spirit Island board game.</span>
             </div>
             <div class="flex items-center gap-5">
-                <a href="/spirits" class="on-deep-body hover:text-ink-50 transition-colors">Spirits</a>
-                <a href="/adversaries" class="on-deep-body hover:text-ink-50 transition-colors">Adversaries</a>
+                <a href="@AppRoutes.PublicSpirits" class="link-on-deep">Spirits</a>
+                <a href="@AppRoutes.PublicAdversaries" class="link-on-deep">Adversaries</a>
                 <a href="https://spiritislandwiki.com" target="_blank" rel="noopener"
-                   class="on-deep-body hover:text-ink-50 transition-colors">Wiki</a>
+                   class="link-on-deep">Wiki</a>
             </div>
         </div>
     </footer>
-</div>
-
-<div id="blazor-error-ui">
-    An unhandled error has occurred.
-    <a href="" class="reload">Reload</a>
-    <a class="dismiss">🗙</a>
 </div>
 
 @code {
@@ -87,18 +81,18 @@
     /// </summary>
     private static readonly (string Href, string Label)[] PublicRoutes =
     [
-        ("/",            "Home"),
-        ("/spirits",     "Spirits"),
-        ("/adversaries", "Adversaries"),
-        ("/scenarios",   "Scenarios"),
-        ("/boards",      "Boards"),
+        (AppRoutes.Home,              "Home"),
+        (AppRoutes.PublicSpirits,     "Spirits"),
+        (AppRoutes.PublicAdversaries, "Adversaries"),
+        (AppRoutes.PublicScenarios,   "Scenarios"),
+        (AppRoutes.PublicBoards,      "Boards"),
     ];
 
     private RenderFragment Links => @<text>
         @foreach (var (href, label) in PublicRoutes)
         {
             <NavLink class="top-nav-link" ActiveClass="active" href="@href"
-                     Match="@(href == "/" ? NavLinkMatch.All : NavLinkMatch.Prefix)">@label</NavLink>
+                     Match="@(href == AppRoutes.Home ? NavLinkMatch.All : NavLinkMatch.Prefix)">@label</NavLink>
         }
     </text>;
 }

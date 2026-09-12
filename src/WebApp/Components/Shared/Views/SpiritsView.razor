@@ -1,63 +1,64 @@
-@* Reference content for spirits browse page. Used from both the public route
-   (/spirits) and the authenticated route (/app/spirits).
-
-   OwnedExpansions: pass null (default) to show every spirit; pass a list to filter
-   to only those expansions. The view itself is auth-agnostic — the authenticated
-   wrapper page is responsible for resolving the user's owned expansions and
-   passing them in.
+@* Reference content for the spirits browse page. Used from both the public route (/spirits) and
+   the authenticated route (/app/spirits); what either one hands over is CatalogueViewBase, and
+   the view itself reads no auth state.
 
    The filter itself is FilterBar + SpiritFacets, shared with the setup screen's spirit picker. *@
+@inherits CatalogueViewBase
 
-<div class="page-head">
-    <div>
-        <span class="eyebrow">Reference</span>
-        <h1 class="page-title mt-2">Spirits</h1>
-        <p class="page-sub">@_inScope.Count spirits across @ExpansionCount expansion@(ExpansionCount == 1 ? "" : "s"). The filter says how many are showing.</p>
-    </div>
-    <input type="search" class="input md:w-64" placeholder="Filter by name…" aria-label="Filter by name"
-           @bind="_filter.Query" @bind:event="oninput"/>
-</div>
+@* Derived once at the top of the render rather than from properties read all the way down it:
+   the filter is mutated in place by the search box and the bar, so there is no parameter change
+   to cache against — but every one of those mutations is followed by a render, which makes this
+   exactly the moment the lists are stale. As properties they were rebuilt seven times a
+   keystroke. *@
+@{
+    var inScope = OwnedCatalogue.Spirits(OwnedExpansions);
+    var visible = _filter.Apply(inScope);
+    // How many the shelf holds per expansion — the "12 of 37" each group's heading reports —
+    // counted once here rather than once per group per render.
+    var perExpansion = inScope.GroupBy(s => s.ExpansionId).ToDictionary(g => g.Key, g => g.Count());
+}
+
+<PageHeader Eyebrow="Reference" Title="Spirits">
+    <Sub>
+        @Copy.Count(inScope.Count, "spirit") across @Copy.Count(perExpansion.Count, "expansion").
+        The filter says how many are showing.
+    </Sub>
+    <Actions>
+        <SearchBox @bind-Value="_filter.Query"/>
+    </Actions>
+</PageHeader>
 
 <div class="mt-4">
-    <FilterBar @ref="_bar" Filter="_filter" OwnedExpansions="@OwnedExpansions"
-               ShowingCount="_visible.Count" TotalCount="_inScope.Count"
-               UntestedLabel="Never played" UntestedHint="Spirits nobody at your table has played"
+    <FilterBar Filter="_filter" OwnedExpansions="@OwnedExpansions"
+               PresentExpansions="_filter.ExpansionsIn(inScope)"
+               ShowingCount="visible.Count" TotalCount="inScope.Count"
+               UntestedLabel="Never played" UntestedHint="@Copy.Untried("Spirits")"
                Changed="StateHasChanged">
-        <Facets>
-            @if (_bar is not null)
-            {
-                <SpiritFacets Filter="_filter" Bar="_bar"/>
-            }
+        <Facets Context="bar">
+            <SpiritFacets Filter="_filter" Bar="bar"/>
         </Facets>
     </FilterBar>
 </div>
 
 @* Grouped into expansions only while that is the order — sorting by name or complexity across
-   the whole catalogue and then cutting it into expansion sections would show neither. *@
-@if (_filter.GroupsByExpansion)
+   the whole catalogue and then cutting it into expansion sections would show neither.
+
+   One loop over labelled groups rather than the grid written out in both branches, as the spirit
+   picker and the board picker do it: an unlabelled single group is the flat list. The heading is
+   what the two branches genuinely differ by, so it is the part that is conditional. *@
+@foreach (var grp in _filter.GroupsByExpansion
+    ? visible.GroupBy(s => s.ExpansionId)
+        .Select(g => (Heading: (ExpansionId?)g.Key, Spirits: g.ToList()))
+    : [(Heading: (ExpansionId?)null, Spirits: visible.ToList())])
 {
-    @foreach (var grp in _visible.GroupBy(s => s.ExpansionId))
-    {
-        var expansion = GameData.Expansions.FirstOrDefault(e => e.Id == grp.Key);
-        <section class="mt-10">
-            <div class="mb-4 flex items-baseline justify-between">
-                <h2 class="text-xl font-semibold" style="font-family: var(--font-serif);">@(expansion?.Name ?? grp.Key.Value)</h2>
-                <span class="text-xs text-ink-500">@grp.Count() of @_inScope.Count(s => s.ExpansionId == grp.Key)</span>
-            </div>
-            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                @foreach (var s in grp)
-                {
-                    @SpiritCard(s)
-                }
-            </div>
-        </section>
-    }
-}
-else
-{
-    <section class="mt-8">
+    <section class="@(grp.Heading is null ? "mt-8" : "mt-10")">
+        @if (grp.Heading is { } expansion)
+        {
+            <SectionHead Size="lg" Title="@GameLookups.ExpansionName(expansion)"
+                         Note="@($"{grp.Spirits.Count} of {perExpansion[expansion]}")"/>
+        }
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            @foreach (var s in _visible)
+            @foreach (var s in grp.Spirits)
             {
                 @SpiritCard(s)
             }
@@ -65,50 +66,25 @@ else
     </section>
 }
 
-@if (_visible.Count == 0)
+@if (visible.Count == 0)
 {
-    <div class="surface mt-6 py-10 text-center text-ink-500">No spirits match the current filters.</div>
+    <div class="surface no-matches mt-6">@Copy.NoMatches("spirits")</div>
 }
 
-@* LinkGames only where there is a record to link from — see AdversariesView. *@
-<SpiritDetailModal @ref="_modal" OwnedExpansions="@OwnedExpansions" Facts="Facts" LinkGames="@(Records is not null)"/>
+<SpiritDetailModal @ref="_modal" Facts="Facts" LinkGames="HasRecord"/>
 
 @code {
-    /// <summary>
-    /// Null (default) shows everything; a non-null list restricts the view (and
-    /// child detail modal) to those expansions. The authenticated wrapper page
-    /// passes in the user's owned expansions; public pages omit this parameter.
-    /// </summary>
-    [Parameter] public IReadOnlyList<ExpansionId>? OwnedExpansions { get; set; }
-
-    /// <summary>
-    /// The account's record per spirit — every seat the visitor has recorded, their own and their
-    /// table's. A reference page has no player selector and never narrows: it is the catalogue
-    /// measured against everything on the account, and the record sheets it opens say so.
-    /// <para>
-    /// Unlocks ordering by play count and win rate and the never-played filter, and puts the
-    /// numbers on the cards — sorting by a figure the cards don't show would leave the order
-    /// looking arbitrary. Null on the public route, which has nobody to have a record.
-    /// </para>
-    /// </summary>
-    [Parameter] public IReadOnlyDictionary<string, SetupInsights.PlayRecord>? Records { get; set; }
-
-    /// <summary>The history behind <see cref="Records"/>, for the detail modal's profile.</summary>
-    [Parameter] public IReadOnlyList<Application.Features.Statistics.SetupGameFact>? Facts { get; set; }
-
     private readonly SpiritFilter _filter = new();
     private SpiritDetailModal _modal = default!;
-    private FilterBar? _bar;
 
     /// Every aspect's record in one tally, so a card can look its own up. Computed here rather
     /// than passed in: the page already hands over the history the cards' records come from.
     private IReadOnlyDictionary<string, SetupInsights.PlayRecord>? _aspectRecords;
 
-    protected override void OnParametersSet()
-    {
-        _filter.UseHistory(Records);
+    protected override FilterState Filter => _filter;
+
+    protected override void OnRecordsChanged() =>
         _aspectRecords = Facts is { Count: > 0 } ? SetupInsights.AspectRecords(Facts) : null;
-    }
 
     /// <summary>
     /// The aspects of a spirit that have actually been played. A browse card reports a record;
@@ -121,38 +97,27 @@ else
                 .Where(a => _aspectRecords.GetValueOrDefault(a.Id.Value) is { Played: > 0 })
                 .ToList();
 
-    /// Every spirit the visitor could see at all, before the filter narrows it.
-    private IReadOnlyList<Spirit> _inScope =>
-        GameData.Spirits.Where(s => OwnedExpansions is null || OwnedExpansions.Contains(s.ExpansionId)).ToList();
-
-    private IReadOnlyList<Spirit> _visible => _filter.Apply(_inScope);
-
-    private int ExpansionCount => _inScope.Select(s => s.ExpansionId).Distinct().Count();
-
     private void OpenDetail(Spirit s) => _modal.Show(s);
 
     private RenderFragment SpiritCard(Spirit s) => __builder =>
     {
         var detail = SpiritDetails.For(s.Id);
-        var color = detail?.ColorHex ?? GameLookups.NeutralColor;
-        var aspects = GameData.GetAspectsForSpirit(s.Id);
-        var visibleAspectCount = OwnedExpansions is null
-            ? aspects.Count
-            : aspects.Count(a => OwnedExpansions.Contains(a.ExpansionId));
+        var color = GameLookups.SpiritColor(detail);
+        var visibleAspectCount = OwnedCatalogue.AspectsFor(s.Id, OwnedExpansions).Count;
 
         @* .surface, like the board and scenario cards — spelling the border and fill out by hand
            is what left these as the only reference cards with no shadow. (Comment above the tag,
            never between its attributes: that compiles clean and then kills the circuit.) *@
         <button @key="s.Id.Value" type="button"
                 @onclick="() => OpenDetail(s)"
-                class="surface p-5 text-left transition-all hover:-translate-y-px hover:border-ink-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40"
-                style="border-top: 3px solid @color;">
+                class="surface card-lift top-accent p-5 text-left focus-ring"
+                style="--top-accent: @color;">
             <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0">
-                    <h3 class="text-base font-semibold leading-snug text-ink-900">@s.Name</h3>
+                    <h3 class="card-title">@s.Name</h3>
                     @if (detail is not null)
                     {
-                        <div class="mt-1 text-xs text-ink-500">@detail.PlayStyle</div>
+                        <div class="row-sub mt-0.5">@detail.PlayStyle</div>
                     }
                 </div>
                 @if (detail is not null)
@@ -164,7 +129,7 @@ else
             <div class="mt-4 flex flex-wrap items-center gap-2 text-xs">
                 @if (detail is not null)
                 {
-                    <span class="badge" style="background-color: @(color)1f; color: @color;">
+                    <span class="badge" style="@GameLookups.TintBadgeStyle(color)">
                         @SpiritFilter.ComplexityLabel(detail.Complexity)
                     </span>
                 }
@@ -172,18 +137,20 @@ else
                 {
                     <TokenBadges Tokens="detail.Tokens" Size="sm"/>
                 }
-                @* Which expansion it came from is otherwise only visible in the grouped order. *@
-                @if (!_filter.GroupsByExpansion && GameData.Expansions.FirstOrDefault(e => e.Id == s.ExpansionId) is { } exp)
+                @* Which expansion it came from is otherwise only visible in the grouped order.
+                   GameLookups.ExpansionName, as every other view and picker names one — this was
+                   the one place still walking GameData for it. *@
+                @if (!_filter.GroupsByExpansion)
                 {
-                    <span class="text-ink-400">@exp.Name</span>
+                    <span class="text-ink-500">@GameLookups.ExpansionName(s.ExpansionId)</span>
                 }
                 @if (visibleAspectCount > 0)
                 {
-                    <span class="text-ink-500">@visibleAspectCount aspect@(visibleAspectCount == 1 ? "" : "s")</span>
+                    <span class="text-ink-500">@Copy.Count(visibleAspectCount, "aspect")</span>
                 }
             </div>
 
-            @if (Records is not null)
+            @if (HasRecord)
             {
                 @* Passive: the whole card opens the same sheet, so these only show the figures
                    the play-based orderings sort on, in the shape used everywhere else. *@

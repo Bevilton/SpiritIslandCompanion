@@ -1,17 +1,19 @@
 @* Compact help marker — circular (i) icon that reveals a tooltip on hover or focus.
    Usage:
        <InfoHint>Some explanation text…</InfoHint>
-       <InfoHint Position="right">Anchored to the right edge.</InfoHint>
-*@
+       <InfoHint Position="center">Anchored to its own middle — for a narrow column.</InfoHint>
+
+   The panel is a real tooltip to assistive tech, not only to the pointer: it carries role=tooltip
+   and the marker points at it with aria-describedby, so a reader who lands on the ⓘ hears what a
+   sighted one would see on hover. *@
 
 <span class="relative inline-block align-middle">
     <button type="button"
-            class="peer inline-flex h-4 w-4 items-center justify-center rounded-full bg-ink-100 text-ink-500 hover:bg-ink-200 hover:text-ink-700 focus:outline-none focus:ring-2 focus:ring-accent-500/40 transition-colors"
-            tabindex="0"
-            aria-label="More info">
+            class="disc peer h-4 w-4 bg-ink-100 text-ink-500 transition-colors hover:bg-ink-200 hover:text-ink-700 focus-ring"
+            aria-label="More info" aria-describedby="@_panelId">
         <Icon Name="info" Class="w-3 h-3"/>
     </button>
-    <div class="@PanelClass">
+    <div id="@_panelId" role="tooltip" class="@PanelClass">
         @ChildContent
     </div>
 </span>
@@ -19,16 +21,21 @@
 @code {
     [Parameter, EditorRequired] public RenderFragment? ChildContent { get; set; }
 
-    /// <summary>"left" (default), "right", or "center" — anchors the popover horizontally.</summary>
+    /// <summary>"left" (default) or "center" — anchors the popover horizontally. Centre where the
+    /// marker sits in a column barely wider than the popover, as the fine-tune rows do.</summary>
     [Parameter] public string Position { get; set; } = "left";
+
+    /// Several hints share a page, and aria-describedby needs each panel to have an id of its own.
+    private readonly string _panelId = $"hint-{Guid.NewGuid():N}";
 
     private string PanelClass =>
         "hidden peer-hover:block peer-focus:block "
         + Position switch
         {
-            "right"  => "right-0 ",
             "center" => "left-1/2 -translate-x-1/2 ",
             _        => "left-0 "
         }
-        + "absolute z-40 top-full mt-1.5 w-64 rounded-lg shadow-lg border border-ink-200 bg-white p-3 text-xs leading-relaxed text-ink-700 normal-case tracking-normal font-normal";
+        // .body-copy is the panel's register; the three resets after it are for a hint that sits
+        // inside a .label, whose small caps it must not inherit.
+        + "absolute z-40 top-full mt-1.5 w-64 rounded-lg shadow-lg border border-ink-200 bg-white p-3 body-copy text-xs normal-case tracking-normal font-normal";
 }

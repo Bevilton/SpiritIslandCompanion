@@ -2,6 +2,7 @@ using Application.Abstractions;
 using Application.Data;
 using Application.Features.Games;
 using Application.Features.PlayerMerges;
+using Application.Features.Statistics;
 using Domain.Models.Friendship;
 using Domain.Models.Game;
 using Domain.Models.PlayerMerge;
@@ -52,7 +53,16 @@ public sealed record PersonSummary(
     DateTimeOffset? LastPlayedAt,
     Guid? PendingMergeRequestId,
     string? PendingMergeTargetName,
-    bool MergeDeclined);
+    bool MergeDeclined) : IWinRateTally
+{
+    /// <summary>
+    /// The shared record shape's name for <see cref="GamesTogether"/>. Kept as an explicit member
+    /// so the summary's own property can go on saying what it counts — the games the two of you
+    /// sat in together, never this person's whole history — while a card that reads any tally
+    /// can read this one too.
+    /// </summary>
+    int IPlayTally.GamesPlayed => GamesTogether;
+}
 
 public sealed record PendingFriendRequest(
     Guid FriendshipId,

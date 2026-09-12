@@ -1,4 +1,11 @@
-@using WebApp.Validation
+@* What one field is unhappy about, under the field itself. The other half of a form's voice:
+   FormErrorSummary lists everything at once and takes focus, this puts each message back beside
+   the control it belongs to.
+
+   Takes the errors alone rather than the whole FormFeedback, unlike Alert and FormErrorSummary:
+   those two are a page's, one each, and read the attempt count as well — this one is per field
+   and is also worn by components a page hands its errors down to (see GameResultEditor), which
+   have no business with the rest of the form's state. *@
 
 @if (Errors is not null && Errors.HasFor(For))
 {
@@ -11,6 +18,9 @@
 }
 
 @code {
-    [Parameter, EditorRequired] public string For { get; set; } = default!;
+    /// <summary>The FluentValidation property path this sits under — <c>Players[0].SpiritId</c>.</summary>
+    [Parameter, EditorRequired] public string For { get; set; } = "";
+
+    /// <summary>The form's errors, usually <c>_form.Errors</c>. Null renders nothing.</summary>
     [Parameter] public FormErrors? Errors { get; set; }
 }

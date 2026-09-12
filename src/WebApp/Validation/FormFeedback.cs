@@ -27,25 +27,42 @@ public sealed class FormFeedback
     /// <summary>The general message — a success confirmation, or a failure with no field.</summary>
     public string? Message { get; private set; }
 
-    /// <summary>Which <c>Alert</c> style <see cref="Message"/> wants: "success", "danger", …</summary>
-    public string MessageType { get; private set; } = "danger";
+    /// <summary>Which way <see cref="Message"/> reads — what <c>Alert</c> dresses it as.</summary>
+    public FormMessageKind MessageKind { get; private set; } = FormMessageKind.Failure;
 
     /// <summary>Failed submits so far. See the note on this type.</summary>
     public int Attempt { get; private set; }
+
+    /// <summary>
+    /// Which act of the form <see cref="Message"/> answers — moves on every <see cref="Apply"/>.
+    /// <c>Alert</c> keys its dismissal on this rather than on the text: two saves in a row say
+    /// "Saved." twice, and dismissing the first must not swallow the second.
+    /// </summary>
+    public int MessageStamp { get; private set; }
 
     /// <summary>
     /// Routes a command result: validation failures to <see cref="Errors"/>, any other failure
     /// to <see cref="Message"/>, success to the confirmation. Returns whether it succeeded, so
     /// callers can read as <c>if (form.Apply(result, "Saved.")) …</c>.
     /// </summary>
-    public bool Apply(Result result, string? successMessage = null, string successType = "success")
+    /// <param name="successKind">
+    /// How the confirmation reads. <see cref="FormMessageKind.Success"/> by default; the People
+    /// page passes <see cref="FormMessageKind.Info"/> for the acts that succeed without being
+    /// good news — a request declined, a friend removed — where jade would be congratulating
+    /// the user on it.
+    /// </param>
+    public bool Apply(
+        Result result,
+        string? successMessage = null,
+        FormMessageKind successKind = FormMessageKind.Success)
     {
         Errors = FormErrors.FromResult(result);
+        MessageStamp++;
 
         if (result.IsSuccess)
         {
             Message = successMessage;
-            MessageType = successType;
+            MessageKind = successKind;
             return true;
         }
 
@@ -53,7 +70,7 @@ public sealed class FormFeedback
         // A failure is either field-bound or general, never both: the summary already lists the
         // field errors, and repeating one of them in the alert says it twice.
         Message = Errors.Any ? null : result.Error.Message;
-        MessageType = "danger";
+        MessageKind = FormMessageKind.Failure;
         return false;
     }
 
@@ -68,10 +85,15 @@ public sealed class FormFeedback
         Errors = Errors.Without(propertyPaths);
     }
 
-    /// <summary>Back to saying nothing — e.g. when a dialog is opened afresh.</summary>
+    /// <summary>
+    /// Back to saying nothing — e.g. when a dialog is opened afresh. <see cref="Attempt"/> is
+    /// deliberately kept: <c>FormErrorSummary</c> remembers the last attempt it moved the page
+    /// for, and a counter that went back to zero would stop the next failure from being noticed.
+    /// </summary>
     public void Clear()
     {
         Errors = FormErrors.Empty;
         Message = null;
+        MessageKind = FormMessageKind.Failure;
     }
 }

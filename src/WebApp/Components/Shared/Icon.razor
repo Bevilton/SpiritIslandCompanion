@@ -81,8 +81,12 @@
         case "arrow-left":
             <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"/>
             break;
+        @* Waiting on somebody: a pending merge, an unanswered request, a draft nobody has
+           finished. The path here used to be the calendar's with its date dots stripped off,
+           which drew an empty box — so every "pending" state in the app was marked with a
+           blank calendar. *@
         case "hourglass":
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3h10.5M6.75 21h10.5M7.5 3v3.75a2.25 2.25 0 0 0 .659 1.591L12 12l-3.841 3.659A2.25 2.25 0 0 0 7.5 17.25V21m9-18v3.75a2.25 2.25 0 0 1-.659 1.591L12 12l3.841 3.659A2.25 2.25 0 0 1 16.5 17.25V21"/>
             break;
         case "logout":
             <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75"/>

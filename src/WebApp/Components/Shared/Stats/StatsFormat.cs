@@ -36,7 +36,7 @@ public static class StatsFormat
     /// </summary>
     public static string Summary(StatisticsResponse stats)
     {
-        var parts = new List<string> { $"{stats.TotalGames} match{(stats.TotalGames == 1 ? "" : "es")}" };
+        var parts = new List<string> { Copy.Count(stats.TotalGames, "match") };
         if (stats.Wins + stats.Losses > 0) parts.Add($"{stats.WinRate:F0}% victories");
         if (stats.TotalPlayTime > TimeSpan.Zero) parts.Add($"{Hours(stats.TotalPlayTime)} on the island");
         return string.Join(" · ", parts);
@@ -44,6 +44,15 @@ public static class StatsFormat
 
     /// <summary>What sits under the games-recorded tile: the drafts still open, or that none are.</summary>
     public static string DraftsCaption(int inProgress) => inProgress > 0
-        ? $"{inProgress} draft{(inProgress == 1 ? "" : "s")} waiting"
+        ? $"{Copy.Count(inProgress, "draft")} waiting"
         : "all completed";
+
+    /// <summary>
+    /// What sits under the time-played tile: "avg 1 h 30 min per game". The dashboard and the
+    /// statistics page each wrote the caption out, and both spelled the span as <c>h:mm</c> —
+    /// the one duration in the app not written the way <see cref="Games.GameFormat.Duration"/>
+    /// writes every other game's.
+    /// </summary>
+    public static string AverageDurationCaption(TimeSpan average) =>
+        $"avg {Games.GameFormat.Duration(average)} per game";
 }

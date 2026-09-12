@@ -1,0 +1,27 @@
+@* The band a reference sheet ends with when it was opened from a picker: the way back to the
+   list, and — pushed to the far end — whatever this sheet offers instead of it, a button that
+   takes the subject or a line saying the pick is made above.
+
+   The four sheets that have one wrote it out identically, down to the ml-auto on the trailing
+   half, which is the sort of thing that stays identical right up until it doesn't. *@
+
+<div class="sheet-foot">
+    <button type="button" class="btn btn-ghost btn-sm" @onclick="OnBack">
+        <Icon Name="arrow-left" Class="w-3.5 h-3.5"/> Back to @BackLabel
+    </button>
+    @if (ChildContent is not null)
+    {
+        <div class="ml-auto">@ChildContent</div>
+    }
+</div>
+
+@code {
+    /// <summary>What the sheet came from, in the plural — "spirits", "adversaries".</summary>
+    [Parameter, EditorRequired] public string BackLabel { get; set; } = "";
+
+    [Parameter, EditorRequired] public EventCallback OnBack { get; set; }
+
+    /// <summary>The far end of the band: the action that takes this subject, or the note that
+    /// says the pick is one of the choices above.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

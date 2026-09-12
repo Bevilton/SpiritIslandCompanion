@@ -7,18 +7,16 @@
 
 @typeparam TValue
 
-<span class="inline-flex shrink-0 items-center overflow-hidden rounded-full border border-ink-200 bg-white text-[10px] font-medium @(Disabled ? "opacity-40" : "")"
+<span class="inline-flex shrink-0 items-center overflow-hidden rounded-full border border-ink-200 bg-white text-[10px] font-medium @(Disabled ? "opacity-40" : null)"
       title="@(Disabled ? DisabledHint : null)">
-    @* aria-pressed as literal "true"/"false": handed a bool, Blazor drops the attribute for
-       false, so the off state would be indistinguishable from no state at all. *@
-    <button type="button" disabled="@Disabled" title="@FirstHint" aria-pressed="@(IsCurrent(FirstValue) ? "true" : "false")"
+    <button type="button" disabled="@Disabled" title="@FirstHint" aria-pressed="@Aria.Flag(IsCurrent(FirstValue))"
             @onclick="() => ValueChanged.InvokeAsync(FirstValue)"
-            class="px-2 py-0.5 uppercase tracking-wide transition-colors @SegmentClass @Style(FirstValue)">
+            class="px-2 py-0.5 uppercase tracking-wide transition-colors focus-ring @SegmentClass @Style(FirstValue)">
         @FirstLabel
     </button>
-    <button type="button" disabled="@Disabled" title="@SecondHint" aria-pressed="@(IsCurrent(SecondValue) ? "true" : "false")"
+    <button type="button" disabled="@Disabled" title="@SecondHint" aria-pressed="@Aria.Flag(IsCurrent(SecondValue))"
             @onclick="() => ValueChanged.InvokeAsync(SecondValue)"
-            class="px-2 py-0.5 uppercase tracking-wide transition-colors @SegmentClass @Style(SecondValue)">
+            class="px-2 py-0.5 uppercase tracking-wide transition-colors focus-ring @SegmentClass @Style(SecondValue)">
         @SecondLabel
     </button>
 </span>

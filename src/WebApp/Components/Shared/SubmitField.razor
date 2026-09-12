@@ -1,0 +1,92 @@
+@* One field and the button that acts on it: how a panel takes a single value and does one thing
+   with it — invite a friend by email, add a guest by name, save the account's display name.
+   Three panels on two pages had written it out, down to a keydown handler each whose only
+   difference was which field it read, and the third had drifted from the other two on the
+   button's alignment and the busy flag it kept for itself.
+
+   Enter submits, as the button does, and both are held closed while the field is blank: a
+   request sent to nobody is a round trip that can only come back as an error the reader already
+   knew about. CanSubmit is the caller's further gate — a name that hasn't changed, say.
+
+   The field's accessible name is its placeholder unless the caller names it — the panel's own
+   heading says what the form is for, but a label read on its own has to name the field. The band
+   the row sits in stays with the caller, which may have a sentence or two to put beside it. *@
+
+<div class="flex flex-col gap-2 sm:flex-row @Class">
+    <div class="flex-1">
+        <input type="@InputType" class="input" placeholder="@Placeholder" aria-label="@(AriaLabel ?? Placeholder)"
+               maxlength="@MaxLength" value="@Value" @oninput="OnInput" @onkeydown="OnKeyDown"/>
+        <FieldError For="@ErrorFor" Errors="@Errors"/>
+    </div>
+    <button type="button" class="btn btn-primary self-start" @onclick="Submit" disabled="@(!Ready || _busy)">
+        <ActionGlyph Icon="@Icon" Busy="_busy" BusyLabel="@SubmitLabel"/> @SubmitLabel
+    </button>
+</div>
+
+@code {
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+
+    /// <summary>What the field asks for — doubles as its accessible name unless <see cref="AriaLabel"/> says otherwise.</summary>
+    [Parameter, EditorRequired] public string Placeholder { get; set; } = "";
+
+    /// <summary>The field's name for a screen reader, where the placeholder is an example rather
+    /// than a name — the Settings page shows the account's email as the placeholder.</summary>
+    [Parameter] public string? AriaLabel { get; set; }
+
+    /// <summary>"text" unless the field wants the browser's own help — an email keyboard on a
+    /// phone, say.</summary>
+    [Parameter] public string InputType { get; set; } = "text";
+
+    /// <summary>The longest value the field takes, where the domain caps it. Null leaves it open.</summary>
+    [Parameter] public int? MaxLength { get; set; }
+
+    /// <summary>The command field this form's errors are reported against.</summary>
+    [Parameter, EditorRequired] public string ErrorFor { get; set; } = "";
+
+    [Parameter, EditorRequired] public FormErrors Errors { get; set; } = FormErrors.Empty;
+
+    /// <summary>The glyph on the button — what kind of act this is.</summary>
+    [Parameter, EditorRequired] public string Icon { get; set; } = "";
+
+    [Parameter, EditorRequired] public string SubmitLabel { get; set; } = "";
+
+    /// <summary>Run on Enter and on the button alike. Never called while the field is blank or
+    /// <see cref="CanSubmit"/> is false.</summary>
+    [Parameter, EditorRequired] public EventCallback OnSubmit { get; set; }
+
+    /// <summary>The caller's own reason to hold the button closed beyond a blank field — a value
+    /// that is what is already saved. True unless the caller says otherwise.</summary>
+    [Parameter] public bool CanSubmit { get; set; } = true;
+
+    /// <summary>How wide the row runs — an email address needs more of the panel than a name.</summary>
+    [Parameter] public string? Class { get; set; }
+
+    private bool Ready => !string.IsNullOrWhiteSpace(Value) && CanSubmit;
+
+    /// The command is out. Held here rather than by the page because the wait is the same for
+    /// every form, and because it is what closes the form while it lasts. That part is not only
+    /// cosmetic: adding a local player has no duplicate guard behind it, so a second click while
+    /// the first was still in flight added the same guest to the table twice.
+    private bool _busy;
+
+    private Task OnInput(ChangeEventArgs e) =>
+        ValueChanged.InvokeAsync(e.Value?.ToString() ?? string.Empty);
+
+    private Task OnKeyDown(KeyboardEventArgs e) =>
+        e.Key == "Enter" ? Submit() : Task.CompletedTask;
+
+    private async Task Submit()
+    {
+        if (!Ready || _busy) return;
+        _busy = true;
+        try
+        {
+            await OnSubmit.InvokeAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

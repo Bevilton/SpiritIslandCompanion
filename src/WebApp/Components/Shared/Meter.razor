@@ -1,0 +1,47 @@
+@* The thin proportion bar the app reports a share with: a row's win rate, a catalogue's
+   coverage, the games that ended at one terror band, how much of the community's play a
+   difficulty band accounts for.
+
+   .meter / .meter-fill in site.css name the track and the fill; this names the *pair*, which
+   is the part that was actually being repeated — six call sites each wrote the same two nested
+   divs and each computed its own width string. They had already come apart on the one thing a
+   proportion bar cannot afford: three clamped their percentage and three did not, so a share
+   that arithmetic could push past a hundred (a rounding artefact, a denominator narrowed by a
+   filter) would have run the fill straight out of its track. The clamp lives here now, once,
+   and no caller has to remember it.
+
+   The fill's colour stays with the caller, because the colour is what the bar is saying —
+   jade for coverage, ember for defeats, WinTone's ramp for a rate, the band's own colour for a
+   terror level. It arrives either as a utility (FillClass) or as a value (FillColor), since
+   half of these are painted from the palette and half from a colour the data carries. *@
+
+<div class="meter @Class">
+    <div class="meter-fill @FillClass" style="width:@(Percent)%;@(FillColor is null ? null : $" background-color: {FillColor};")"></div>
+</div>
+
+@code {
+    /// <summary>The share the fill represents, 0–100. Clamped, so a caller's arithmetic cannot
+    /// push the fill out of its track.</summary>
+    [Parameter, EditorRequired] public double Value { get; set; }
+
+    /// <summary>The fill's colour as a utility — <c>bg-accent-500</c> for coverage,
+    /// <c>bg-red-400</c> for a defeat count. Use <see cref="FillColor"/> instead where the
+    /// colour is a value the data carries.</summary>
+    [Parameter] public string? FillClass { get; set; }
+
+    /// <summary>The fill's colour as a value, for the bars painted from something other than the
+    /// palette — <see cref="Games.WinTone"/>'s ramp, a terror band's own colour.</summary>
+    [Parameter] public string? FillColor { get; set; }
+
+    /// <summary>How the host lays the track out: the taller <c>h-2</c> the panel-scale meters
+    /// take, the <c>flex-1</c> that lets one share a row with the figure beside it, the space
+    /// above it.</summary>
+    [Parameter] public string? Class { get; set; }
+
+    /// <summary>
+    /// Whole percent — the fill is a bar, not a measurement, and a fractional width only ever
+    /// renders as a longer style attribute. Invariant because it is going into CSS; see
+    /// <see cref="BrowserNumber"/> for what that costs when it is forgotten.
+    /// </summary>
+    private string Percent => Math.Clamp(Value, 0, 100).ToInvariant("F0");
+}

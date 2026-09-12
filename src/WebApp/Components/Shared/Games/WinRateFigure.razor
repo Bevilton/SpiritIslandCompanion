@@ -1,0 +1,45 @@
+@* A win rate as a figure, in the tone that says whether it is a good one — the number that
+   follows "N×" on every record pill, matchup chip, level breakdown and profile row in the app.
+
+   Nine of these were spelled out by hand and had come apart on all three of the things that make
+   them one figure: the weight (semibold in five, medium in four, with no rule telling them apart —
+   the aspect chip and the matchup chip are the same control), the tabular figures (one had lost
+   them, so its digits jittered as the rate changed), and where the % sat relative to the
+   interpolation. The tone was the one part already shared, through WinTone.
+
+   A rate over nothing but drafts is 0 by arithmetic, and WinTone would paint that as a run of
+   defeats — so where that can happen the figure is a dash instead. Say so with Completed and this
+   draws it; five callers were gating on the count themselves and writing their own dash, in three
+   different tones and with the layout classes spelled out twice each. Callers that can only be
+   reached with something finished behind them leave Completed alone. WinRateBar makes the same
+   distinction the same way. *@
+
+@if (Completed is 0)
+{
+    <span class="no-figure @Class" title="@Title">—</span>
+}
+else
+{
+    <span class="tabular-nums font-semibold @WinTone.ForRate(Value) @Class" title="@Title">@($"{Value:F0}%")@Suffix</span>
+}
+
+@code {
+    /// <summary>The rate itself, 0–100.</summary>
+    [Parameter, EditorRequired] public double Value { get; set; }
+
+    /// <summary>Finished games behind the rate. Zero draws the dash; null (the default) says the
+    /// caller has already established there is something to report.</summary>
+    [Parameter] public int? Completed { get; set; }
+
+    /// <summary>What follows the figure inside the tint, where it reads as a sentence rather than
+    /// a column — " wins". Most callers sit after a play count and need nothing.</summary>
+    [Parameter] public string? Suffix { get; set; }
+
+    /// <summary>How the host lays the figure out — the fixed width and right alignment a column
+    /// of these needs, in the two places they are a column.</summary>
+    [Parameter] public string? Class { get; set; }
+
+    /// <summary>The record behind the rate, for a figure that stands alone with no count beside
+    /// it to say how many games it is over.</summary>
+    [Parameter] public string? Title { get; set; }
+}

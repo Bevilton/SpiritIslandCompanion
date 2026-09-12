@@ -1,0 +1,43 @@
+@* A round swatch, at the size a dot is: the spirit's colour beside its name in a facet pill, a
+   matchup chip, a board habit, a heatmap row; the tint on a status badge, a kind pill, an outcome
+   legend.
+
+   Fifteen of these were spelled out by hand, and they had already come apart — one had dropped the
+   `shrink-0` that keeps a dot from squashing next to a long name, another was `inline-block` while
+   the rest were flex children, and three sizes were being picked a utility at a time rather than
+   being three sizes. LetterTile does the same job for a board's letter; this is its plainer
+   sibling, and the ladder below is why two dots of one size cannot drift again.
+
+   The fill comes either as a subject's own colour (Color, an inline style — the palette has no
+   class for a spirit's hex) or as a utility on Class, for the dots tinted from the palette itself.
+
+   An empty dot — dashed outline, no fill — is a seat with nothing chosen yet. A real state rather
+   than a colour that happens to be missing, so it is asked for rather than inferred from a null. *@
+
+<span class="@SizeClasses shrink-0 rounded-full @(Empty ? "border border-dashed border-ink-400" : null) @Class"
+      style="@(Empty || Color is null ? null : $"background-color: {Color};")"></span>
+
+@code {
+    /// <summary>The subject's own colour — usually <see cref="Games.GameLookups.SpiritColor"/>.
+    /// Leave null where the fill is a palette utility on <see cref="Class"/> instead.</summary>
+    [Parameter] public string? Color { get; set; }
+
+    /// <summary>Nothing chosen yet: a dashed outline where the colour would be.</summary>
+    [Parameter] public bool Empty { get; set; }
+
+    /// <summary>"2xs" inside a badge or a filter pill, where the dot is a tick beside a word;
+    /// "xs" beside small type — a chip, a table row; "sm" in a list a line tall, where the dot
+    /// is the row's own marker.</summary>
+    [Parameter] public string Size { get; set; } = "xs";
+
+    /// <summary>The fill, when it comes from the palette rather than the subject — plus whatever
+    /// else the host lays the dot out with.</summary>
+    [Parameter] public string? Class { get; set; }
+
+    private string SizeClasses => Size switch
+    {
+        "2xs" => "h-1.5 w-1.5",
+        "sm"  => "h-2.5 w-2.5",
+        _     => "h-2 w-2", // "xs"
+    };
+}

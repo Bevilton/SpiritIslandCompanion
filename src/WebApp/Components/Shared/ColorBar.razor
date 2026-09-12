@@ -1,0 +1,37 @@
+@* The spirit's colour as a bar down the leading edge of whatever names it — the seat's spirit
+   button on the setup screen, the recorded game's player card, the statistics table's row, the
+   reference sheet's header, the merge dialog's game list, a person card's usual pick.
+
+   All of them carry the subject's name beside it and most carry a second line under that, and
+   they had each picked their own height: h-9 four times, h-7 once, h-3.5 once, and the sheet's
+   stretched to its header — with the merge dialog's and the statistics row's spelled out by
+   hand rather than reaching for this at all. The ladder below pairs the bar with what it stands
+   beside, once, so two bars at one size cannot drift again.
+
+   ColorDot is the same marker where a subject is named on one line and the mark is a tick
+   beside the word; this is for the block that leads with it. *@
+
+<span class="@SizeClasses inline-block w-1.5 shrink-0 rounded-full @Class"
+      style="background-color: @Color;"></span>
+
+@code {
+    /// <summary>The subject's colour — usually <see cref="Games.GameLookups.SpiritColor"/>.</summary>
+    [Parameter, EditorRequired] public string Color { get; set; } = "";
+
+    /// <summary>How the host lays the bar out — a nudge onto the first line's baseline, say.</summary>
+    [Parameter] public string? Class { get; set; }
+
+    /// <summary>"md" (default) beside a name and its play style, wherever that pair is a row or a
+    /// card; "sm" where the same pair is set in small type, as in a sidebar list; "xs" beside a
+    /// single line; "full" to take the height of whatever it is laid beside — the reference
+    /// sheet's header band, a highlight card's body.</summary>
+    [Parameter] public string Size { get; set; } = "md";
+
+    private string SizeClasses => Size switch
+    {
+        "full" => "self-stretch",
+        "sm"   => "h-7",
+        "xs"   => "h-3.5",
+        _      => "h-9", // "md"
+    };
+}

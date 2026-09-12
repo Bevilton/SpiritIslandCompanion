@@ -16,13 +16,13 @@ namespace WebApp.Components.Shared.Games.Filtering;
 /// </summary>
 public sealed class SpiritFilter : FilterState
 {
-    public static readonly SortOption ByComplexity =
+    private static readonly SortOption ByComplexity =
         new("complexity", "Complexity", "Simplest", "Hardest");
 
-    private static readonly SortOption[] _sorts =
+    private static readonly SortOption[] Sorts =
         [ByName, ByExpansion, ByComplexity, ByPlayed, ByWinRate];
 
-    public SpiritFilter(string defaultSortKey = "expansion") : base(_sorts, defaultSortKey) { }
+    public SpiritFilter(string? defaultSortKey = null) : base(Sorts, defaultSortKey ?? ByExpansion.Key) { }
 
     public static readonly Complexity[] AllComplexities =
         [Complexity.Low, Complexity.Moderate, Complexity.High, Complexity.VeryHigh];
@@ -85,18 +85,15 @@ public sealed class SpiritFilter : FilterState
     public IReadOnlyList<Spirit> Apply(IEnumerable<Spirit> spirits)
     {
         var matched = spirits.Where(Matches);
-        var ordered = SortKey switch
-        {
-            "expansion" => By(matched, s => ExpansionOrder(s.ExpansionId)),
-            // A spirit with no catalogue entry has no complexity or rate to compare, so it sits at
-            // the end whichever way round the rest is — reversing the order shouldn't promote a
-            // blank to the top.
-            "complexity" => Then(matched.OrderBy(s => SpiritDetails.For(s.Id) is null),
-                s => (int?)SpiritDetails.For(s.Id)?.Complexity ?? 0),
-            "played" => By(matched, s => Played(s.Id.Value)),
-            "winrate" => Then(matched.OrderBy(s => Unrated(s.Id.Value)), s => WinRate(s.Id.Value)),
-            _ => By(matched, s => s.Name, StringComparer.CurrentCulture),
-        };
+        var ordered =
+            SharedOrder(matched, s => s.Id.Value, s => s.ExpansionId)
+            ?? (SortKey == ByComplexity.Key
+                // A spirit with no catalogue entry has no complexity to compare, so it sits at the
+                // end whichever way round the rest is — the same rule SharedOrder applies to a
+                // spirit with no finished game.
+                ? Then(matched.OrderBy(s => SpiritDetails.For(s.Id) is null),
+                    s => (int?)SpiritDetails.For(s.Id)?.Complexity ?? 0)
+                : By(matched, s => s.Name, StringComparer.CurrentCulture));
         return ordered.ThenBy(s => s.Name, StringComparer.CurrentCulture).ToList();
     }
 

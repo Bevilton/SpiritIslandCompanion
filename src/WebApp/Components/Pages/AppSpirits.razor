@@ -2,14 +2,14 @@
 @attribute [Authorize]
 @inherits CatalogueReferencePage
 
-<PageTitle>Spirits</PageTitle>
+<AppPageTitle Title="Spirits"/>
 
 @* The signed-in view of the same reference page, with the player's own record folded in — so it
    can be sorted by what they play and filtered down to what they haven't. The public route
    (/spirits) passes no records and simply doesn't offer those. *@
-<SpiritsView OwnedExpansions="@OwnedExpansions" Records="Records" Facts="Facts"/>
+<SpiritsView Records="Records" Facts="Facts"/>
 
 @code {
     protected override IReadOnlyDictionary<string, SetupInsights.PlayRecord> Project(
-        IReadOnlyList<Application.Features.Statistics.SetupGameFact> facts) => SetupInsights.SpiritRecords(facts);
+        IReadOnlyList<SetupGameFact> facts) => SetupInsights.SpiritRecords(facts);
 }

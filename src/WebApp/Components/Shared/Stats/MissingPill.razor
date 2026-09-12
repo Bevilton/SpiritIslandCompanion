@@ -1,0 +1,35 @@
+@* One entry in a coverage panel's "not yet played" list: something on the shelf the record has
+   nothing to say about. Wears .untried, the one dashed-amber tone RecordChip and AspectChips
+   wear too, so an untried thing looks untried wherever it turns up — and always a button,
+   because the way to find out about it is its own reference sheet.
+
+   Glyph is whatever identifies the subject at pill size: a spirit's colour dot, a board's
+   lettered tile, an icon. Detail is the part of the entry that is not its name — the aspects
+   missing from a spirit, the levels missing from a foe, a scenario's difficulty.
+
+   .chip-lg is the shape, shared with FilterPill: both are a chip at reading size that is the
+   thing being clicked, and a coverage panel's entries sit a scroll away from the filter pills
+   that narrowed the list they are missing from. *@
+
+<button type="button" @onclick="OnClick" title="@Copy.SheetTooltip(Label)"
+        class="chip chip-lg untried">
+    @Glyph
+    <span class="@(Detail is null ? null : "font-medium")">@Label</span>
+    @if (Detail is not null)
+    {
+        <span class="text-amber-700">@Detail</span>
+    }
+</button>
+
+@code {
+    /// <summary>The subject's name — also what the tooltip names as the sheet this opens.</summary>
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+
+    [Parameter, EditorRequired] public EventCallback OnClick { get; set; }
+
+    /// <summary>What identifies the subject at pill size — a colour dot, a letter tile, an icon.</summary>
+    [Parameter] public RenderFragment? Glyph { get; set; }
+
+    /// <summary>The rest of the entry: which aspects, which levels, what it adds to the difficulty.</summary>
+    [Parameter] public string? Detail { get; set; }
+}
