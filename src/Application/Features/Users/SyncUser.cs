@@ -18,7 +18,7 @@ namespace Application.Features.Users;
 /// undo whatever they set on the account.
 /// </para>
 /// </summary>
-public sealed record SyncUserCommand(string Email) : IQuery<SyncUserResponse>;
+public sealed record SyncUserCommand(string Email) : ICommand<SyncUserResponse>;
 
 /// <param name="NeedsNickname">
 /// True while the account has no name of its own — the sign-in flow prompts for one.
@@ -31,33 +31,35 @@ internal sealed class SyncUserValidator : AbstractValidator<SyncUserCommand>
     {
         RuleFor(x => x.Email)
             .NotEmpty().WithDomainError(DomainErrors.User.EmailRequired)
+            .MaximumTrimmedLength(Email.MaxLength).WithDomainError(DomainErrors.User.EmailTooLong)
             .EmailAddress().WithDomainError(DomainErrors.User.EmailInvalid);
     }
 }
 
-internal sealed class SyncUserHandler(IAppDbContext db) : IQueryHandler<SyncUserCommand, SyncUserResponse>
+internal sealed class SyncUserHandler(IAppDbContext db, TimeProvider clock) : ICommandHandler<SyncUserCommand, SyncUserResponse>
 {
     public async Task<Result<SyncUserResponse>> Handle(SyncUserCommand request, CancellationToken cancellationToken)
     {
-        var emailResult = Email.Create(request.Email);
-        if (emailResult.IsFailure) return Result.Failure<SyncUserResponse>(emailResult.Error);
+        var email = Email.Create(request.Email);
+        if (email.IsFailure)
+            return Result.Failure<SyncUserResponse>(email.Error);
 
+        // Matched in the address's canonical form (see Email.Create): the identity provider's
+        // spelling of the address may differ in case from one sign-in to the next.
+        var address = email.Value;
         var user = await db.Users
             .AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Email.Value == request.Email, cancellationToken);
+            .FirstOrDefaultAsync(u => u.Email == address, cancellationToken);
 
         if (user is not null)
             return new SyncUserResponse(user.Id.Value, user.Nickname is null);
 
         // First login — create the account unnamed, and let the app ask.
-        var settings = UserSettings.Create(new UserSettingsId(Guid.NewGuid()), []);
-
         var newUser = User.Create(
             new UserId(Guid.NewGuid()),
-            emailResult.Value,
+            email.Value,
             nickname: null,
-            settings,
-            DateTimeOffset.UtcNow);
+            clock.GetUtcNow());
 
         db.Users.Add(newUser);
         return new SyncUserResponse(newUser.Id.Value, NeedsNickname: true);

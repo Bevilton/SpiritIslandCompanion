@@ -14,6 +14,8 @@ public abstract class Entity<TId> where TId : Identifier
     /// Empty constructor required for EF Core.
     /// </summary>
     [Obsolete("Empty constructor required for EF Core.")]
-    protected Entity(){}
+    protected Entity()
+    {
+    }
 #pragma warning restore
 }

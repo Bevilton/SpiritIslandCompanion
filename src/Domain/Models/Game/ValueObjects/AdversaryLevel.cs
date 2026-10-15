@@ -4,7 +4,7 @@ using Domain.Results;
 
 namespace Domain.Models.Game;
 
-public record AdversaryLevel : ValueObject
+public sealed record AdversaryLevel : ValueObject
 {
     public int Value { get; private init; }
 

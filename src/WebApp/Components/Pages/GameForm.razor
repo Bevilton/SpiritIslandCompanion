@@ -509,11 +509,11 @@ else
                         <label class="label label-hint">
                             <span>Difficulty modifier</span>
                             <InfoHint Position="center">
-                                Manual <strong class="text-ink-900">+/− adjustment</strong> for homemade variants or anything the standard formula doesn't cover. Leave at 0 for ordinary games. Allowed range: @GameRestrictions.DifficultyModifierMin to +@GameRestrictions.DifficultyModifierMax.
+                                Manual <strong class="text-ink-900">+/− adjustment</strong> for homemade variants or anything the standard formula doesn't cover. Leave at 0 for ordinary games. Allowed range: @GameRestrictions.MinimumDifficultyModifier to +@GameRestrictions.MaximumDifficultyModifier.
                             </InfoHint>
                         </label>
                         <input type="number" class="input h-10" @bind="_difficultyModifier"
-                               min="@GameRestrictions.DifficultyModifierMin" max="@GameRestrictions.DifficultyModifierMax"/>
+                               min="@GameRestrictions.MinimumDifficultyModifier" max="@GameRestrictions.MaximumDifficultyModifier"/>
                         <FieldError For="DifficultyModifier" Errors="@_form.Errors"/>
                     </div>
                     <div class="grid grid-cols-[1fr_auto] gap-2">
@@ -860,7 +860,7 @@ else
 
     /// Whether the form has complained about the extra board — the same "only after a submit"
     /// rule the seats follow, so the island doesn't single this one field out for early scolding.
-    private bool ExtraBoardHasError => _form.Errors.HasFor(nameof(DraftGameCommand.ExtraBoardId));
+    private bool ExtraBoardHasError => _form.Errors.HasFor(nameof(CreateGameCommand.ExtraBoardId));
 
     private string? ExtraBoardLetter =>
         GameLookups.BoardLetterFor(_extraBoardId);
@@ -876,7 +876,7 @@ else
     /// nor are custom shapes, which come from rearranging the island rather than picking a tile.
     private IReadOnlyList<IslandSetup> SetupOptions =>
         GameData.PublishedIslandSetups
-            .Where(s => s.NumberOfPlayers == EffectiveBoardCount && !s.IsThematic)
+            .Where(s => s.BoardCount == EffectiveBoardCount && !s.IsThematic)
             // Standard leads: it is both the common pick and what gets seeded by default.
             .OrderBy(s => s.Name is "Standard" ? 0 : 1)
             .ThenBy(s => s.Name)
@@ -1292,7 +1292,7 @@ else
         var name = renaming ? _layoutNameDraft.Trim() : existing!.Name;
 
         var result = await Mediator.Send(new SaveIslandLayoutCommand(
-            targetId, userId, name, _customLayoutJson!, DateTimeOffset.UtcNow));
+            targetId, userId, name, _customLayoutJson!));
 
         if (result.IsFailure)
         {
@@ -1577,7 +1577,7 @@ else
         if (_editingBoardIndex == ExtraBoardSlot)
         {
             _extraBoardId = board.Id.Value;
-            _form.Resolve(nameof(DraftGameCommand.ExtraBoardId));
+            _form.Resolve(nameof(CreateGameCommand.ExtraBoardId));
         }
         else if (_editingBoardIndex >= 0 && _editingBoardIndex < _players.Count)
         {
@@ -1659,45 +1659,34 @@ else
     private List<GameAdversaryDto> BuildAdversaryDtos()
         => _adversaries.Select(a => new GameAdversaryDto(a.AdversaryId, a.Level)).ToList();
 
-    private Task SaveDraft() => Save(new DraftGameCommand(
-        CurrentUser.RequireUserId(),
-        StartedAt,
-        EffectiveSetupId,
-        UsesExtraBoard,
-        ExtraBoardIdForSave,
-        _thematicMaps,
-        _difficultyModifier,
-        BuildPlayerDtos(), BuildAdversaryDtos(),
-        ScenarioIdForSave,
-        NoteForSave,
-        IsCustomLayout ? _customLayoutJson : null,
-        IsCustomLayout ? _savedLayoutId : null));
+    private Task SaveDraft() => Save(result: null);
 
-    private Task SaveCompleted() => Save(new CreateGameCommand(
-        CurrentUser.RequireUserId(),
-        StartedAt,
-        EffectiveSetupId,
-        UsesExtraBoard,
-        ExtraBoardIdForSave,
-        _thematicMaps,
-        _difficultyModifier,
-        BuildPlayerDtos(), BuildAdversaryDtos(),
-        ScenarioIdForSave,
-        _result.ToDto(),
-        NoteForSave,
-        IsCustomLayout ? _customLayoutJson : null,
-        IsCustomLayout ? _savedLayoutId : null));
+    private Task SaveCompleted() => Save(_result.ToDto());
 
-    /// The two commands differ only in whether an outcome rides along; what happens around them
-    /// — the in-flight flag, where a failure is reported, where a success goes — is the page's
-    /// and was written twice.
-    private async Task Save(ICommand command)
+    /// The two saves differ only in whether an outcome rides along; what happens around them
+    /// — the command, the in-flight flag, where a failure is reported, where a success goes —
+    /// is the page's and was written twice.
+    private async Task Save(GameResultDto? result)
     {
+        var command = new CreateGameCommand(
+            CurrentUser.RequireUserId(),
+            StartedAt,
+            EffectiveSetupId,
+            UsesExtraBoard,
+            ExtraBoardIdForSave,
+            _difficultyModifier,
+            BuildPlayerDtos(), BuildAdversaryDtos(),
+            ScenarioIdForSave,
+            result,
+            NoteForSave,
+            IsCustomLayout ? _customLayoutJson : null,
+            IsCustomLayout ? _savedLayoutId : null);
+
         _saving = true;
-        var result = await Mediator.Send(command);
+        var outcome = await Mediator.Send(command);
         _saving = false;
 
-        if (_form.Apply(result)) Nav.NavigateTo(GamesLink.Path);
+        if (_form.Apply(outcome)) Nav.NavigateTo(GamesLink.Path);
     }
 
     /// Empty is not a scenario and an empty note is not a note — both go as null, which is what

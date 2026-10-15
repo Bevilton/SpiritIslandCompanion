@@ -25,7 +25,6 @@ internal sealed class GetUserHandler(IAppDbContext db) : IQueryHandler<GetUserQu
     {
         var user = await db.Users
             .AsNoTracking()
-            .Include(u => u.UserSettings)
             .FirstOrDefaultAsync(u => u.Id == new UserId(request.UserId), cancellationToken);
 
         if (user is null)
@@ -37,7 +36,7 @@ internal sealed class GetUserHandler(IAppDbContext db) : IQueryHandler<GetUserQu
             user.Nickname?.Value,
             user.DisplayName,
             user.Registered,
-            user.UserSettings.Expansions.Select(e => e.Value).ToList());
+            user.OwnedExpansions.Select(e => e.Value).ToList());
 
         return response;
     }

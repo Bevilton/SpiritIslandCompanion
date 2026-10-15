@@ -1,4 +1,5 @@
 using Application.Data;
+using Application.Features.Games;
 using Domain.Models.Game;
 using Domain.Models.Player;
 using Domain.Models.User;
@@ -21,26 +22,31 @@ namespace Application.Features.Friendships;
 /// stranger in it — and, worse, put that stranger's history in a list they never agreed to
 /// appear in. A name is all the copy needs, and a name is all it keeps.
 /// </para>
+/// <para>
+/// One instance per split: it remembers the local players it created along the way, so a
+/// person seated in several of the shared games becomes one local player, not one per game —
+/// which is why it is registered transient rather than scoped.
+/// </para>
 /// </summary>
-internal sealed class SharedGameSplitter(IAppDbContext db)
+internal sealed class SharedGameSplitter(IAppDbContext db, SeatNameResolver seatNames)
 {
+    private const string FormerFriendName = "Former friend";
+    private const string UnknownPlayerName = "Unknown player";
+
     /// <summary>Local players created or reused during one split, keyed by owner and name.</summary>
     private readonly Dictionary<(Guid Owner, string Name), Player> _locals = new();
 
     public async Task SplitAsync(UserId first, UserId second, CancellationToken cancellationToken)
     {
-        var a = first.Value;
-        var b = second.Value;
-
         var shared = await db.Games
             .Where(g =>
-                (g.OwnerId.Value == a && g.Players.Any(p => p.UserId != null && p.UserId.Value == b)) ||
-                (g.OwnerId.Value == b && g.Players.Any(p => p.UserId != null && p.UserId.Value == a)))
+                (g.OwnerId == first && g.Players.Any(p => p.UserId == second)) ||
+                (g.OwnerId == second && g.Players.Any(p => p.UserId == first)))
             .ToListAsync(cancellationToken);
 
         if (shared.Count == 0) return;
 
-        var names = await LoadSeatNamesAsync(shared, cancellationToken);
+        var names = await seatNames.LoadAsync(shared, cancellationToken, includeOwners: true);
         await LoadExistingLocalsAsync([first, second], cancellationToken);
 
         foreach (var game in shared)
@@ -49,29 +55,14 @@ internal sealed class SharedGameSplitter(IAppDbContext db)
             var other = owner == first ? second : first;
 
             // The copy first: it has to read the seats as they were, before the original's
-            // are rewritten underneath it.
-            var seats = game.Players
-                .Select(seat => seat.UserId == other
-                    ? GamePlayer.CreateUserPlayer(
-                        new GamePlayerId(Guid.NewGuid()),
-                        seat.StartingBoard with { },
-                        seat.SpiritId with { },
-                        seat.AspectId is null ? null : seat.AspectId with { },
-                        other)
-                    : GamePlayer.CreatePlayer(
-                        new GamePlayerId(Guid.NewGuid()),
-                        seat.StartingBoard with { },
-                        seat.SpiritId with { },
-                        seat.AspectId is null ? null : seat.AspectId with { },
-                        LocalFor(other, NameOf(seat, names)).Id))
-                .ToList();
-
-            db.Games.Add(game.CopyForOwner(new GameId(Guid.NewGuid()), other, seats));
+            // are rewritten underneath it. Which seat stays the new owner's and which become
+            // their guests is the game's own rule; only the guests' names are ours to supply.
+            db.Games.Add(game.CopyForOwner(
+                new GameId(Guid.NewGuid()), other, seat => LocalFor(other, NameOf(seat, names)).Id));
 
             // Then the original: the departing account becomes a guest of the owner's.
-            var otherName = names.Users.GetValueOrDefault(other.Value, "Former friend");
-            foreach (var seat in game.Players.Where(p => p.UserId == other))
-                seat.ReassignToLocalPlayer(LocalFor(owner, otherName).Id);
+            var otherName = names.Users.GetValueOrDefault(other.Value, FormerFriendName);
+            game.HandSeatsToLocalPlayer(other, LocalFor(owner, otherName).Id);
         }
     }
 
@@ -83,10 +74,11 @@ internal sealed class SharedGameSplitter(IAppDbContext db)
     private Player LocalFor(UserId owner, string name)
     {
         // A display name can be an email address, which is allowed to be longer than a local
-        // player's name — clip it rather than fail the split over it.
+        // player's name — clip it rather than fail the split over it. Trimmed after clipping
+        // too, so the key below is the name exactly as PlayerName will store it.
         var trimmed = name.Trim();
-        if (trimmed.Length > PlayerName.MaxLength) trimmed = trimmed[..PlayerName.MaxLength];
-        if (trimmed.Length == 0) trimmed = "Former friend";
+        if (trimmed.Length > PlayerName.MaxLength) trimmed = trimmed[..PlayerName.MaxLength].TrimEnd();
+        if (trimmed.Length == 0) trimmed = FormerFriendName;
 
         var key = (owner.Value, trimmed);
         if (_locals.TryGetValue(key, out var existing)) return existing;
@@ -103,53 +95,19 @@ internal sealed class SharedGameSplitter(IAppDbContext db)
 
     private async Task LoadExistingLocalsAsync(UserId[] owners, CancellationToken cancellationToken)
     {
-        var ownerIds = owners.Select(o => o.Value).ToList();
+        // Read only: an existing local player is reused by id, never changed by the split.
         var players = await db.Players
-            .Where(p => ownerIds.Contains(p.CreatedBy.Value))
+            .AsNoTracking()
+            .Where(p => owners.Contains(p.CreatedBy))
             .ToListAsync(cancellationToken);
 
         foreach (var p in players)
             _locals.TryAdd((p.CreatedBy.Value, p.Name.Value), p);
     }
 
-    /// <summary>Display names for everyone seated in the shared games — accounts and guests alike.</summary>
-    private async Task<SeatNames> LoadSeatNamesAsync(List<Game> games, CancellationToken cancellationToken)
-    {
-        var userIds = games.SelectMany(g => g.Players)
-            .Where(p => p.UserId is not null)
-            .Select(p => p.UserId!)
-            .Concat(games.Select(g => g.OwnerId))
-            .Distinct()
-            .ToList();
-
-        var users = await db.Users
-            .AsNoTracking()
-            .Where(u => userIds.Contains(u.Id))
-            .ToListAsync(cancellationToken);
-
-        var playerIds = games.SelectMany(g => g.Players)
-            .Where(p => p.PlayerId is not null)
-            .Select(p => p.PlayerId!)
-            .Distinct()
-            .ToList();
-
-        var players = await db.Players
-            .AsNoTracking()
-            .Where(p => playerIds.Contains(p.Id))
-            .ToListAsync(cancellationToken);
-
-        return new SeatNames(
-            users.ToDictionary(u => u.Id.Value, u => u.DisplayName),
-            players.ToDictionary(p => p.Id.Value, p => p.Name.Value));
-    }
-
+    /// <summary>Who holds an assigned seat — an account by its display name, a local player by theirs.</summary>
     private static string NameOf(GamePlayer seat, SeatNames names) =>
-        seat switch
-        {
-            { UserId: { } u } => names.Users.GetValueOrDefault(u.Value, "Unknown player"),
-            { PlayerId: { } p } => names.Players.GetValueOrDefault(p.Value, "Unknown player"),
-            _ => "Unassigned",
-        };
-
-    private sealed record SeatNames(Dictionary<Guid, string> Users, Dictionary<Guid, string> Players);
+        seat.UserId is { } user
+            ? names.Users.GetValueOrDefault(user.Value, UnknownPlayerName)
+            : names.Players.GetValueOrDefault(seat.PlayerId!.Value, UnknownPlayerName);
 }

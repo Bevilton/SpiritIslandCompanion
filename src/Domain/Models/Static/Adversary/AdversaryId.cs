@@ -1,3 +1,5 @@
+using Domain.Primitives;
+
 namespace Domain.Models.Static;
 
-public record AdversaryId(string Value);
+public sealed record AdversaryId(string Value) : ValueObject;

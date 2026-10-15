@@ -27,52 +27,58 @@ public class Friendship : AggregateRoot<FriendshipId>
         CreatedAt = createdAt;
     }
 
-    public static Result<Friendship> Create(FriendshipId id, UserId requesterId, UserId addresseeId)
+    public static Result<Friendship> Create(FriendshipId id, UserId requesterId, UserId addresseeId, DateTimeOffset createdAt)
     {
         if (requesterId == addresseeId)
             return Result.Failure<Friendship>(DomainErrors.Friendship.CannotFriendSelf);
 
-        var friendship = new Friendship(id, requesterId, addresseeId, FriendshipStatus.Pending, DateTimeOffset.UtcNow);
-        return friendship;
+        return new Friendship(id, requesterId, addresseeId, FriendshipStatus.Pending, createdAt);
     }
 
-    public Result Accept()
+    /// <summary>Accepts the request. Only the addressee can, and only while it is still open.</summary>
+    public Result Accept(UserId responder, DateTimeOffset respondedAt)
     {
-        if (Status != FriendshipStatus.Pending)
-            return Result.Failure(DomainErrors.Friendship.AlreadyResponded);
+        var open = AwaitingAnswerFrom(responder);
+        if (open.IsFailure)
+            return open;
 
         Status = FriendshipStatus.Accepted;
-        RespondedAt = DateTimeOffset.UtcNow;
-        return Result.Success();
-    }
-
-    public Result Reject()
-    {
-        if (Status != FriendshipStatus.Pending)
-            return Result.Failure(DomainErrors.Friendship.AlreadyResponded);
-
-        Status = FriendshipStatus.Rejected;
-        RespondedAt = DateTimeOffset.UtcNow;
+        RespondedAt = respondedAt;
         return Result.Success();
     }
 
     /// <summary>
-    /// Returns true if the given user is either the requester or the addressee.
+    /// Whether the request is still waiting on <paramref name="responder"/> to answer — the one
+    /// condition under which it can be accepted, or declined. Declining keeps nothing: a request
+    /// turned down is not a record of anything (nothing ever read one back, and the two may ask
+    /// again later), so there is no declined state here — the caller removes the friendship once
+    /// this says it may.
     /// </summary>
+    public Result AwaitingAnswerFrom(UserId responder)
+    {
+        if (responder != AddresseeId)
+            return Result.Failure(DomainErrors.Friendship.NotAddressee);
+        if (Status != FriendshipStatus.Pending)
+            return Result.Failure(DomainErrors.Friendship.AlreadyResponded);
+
+        return Result.Success();
+    }
+
+    /// <summary>True if the given user is either the requester or the addressee.</summary>
     public bool InvolvesUser(UserId userId) =>
         RequesterId == userId || AddresseeId == userId;
 
-    /// <summary>
-    /// Given one side of the friendship, returns the other user's ID.
-    /// </summary>
+    /// <summary>Given one side of the friendship, returns the other user's id.</summary>
     public UserId GetOtherUserId(UserId userId) =>
         RequesterId == userId ? AddresseeId : RequesterId;
 
-#pragma warning disable CS8618
+#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
     /// <summary>
     /// Empty constructor required for EF Core.
     /// </summary>
     [Obsolete("Empty constructor required for EF Core.")]
-    private Friendship(){}
+    private Friendship()
+    {
+    }
 #pragma warning restore
 }

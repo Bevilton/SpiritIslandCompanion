@@ -18,4 +18,7 @@ public static class Expansions
         new(HorizonsOfSpiritIsland, "Horizons of Spirit Island"),
         new(NatureIncarnate, "Nature Incarnate"),
     ];
+
+    /// <summary>Whether the id names an expansion in the catalogue.</summary>
+    public static bool Includes(ExpansionId id) => All.Any(e => e.Id == id);
 }

@@ -2,4 +2,4 @@ using Domain.Primitives;
 
 namespace Domain.Models.Game;
 
-public record GamePlayerId(Guid Value) : Identifier(Value);
+public sealed record GamePlayerId(Guid Value) : Identifier(Value);

@@ -271,7 +271,7 @@ public sealed class GamesFilter : FilterState
             return games.FirstOrDefault(g => IslandKeyOf(g) == key)?.CustomLayoutName ?? "Saved island";
         }
         return GameLookups.IslandSetupFor(key) is { } setup
-            ? $"{setup.Name} · {setup.NumberOfPlayers}"
+            ? $"{setup.Name} · {setup.BoardCount}"
             : key;
     }
 

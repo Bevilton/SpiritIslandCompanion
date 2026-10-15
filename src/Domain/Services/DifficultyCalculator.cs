@@ -1,5 +1,4 @@
 using Domain.Models.Game;
-using Domain.Results;
 
 namespace Domain.Services;
 
@@ -8,15 +7,15 @@ namespace Domain.Services;
 /// </summary>
 public static class DifficultyCalculator
 {
-    public static Result<Difficulty> Calculate(
+    public static Difficulty Calculate(
         int scenarioDifficulty,
         IEnumerable<int> adversaryDifficulties,
         bool usesExtraBoard,
         bool usesThematicMaps,
         DifficultyModifier modifier)
     {
-        var total = Compute(scenarioDifficulty, adversaryDifficulties, usesExtraBoard, usesThematicMaps, modifier.Value);
-        return Difficulty.Create(total);
+        // Compute clamps to the range a Difficulty may hold, which is what lets it be built directly.
+        return new Difficulty(Compute(scenarioDifficulty, adversaryDifficulties, usesExtraBoard, usesThematicMaps, modifier.Value));
     }
 
     /// <summary>

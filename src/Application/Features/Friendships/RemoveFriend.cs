@@ -1,5 +1,6 @@
 using Application.Abstractions;
 using Application.Data;
+using Application.Features.PlayerMerges;
 using Domain.Errors;
 using Domain.Models.Friendship;
 using Domain.Models.User;
@@ -16,9 +17,9 @@ namespace Application.Features.Friendships;
 /// <see cref="SharedGameSplitter"/> for what that means seat by seat.
 /// </para>
 /// </summary>
-public sealed record RemoveFriendCommand(Guid FriendshipId, Guid CurrentUserId) : ICommand;
+public sealed record RemoveFriendCommand(Guid FriendshipId, Guid UserId) : ICommand;
 
-internal sealed class RemoveFriendHandler(IAppDbContext db) : ICommandHandler<RemoveFriendCommand>
+internal sealed class RemoveFriendHandler(IAppDbContext db, SharedGameSplitter splitter) : ICommandHandler<RemoveFriendCommand>
 {
     public async Task<Result> Handle(RemoveFriendCommand request, CancellationToken cancellationToken)
     {
@@ -28,28 +29,24 @@ internal sealed class RemoveFriendHandler(IAppDbContext db) : ICommandHandler<Re
         if (friendship is null)
             return Result.Failure(DomainErrors.Friendship.NotFound);
 
-        var currentUserId = new UserId(request.CurrentUserId);
+        var currentUserId = new UserId(request.UserId);
         if (!friendship.InvolvesUser(currentUserId))
-            return Result.Failure(Error.Forbidden("Friendship.NotInvolved", "You are not part of this friendship."));
+            return Result.Failure(DomainErrors.Friendship.NotInvolved);
 
         var otherUserId = friendship.GetOtherUserId(currentUserId);
 
         // Only an accepted friendship can have put the two of them at a table together; a
         // request that was never answered has nothing to unpick.
         if (friendship.Status == FriendshipStatus.Accepted)
-            await new SharedGameSplitter(db).SplitAsync(currentUserId, otherUserId, cancellationToken);
+            await splitter.SplitAsync(currentUserId, otherUserId, cancellationToken);
 
         // A merge in flight between them asks one to take over seats in the other's games —
         // exactly the link being severed here.
         var merges = await db.PlayerMergeRequests
-            .Where(m =>
-                (m.RequesterId.Value == request.CurrentUserId && m.TargetUserId.Value == otherUserId.Value) ||
-                (m.RequesterId.Value == otherUserId.Value && m.TargetUserId.Value == request.CurrentUserId))
+            .Between(currentUserId, otherUserId)
             .ToListAsync(cancellationToken);
 
-        foreach (var merge in merges)
-            db.PlayerMergeRequests.Remove(merge);
-
+        db.PlayerMergeRequests.RemoveRange(merges);
         db.Friendships.Remove(friendship);
         return Result.Success();
     }

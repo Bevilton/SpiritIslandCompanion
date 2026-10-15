@@ -1,5 +1,6 @@
 using Domain.Models.Static;
 using Domain.Models.Static.Data;
+using WebApp.Catalogue;
 
 namespace WebApp.Components.Shared.Games.Filtering;
 

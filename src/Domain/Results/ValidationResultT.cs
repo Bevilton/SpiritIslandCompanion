@@ -2,7 +2,7 @@ namespace Domain.Results;
 
 public sealed class ValidationResult<TValue> : Result<TValue>, IValidationResult
 {
-    private ValidationResult(ValidationError[] errors) : base(default!, false, IValidationResult.ValidationError)
+    private ValidationResult(ValidationError[] errors) : base(default!, false, IValidationResult.ValidationFailed)
     {
         Errors = errors;
     }

@@ -1,6 +1,8 @@
 using Application.Abstractions;
 using Application.Data;
+using Application.Features.Games.Dtos;
 using Domain.Models.Game;
+using Domain.Models.User;
 using Domain.Results;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,8 +13,6 @@ namespace Application.Features.Games;
 /// </summary>
 public sealed record ListGamesQuery(Guid UserId) : IQuery<List<ListGamesResponse>>;
 
-public enum GamePlayerKind { Me, Friend, Local, Unassigned }
-
 /// <param name="UserId">
 /// The account in the seat, when a friend (or the reader) sat in it. With
 /// <paramref name="PlayerId"/> this is what lets a list be narrowed to one person —
@@ -20,7 +20,7 @@ public enum GamePlayerKind { Me, Friend, Local, Unassigned }
 /// </param>
 public sealed record GamePlayerSummary(
     string Name,
-    GamePlayerKind Kind,
+    PlayerKind Kind,
     string SpiritId,
     string BoardId,
     Guid? UserId,
@@ -48,34 +48,23 @@ public sealed record ListGamesResponse(
     bool? Win,
     int? Score,
     int PlayerCount,
-    List<Dtos.GameAdversaryResponse> Adversaries,
+    List<GameAdversaryResponse> Adversaries,
     string? ScenarioId,
     string IslandSetupId,
     Guid? CustomLayoutId,
     string? CustomLayoutName,
     List<GamePlayerSummary> Players);
 
-internal sealed class ListGamesHandler(IAppDbContext db) : IQueryHandler<ListGamesQuery, List<ListGamesResponse>>
+internal sealed class ListGamesHandler(IAppDbContext db, SeatNameResolver seatNames) : IQueryHandler<ListGamesQuery, List<ListGamesResponse>>
 {
     public async Task<Result<List<ListGamesResponse>>> Handle(ListGamesQuery request, CancellationToken cancellationToken)
     {
         var games = await db.Games
-            .InvolvingUser(request.UserId)
+            .InvolvingUser(new UserId(request.UserId))
             .OrderByDescending(g => g.StartedAt)
             .ToListAsync(cancellationToken);
 
-        // Resolve names for every user / local player referenced. EF's configured
-        // HasConversion lets us pass the value-object types directly into Contains.
-        var userIds = games.SelectMany(g => g.Players)
-            .Where(p => p.UserId is not null)
-            .Select(p => p.UserId!)
-            .Distinct()
-            .ToList();
-        var userLookup = (await db.Users
-            .AsNoTracking()
-            .Where(u => userIds.Contains(u.Id))
-            .ToListAsync(cancellationToken))
-            .ToDictionary(u => u.Id.Value, u => u.DisplayName);
+        var names = await seatNames.LoadAsync(games, cancellationToken);
 
         // Saved-layout names, for the games set up from the player's layout library. The game
         // keeps its own geometry, so a layout deleted since simply resolves to no name here.
@@ -90,64 +79,29 @@ internal sealed class ListGamesHandler(IAppDbContext db) : IQueryHandler<ListGam
             .ToListAsync(cancellationToken))
             .ToDictionary(l => l.Id, l => l.Name);
 
-        var playerIds = games.SelectMany(g => g.Players)
-            .Where(p => p.PlayerId is not null)
-            .Select(p => p.PlayerId!)
-            .Distinct()
-            .ToList();
-        var playerLookup = (await db.Players
-            .AsNoTracking()
-            .Where(p => playerIds.Contains(p.Id))
-            .ToListAsync(cancellationToken))
-            .ToDictionary(p => p.Id.Value, p => p.Name.Value);
-
         var response = games.Select(g => new ListGamesResponse(
             g.Id.Value,
             g.OwnerId.Value,
             g.StartedAt,
             g.Difficulty.Value,
             g.Result is not null,
-            g.Result?.Win,
+            g.Result?.Outcome.Win,
             g.Result?.Score.Value,
             g.Players.Count,
-            g.PlayedAdversaries.Select(a => new Dtos.GameAdversaryResponse(a.AdversaryId.Value, a.Level.Value)).ToList(),
-            g.Scenario?.ScenarioId.Value,
+            g.PlayedAdversaries.Select(a => a.ToResponse()).ToList(),
+            g.ScenarioId?.Value,
             g.IslandSetupId.Value,
             g.CustomLayoutId?.Value,
             g.CustomLayoutId is { } layoutId ? layoutLookup.GetValueOrDefault(layoutId) : null,
-            g.Players.Select(p => ResolvePlayer(p, request.UserId, userLookup, playerLookup)).ToList())).ToList();
+            g.Players.Select(p => Summarise(p, request.UserId, names)).ToList())).ToList();
 
         return response;
     }
 
-    private static GamePlayerSummary ResolvePlayer(
-        GamePlayer p,
-        Guid currentUserId,
-        Dictionary<Guid, string> users,
-        Dictionary<Guid, string> players)
+    private static GamePlayerSummary Summarise(GamePlayer seat, Guid currentUserId, SeatNames names)
     {
-        if (p.UserId is { } uid)
-        {
-            var isMe = uid.Value == currentUserId;
-            return new GamePlayerSummary(
-                isMe ? "You" : users.GetValueOrDefault(uid.Value, "Unknown"),
-                isMe ? GamePlayerKind.Me : GamePlayerKind.Friend,
-                p.SpiritId.Value,
-                p.StartingBoard.Value,
-                uid.Value,
-                null);
-        }
-        if (p.PlayerId is { } pid)
-        {
-            return new GamePlayerSummary(
-                players.GetValueOrDefault(pid.Value, "Unknown"),
-                GamePlayerKind.Local,
-                p.SpiritId.Value,
-                p.StartingBoard.Value,
-                null,
-                pid.Value);
-        }
+        var (name, kind) = names.Describe(seat.UserId?.Value, seat.PlayerId?.Value, currentUserId);
         return new GamePlayerSummary(
-            "Unassigned", GamePlayerKind.Unassigned, p.SpiritId.Value, p.StartingBoard.Value, null, null);
+            name, kind, seat.SpiritId.Value, seat.StartingBoard.Value, seat.UserId?.Value, seat.PlayerId?.Value);
     }
 }

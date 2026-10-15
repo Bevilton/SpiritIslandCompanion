@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Data.Common;
-using Application.Abstractions;
 using Infrastructure.Database;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -224,7 +223,7 @@ public sealed class DemoSandboxRegistry(
     /// where a returning visitor's sandbox (or the whole template, after a restart) has to be
     /// rebuilt first.
     /// </summary>
-    public DemoAppDbContext CreateContext(Guid sandboxId)
+    internal DemoAppDbContext CreateContext(Guid sandboxId)
     {
         var entry = Resolve(sandboxId);
         return CreateContext(entry.ConnectionString, entry.Touch);

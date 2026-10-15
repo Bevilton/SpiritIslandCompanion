@@ -22,7 +22,7 @@ namespace Domain.Models.IslandLayout;
 /// the browser and is not checked here.
 /// </para>
 /// </summary>
-public record IslandLayoutGeometry : ValueObject
+public sealed record IslandLayoutGeometry : ValueObject
 {
     /// <summary>
     /// Generous: six boards' placements and their bonds at six decimal places come to
@@ -41,8 +41,7 @@ public record IslandLayoutGeometry : ValueObject
     /// <summary>
     /// How many boards the arrangement describes — the one thing about the shape the domain
     /// reasons over, since a layout only fits a table of exactly that size. Read off the
-    /// payload rather than stored beside it, so the two can never disagree; a computed
-    /// property also keeps it out of the mapped columns of this owned type.
+    /// payload rather than stored beside it, so the two can never disagree.
     /// </summary>
     public int BoardCount => Parse(Value)?.Boards?.Count ?? 0;
 

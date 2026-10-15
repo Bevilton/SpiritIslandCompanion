@@ -22,7 +22,7 @@
 }
 else
 {
-    <IslandLayoutDiagram Geometry="@Geometry" BoardCount="@(Setup?.NumberOfPlayers ?? BoardCount)"
+    <IslandLayoutDiagram Geometry="@Geometry" BoardCount="@(Setup?.BoardCount ?? BoardCount)"
                          Label="@_label"/>
 }
 
@@ -68,7 +68,7 @@ else
         _hasImage = Setup is { IsCustom: false };
         _src = _hasImage ? $"/img/layouts/generated/{Setup!.Id.Value}.svg" : "";
 
-        var boards = Setup?.NumberOfPlayers ?? BoardCount;
+        var boards = Setup?.BoardCount ?? BoardCount;
         var name = Label ?? Setup?.Name;
         _label = name is null
             ? "Island layout"

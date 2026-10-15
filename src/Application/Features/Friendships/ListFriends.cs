@@ -1,6 +1,5 @@
 using Application.Abstractions;
 using Application.Data;
-using Domain.Models.Friendship;
 using Domain.Models.User;
 using Domain.Results;
 using Microsoft.EntityFrameworkCore;
@@ -22,32 +21,25 @@ internal sealed class ListFriendsHandler(IAppDbContext db) : IQueryHandler<ListF
 
         var friendships = await db.Friendships
             .AsNoTracking()
-            .Where(f => f.Status == FriendshipStatus.Accepted &&
-                        (f.RequesterId.Value == request.UserId || f.AddresseeId.Value == request.UserId))
+            .Accepted()
+            .Involving(userId)
             .ToListAsync(cancellationToken);
 
-        var friendUserIds = friendships
-            .Select(f => f.GetOtherUserId(userId))
-            .ToList();
+        var friendIds = friendships.Select(f => f.GetOtherUserId(userId)).ToList();
 
-        var users = await db.Users
+        var friends = await db.Users
             .AsNoTracking()
-            .Where(u => friendUserIds.Contains(u.Id))
-            .ToListAsync(cancellationToken);
-
-        var userLookup = users.ToDictionary(u => u.Id);
+            .Where(u => friendIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, cancellationToken);
 
         var response = friendships
-            .Where(f => userLookup.ContainsKey(f.GetOtherUserId(userId)))
-            .Select(f =>
-            {
-                var friendUser = userLookup[f.GetOtherUserId(userId)];
-                return new FriendResponse(
-                    f.Id.Value,
-                    friendUser.Id.Value,
-                    friendUser.Email.Value,
-                    friendUser.DisplayName);
-            })
+            .Select(f => (Friendship: f, Friend: friends.GetValueOrDefault(f.GetOtherUserId(userId))))
+            .Where(x => x.Friend is not null)
+            .Select(x => new FriendResponse(
+                x.Friendship.Id.Value,
+                x.Friend!.Id.Value,
+                x.Friend.Email.Value,
+                x.Friend.DisplayName))
             .OrderBy(f => f.Name)
             .ToList();
 

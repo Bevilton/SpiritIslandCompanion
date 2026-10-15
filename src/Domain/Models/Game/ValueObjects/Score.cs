@@ -1,23 +1,19 @@
-using Domain.Errors;
 using Domain.Primitives;
-using Domain.Results;
+using Domain.Services;
 
 namespace Domain.Models.Game;
 
-public record Score : ValueObject
+/// <summary>
+/// What a finished game scored. Never supplied by a caller: the only way to get one is
+/// <see cref="ScoreCalculator"/>, which keeps it within <c>[0, MaximumScore]</c> itself —
+/// so there is no failure for a score to report, and no public factory to report it through.
+/// </summary>
+public sealed record Score : ValueObject
 {
     public int Value { get; private init; }
 
-    private Score(int value)
+    internal Score(int value)
     {
         Value = value;
-    }
-
-    public static Result<Score> Create(int value)
-    {
-        if (value is < 0 or > GameRestrictions.MaximumScore)
-            return Result.Failure<Score>(DomainErrors.Game.InvalidScore);
-
-        return new Score(value);
     }
 }

@@ -36,7 +36,7 @@
 </div>
 
 @code {
-    private RenderFragment Face(Mode mode, SetupInsights.PlayRecord? record) =>
+    private RenderFragment Face(AdversaryMode mode, SetupInsights.PlayRecord? record) =>
         @<text>
             <div class="micro-label">L@(mode.Level)</div>
             <div class="row-title">+@mode.Difficulty</div>
@@ -93,7 +93,7 @@
     /// <summary>The grid's columns. Seven levels fit one row from `sm` up; four wrap below it.</summary>
     [Parameter] public string Columns { get; set; } = "grid-cols-4 sm:grid-cols-7";
 
-    private IReadOnlyList<Mode> Modes =>
+    private IReadOnlyList<AdversaryMode> Modes =>
         Adversary.Modes.OrderBy(m => m.Level).ToList();
 
     private bool Pickable => OnPick.HasDelegate;
@@ -106,7 +106,7 @@
     /// What the tile says on hover: the rules it adds, the record at it, and what a tap will do.
     /// One sentence in every host, so the strip explains itself the same way everywhere.
     /// </summary>
-    private string Tooltip(Mode mode, SetupInsights.PlayRecord? record)
+    private string Tooltip(AdversaryMode mode, SetupInsights.PlayRecord? record)
     {
         var line = $"{Adversary.Name} level {mode.Level} · +{mode.Difficulty} difficulty";
         if (Records is not null)

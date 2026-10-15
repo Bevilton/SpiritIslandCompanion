@@ -1,3 +1,5 @@
+using Domain.Primitives;
+
 namespace Domain.Models.Static;
 
-public record BoardId(string Value);
+public sealed record BoardId(string Value) : ValueObject;

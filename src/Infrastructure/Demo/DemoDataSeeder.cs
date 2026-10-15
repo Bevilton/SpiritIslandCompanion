@@ -1,22 +1,22 @@
 using Application.Data;
 using Application.Features.Games;
 using Application.Features.Games.Dtos;
-using Application.Features.IslandLayouts;
 using Application.Features.Players;
 using Domain.Models.Friendship;
 using Domain.Models.Game;
-using Domain.Models.Game.Enums;
+using Domain.Models.IslandLayout;
 using Domain.Models.Static;
 using Domain.Models.Static.Data;
 using Domain.Models.User;
 using Domain.Results;
+using Domain.Services;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Demo;
 
 /// <summary>Fills the demo template database. See <see cref="DemoDataSeeder"/>.</summary>
-public interface IDemoDataSeeder
+internal interface IDemoDataSeeder
 {
     Task SeedAsync(CancellationToken cancellationToken = default);
 }
@@ -38,7 +38,7 @@ public interface IDemoDataSeeder
 /// freshly played no matter how long the process has been up.
 /// </para>
 /// </summary>
-public sealed class DemoDataSeeder(IMediator mediator, IAppDbContext db) : IDemoDataSeeder
+internal sealed class DemoDataSeeder(IMediator mediator, IAppDbContext db, TimeProvider clock) : IDemoDataSeeder
 {
     private static readonly Guid PetraUserId = Guid.Parse("d3300000-0000-4000-8000-000000000002");
     private static readonly Guid JonasUserId = Guid.Parse("d3300000-0000-4000-8000-000000000003");
@@ -105,7 +105,7 @@ public sealed class DemoDataSeeder(IMediator mediator, IAppDbContext db) : IDemo
         if (await db.Users.AnyAsync(cancellationToken))
             return;
 
-        _windowEnd = DateTimeOffset.UtcNow.AddDays(-1);
+        _windowEnd = clock.GetUtcNow().AddDays(-1);
         _windowStart = _windowEnd.AddDays(-900);
 
         await SeedAccountsAndFriendsAsync(cancellationToken);
@@ -131,21 +131,19 @@ public sealed class DemoDataSeeder(IMediator mediator, IAppDbContext db) : IDemo
 
     private async Task SeedAccountsAndFriendsAsync(CancellationToken cancellationToken)
     {
-        // Fresh ExpansionId instances per user: they are owned entities, and EF requires each
-        // owner to hold its own — the shared instances in GameData must never be attached.
-        static List<ExpansionId> Expansions(int count) =>
-            GameData.Expansions.Take(count).Select(e => new ExpansionId(e.Id.Value)).ToList();
+        static List<ExpansionId> FirstExpansions(int count) =>
+            GameData.Expansions.Take(count).Select(e => e.Id).ToList();
         var everything = GameData.Expansions.Count;
 
         // The demo account owns everything — the pickers should show the whole catalog.
         db.Users.Add(CreateUser(DemoSandbox.DemoUserId, DemoSandbox.DemoUserEmail,
-            DemoSandbox.DemoUserNickname, Expansions(everything), _windowStart.AddDays(-14)));
+            DemoSandbox.DemoUserNickname, FirstExpansions(everything), _windowStart.AddDays(-14)));
         db.Users.Add(CreateUser(PetraUserId, "petra@spirit-island-companion.local",
-            "Petra", Expansions(everything), _windowStart.AddDays(-7)));
+            "Petra", FirstExpansions(everything), _windowStart.AddDays(-7)));
         db.Users.Add(CreateUser(JonasUserId, "jonas@spirit-island-companion.local",
-            "Jonas", Expansions(3), _windowStart.AddDays(30)));
+            "Jonas", FirstExpansions(3), _windowStart.AddDays(30)));
         db.Users.Add(CreateUser(MayaUserId, "maya@spirit-island-companion.local",
-            "Maya", Expansions(3), _windowEnd.AddDays(-20)));
+            "Maya", FirstExpansions(3), _windowEnd.AddDays(-20)));
 
         db.Friendships.Add(CreateFriendship(DemoSandbox.DemoUserId, PetraUserId, accepted: true));
         db.Friendships.Add(CreateFriendship(JonasUserId, DemoSandbox.DemoUserId, accepted: true));
@@ -160,21 +158,22 @@ public sealed class DemoDataSeeder(IMediator mediator, IAppDbContext db) : IDemo
     private static User CreateUser(
         Guid id, string email, string nickname, List<ExpansionId> expansions, DateTimeOffset registered)
     {
-        var settings = UserSettings.Create(new UserSettingsId(Guid.NewGuid()), expansions);
-        return User.Create(
+        var user = User.Create(
             new UserId(id),
             Email.Create(email).Value,
             Nickname.Create(nickname).Value,
-            settings,
             registered);
+        EnsureSuccess(user.SetOwnedExpansions(expansions), $"expansions of {nickname}");
+        return user;
     }
 
-    private static Friendship CreateFriendship(Guid requester, Guid addressee, bool accepted)
+    private Friendship CreateFriendship(Guid requester, Guid addressee, bool accepted)
     {
+        var now = clock.GetUtcNow();
         var friendship = Friendship.Create(
-            new FriendshipId(Guid.NewGuid()), new UserId(requester), new UserId(addressee)).Value;
+            new FriendshipId(Guid.NewGuid()), new UserId(requester), new UserId(addressee), now).Value;
         if (accepted)
-            friendship.Accept();
+            EnsureSuccess(friendship.Accept(new UserId(addressee), now), "friendship");
         return friendship;
     }
 
@@ -188,17 +187,24 @@ public sealed class DemoDataSeeder(IMediator mediator, IAppDbContext db) : IDemo
         _localPlayerIds = players.Value.Select(p => p.Id).ToList();
     }
 
+    /// <summary>
+    /// Written through the domain rather than the command, like the accounts: the command
+    /// stamps a layout with the clock, and these have to read as saved long ago.
+    /// </summary>
     private async Task SeedSavedLayoutsAsync(CancellationToken cancellationToken)
     {
-        EnsureSuccess(await mediator.Send(new SaveIslandLayoutCommand(
-                TwinBaysLayoutId, DemoSandbox.DemoUserId, "Twin Bays", TwinBaysGeometry,
-                At(0.55)), cancellationToken),
-            "layout Twin Bays");
-        EnsureSuccess(await mediator.Send(new SaveIslandLayoutCommand(
-                SerpentCoilLayoutId, DemoSandbox.DemoUserId, "Serpent Coil", SerpentCoilGeometry,
-                At(0.7)), cancellationToken),
-            "layout Serpent Coil");
+        db.CustomIslandLayouts.Add(CreateLayout(TwinBaysLayoutId, "Twin Bays", TwinBaysGeometry, At(0.55)));
+        db.CustomIslandLayouts.Add(CreateLayout(SerpentCoilLayoutId, "Serpent Coil", SerpentCoilGeometry, At(0.7)));
+        await db.SaveChangesAsync(cancellationToken);
     }
+
+    private static CustomIslandLayout CreateLayout(Guid id, string name, string geometry, DateTimeOffset savedAt) =>
+        CustomIslandLayout.Create(
+            new CustomIslandLayoutId(id),
+            new UserId(DemoSandbox.DemoUserId),
+            IslandLayoutName.Create(name).Value,
+            IslandLayoutGeometry.Create(geometry).Value,
+            savedAt);
 
     // ---------------------------------------------------------------- planning
 
@@ -592,7 +598,7 @@ public sealed class DemoDataSeeder(IMediator mediator, IAppDbContext db) : IDemo
     private List<string> PickBoards(int boardCount, bool thematic)
     {
         // On the thematic island a board is a region, not a choice — slot order is fixed.
-        if (thematic && ThematicIslandBoards.For(new IslandSetupId($"thematic-{boardCount}p")) is { } regions)
+        if (thematic && ThematicIslandBoards.For(IslandSetups.ThematicFor(boardCount)?.Id) is { } regions)
             return regions.Select(r => r.Value).ToList();
 
         var pool = GameData.Boards.Select(b => b.Id.Value).ToList();
@@ -613,7 +619,7 @@ public sealed class DemoDataSeeder(IMediator mediator, IAppDbContext db) : IDemo
             return IslandSetups.ThematicFor(boardCount)!.Id.Value;
 
         var options = GameData.PublishedIslandSetups
-            .Where(s => s.NumberOfPlayers == boardCount && !s.IsThematic)
+            .Where(s => s.BoardCount == boardCount && !s.IsThematic)
             .ToList();
         return options[_rng.Next(options.Count)].Id.Value;
     }
@@ -622,44 +628,37 @@ public sealed class DemoDataSeeder(IMediator mediator, IAppDbContext db) : IDemo
 
     private async Task SendGameAsync(GamePlan plan, CancellationToken cancellationToken)
     {
-        if (plan.IsDraft)
+        GameResultDto? result = null;
+        if (!plan.IsDraft)
         {
-            EnsureSuccess(await mediator.Send(new DraftGameCommand(
-                    plan.OwnerId, plan.StartedAt, plan.IslandSetupId, plan.ExtraBoard, plan.ExtraBoardId,
-                    plan.Thematic, plan.DifficultyModifier, plan.Seats, plan.Adversaries, plan.ScenarioId,
-                    plan.Note, plan.LayoutJson, plan.SavedLayoutId), cancellationToken),
-                $"draft on {plan.IslandSetupId}");
-            return;
+            var difficulty = EstimateDifficulty(plan);
+            var winChance = Math.Clamp(0.88 - 0.058 * difficulty, 0.18, 0.92);
+            plan.Win = _rng.NextDouble() < winChance;
+            result = MakeResult(plan, difficulty);
         }
-
-        var difficulty = EstimateDifficulty(plan);
-        var winChance = Math.Clamp(0.88 - 0.058 * difficulty, 0.18, 0.92);
-        plan.Win = _rng.NextDouble() < winChance;
 
         EnsureSuccess(await mediator.Send(new CreateGameCommand(
                 plan.OwnerId, plan.StartedAt, plan.IslandSetupId, plan.ExtraBoard, plan.ExtraBoardId,
-                plan.Thematic, plan.DifficultyModifier, plan.Seats, plan.Adversaries, plan.ScenarioId,
-                MakeResult(plan, difficulty), plan.Note, plan.LayoutJson, plan.SavedLayoutId),
+                plan.DifficultyModifier, plan.Seats, plan.Adversaries, plan.ScenarioId,
+                result, plan.Note, plan.LayoutJson, plan.SavedLayoutId),
             cancellationToken),
-            $"game on {plan.IslandSetupId} vs [{string.Join(", ", plan.Adversaries.Select(a => $"{a.AdversaryId} {a.Level}"))}]");
+            $"{(plan.IsDraft ? "draft" : "game")} on {plan.IslandSetupId} vs [{string.Join(", ", plan.Adversaries.Select(a => $"{a.AdversaryId} {a.Level}"))}]");
     }
 
     /// <summary>
-    /// What the setup adds up to, by the same tables the app scores with — so the win chance
+    /// What the setup adds up to, by the same formula the app scores with — so the win chance
     /// (and the plausibility of the numbers below) tracks the difficulty a visitor will see.
     /// </summary>
     private static int EstimateDifficulty(GamePlan plan)
     {
-        var adversaries = plan.Adversaries.Sum(a =>
+        var adversaries = plan.Adversaries.Select(a =>
             GameData.Adversaries.First(x => x.Id.Value == a.AdversaryId)
                 .Modes.First(m => m.Level == a.Level).Difficulty);
         var scenario = plan.ScenarioId is null
             ? 0
             : GameData.Scenarios.First(s => s.Id.Value == plan.ScenarioId).Difficulty;
 
-        return adversaries + scenario + plan.DifficultyModifier
-               + (plan.ExtraBoard ? GameRestrictions.ExtraBoardDifficultyBonus : 0)
-               + (plan.Thematic ? GameRestrictions.ThematicMapsDifficultyBonus : 0);
+        return DifficultyCalculator.Compute(scenario, adversaries, plan.ExtraBoard, plan.Thematic, plan.DifficultyModifier);
     }
 
     private GameResultDto MakeResult(GamePlan plan, int difficulty)

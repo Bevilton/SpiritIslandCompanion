@@ -1,6 +1,8 @@
 using Application.Abstractions;
 using Application.Data;
 using Application.Features.Games;
+using Application.Features.Games.Dtos;
+using Domain.Models.User;
 using Domain.Results;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,8 +15,6 @@ namespace Application.Features.Statistics;
 /// selection change — no extra round-trip while the user browses the setup.
 /// </summary>
 public sealed record GetSetupFactsQuery(Guid UserId) : IQuery<List<SetupGameFact>>;
-
-public sealed record SetupFactAdversary(string AdversaryId, int Level);
 
 /// <summary>
 /// One seat at the table. <see cref="IsMine"/> marks the requesting user's seat;
@@ -34,7 +34,7 @@ public sealed record SetupFactSeat(
     bool IsMine,
     Guid? UserId,
     Guid? PlayerId,
-    string? PlayerName = null);
+    string? PlayerName);
 
 /// <param name="CustomLayoutId">
 /// The player's saved layout the island came from, for games built by hand out of one.
@@ -49,66 +49,42 @@ public sealed record SetupGameFact(
     string IslandSetupId,
     Guid? CustomLayoutId,
     string? ScenarioId,
-    List<SetupFactAdversary> Adversaries,
+    List<GameAdversaryResponse> Adversaries,
     List<SetupFactSeat> Seats);
 
-internal sealed class GetSetupFactsHandler(IAppDbContext db) : IQueryHandler<GetSetupFactsQuery, List<SetupGameFact>>
+internal sealed class GetSetupFactsHandler(IAppDbContext db, SeatNameResolver seatNames) : IQueryHandler<GetSetupFactsQuery, List<SetupGameFact>>
 {
     public async Task<Result<List<SetupGameFact>>> Handle(GetSetupFactsQuery request, CancellationToken cancellationToken)
     {
+        var userId = new UserId(request.UserId);
         var games = await db.Games
-            .InvolvingUser(request.UserId)
+            .InvolvingUser(userId)
             .OrderByDescending(g => g.StartedAt)
             .ToListAsync(cancellationToken);
 
-        // Resolve display names for every user / player sitting in any seat, the same
-        // way GetStatistics does — the value-object types go in directly so EF Core's
-        // configured HasConversion translates Contains into a SQL IN clause.
-        var userIds = games.SelectMany(g => g.Players)
-            .Where(p => p.UserId is not null)
-            .Select(p => p.UserId!)
-            .Distinct()
-            .ToList();
-        var userLookup = (await db.Users
-            .AsNoTracking()
-            .Where(u => userIds.Contains(u.Id))
-            .ToListAsync(cancellationToken))
-            .ToDictionary(u => u.Id.Value, u => u.DisplayName);
-
-        var playerIds = games.SelectMany(g => g.Players)
-            .Where(p => p.PlayerId is not null)
-            .Select(p => p.PlayerId!)
-            .Distinct()
-            .ToList();
-        var playerLookup = (await db.Players
-            .AsNoTracking()
-            .Where(p => playerIds.Contains(p.Id))
-            .ToListAsync(cancellationToken))
-            .ToDictionary(p => p.Id.Value, p => p.Name.Value);
+        var names = await seatNames.LoadAsync(games, cancellationToken);
 
         return games.Select(g => new SetupGameFact(
             g.Id.Value,
             g.StartedAt,
             g.Result is not null,
-            g.Result?.Win,
+            g.Result?.Outcome.Win,
             g.Result?.Score.Value,
             g.Difficulty.Value,
             g.IslandSetupId.Value,
             g.CustomLayoutId?.Value,
-            g.Scenario?.ScenarioId.Value,
-            g.PlayedAdversaries
-                .Select(a => new SetupFactAdversary(a.AdversaryId.Value, a.Level.Value))
-                .ToList(),
+            g.ScenarioId?.Value,
+            g.PlayedAdversaries.Select(a => a.ToResponse()).ToList(),
             g.Players
                 .Select(p => new SetupFactSeat(
                     p.SpiritId.Value,
                     p.AspectId?.Value,
                     p.StartingBoard.Value,
-                    p.UserId != null && p.UserId.Value == request.UserId,
+                    p.UserId == userId,
                     p.UserId?.Value,
                     p.PlayerId?.Value,
-                    p.UserId is not null ? userLookup.GetValueOrDefault(p.UserId.Value)
-                        : p.PlayerId is not null ? playerLookup.GetValueOrDefault(p.PlayerId.Value)
+                    p.UserId is not null ? names.Users.GetValueOrDefault(p.UserId.Value)
+                        : p.PlayerId is not null ? names.Players.GetValueOrDefault(p.PlayerId.Value)
                         : null))
                 .ToList())).ToList();
     }

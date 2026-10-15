@@ -4,7 +4,7 @@ using Domain.Results;
 
 namespace Domain.Models.Player;
 
-public record PlayerName : ValueObject
+public sealed record PlayerName : ValueObject
 {
     public const int MaxLength = 100;
 
@@ -17,11 +17,12 @@ public record PlayerName : ValueObject
 
     public static Result<PlayerName> Create(string? name)
     {
-        if (string.IsNullOrWhiteSpace(name))
+        var trimmed = name?.Trim();
+        if (string.IsNullOrEmpty(trimmed))
             return Result.Failure<PlayerName>(DomainErrors.Player.NameRequired);
-        if (name.Length > MaxLength)
+        if (trimmed.Length > MaxLength)
             return Result.Failure<PlayerName>(DomainErrors.Player.NameTooLong);
 
-        return new PlayerName(name);
+        return new PlayerName(trimmed);
     }
 }

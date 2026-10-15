@@ -16,6 +16,8 @@ internal sealed class GameResultDtoValidator : AbstractValidator<GameResultDto>
     {
         RuleFor(x => x.Duration).GreaterThanOrEqualTo(TimeSpan.Zero)
             .WithDomainError(DomainErrors.Game.DurationNegative);
+        RuleFor(x => x.Duration).LessThan(GameRestrictions.MaximumDuration)
+            .WithDomainError(DomainErrors.Game.DurationTooLong);
         RuleFor(x => x.TerrorLevel).IsInEnum()
             .WithDomainError(DomainErrors.Game.InvalidTerrorLevel);
         RuleFor(x => x.Cards).InclusiveBetween(0, GameRestrictions.MaximumCardsCount)

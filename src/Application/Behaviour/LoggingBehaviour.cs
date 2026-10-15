@@ -5,27 +5,31 @@ using Microsoft.Extensions.Logging;
 
 namespace Application.Behaviour;
 
-public class LoggingBehaviour<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse> where TRequest : IRequest<TResponse> where TResponse : Result
+/// <summary>
+/// One line in and one line out for every request. The payload itself is only serialised when
+/// Debug logging is on: it can carry a note, an email address or a whole island arrangement,
+/// none of which belongs in an Information log by default.
+/// </summary>
+public sealed class LoggingBehaviour<TRequest, TResponse>(ILogger<LoggingBehaviour<TRequest, TResponse>> logger)
+    : IPipelineBehavior<TRequest, TResponse>
+    where TRequest : IRequest<TResponse>
+    where TResponse : Result
 {
-    private readonly ILogger<LoggingBehaviour<TRequest, TResponse>> _logger;
-
-    public LoggingBehaviour(ILogger<LoggingBehaviour<TRequest, TResponse>> logger)
-    {
-        _logger = logger;
-    }
-
     public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
     {
-        var requestString = JsonSerializer.Serialize(request);
         var requestName = typeof(TRequest).Name;
 
-        _logger.LogInformation("Handling '{RequestName}' with request '{Request}'", requestName, requestString);
-        var response = await next();
+        if (logger.IsEnabled(LogLevel.Debug))
+            logger.LogDebug("Handling {RequestName} {Request}", requestName, JsonSerializer.Serialize(request));
+        else
+            logger.LogInformation("Handling {RequestName}", requestName);
+
+        var response = await next(cancellationToken);
 
         if (response.IsFailure)
-            _logger.LogError("Request '{RequestName}' failed with error: '{ErrorType}' {ErrorMessage}", requestName, response.Error.Code, response.Error.Message);
+            logger.LogWarning("{RequestName} failed: {ErrorCode} {ErrorMessage}", requestName, response.Error.Code, response.Error.Message);
         else
-            _logger.LogInformation("Handled '{RequestName}'", requestName);
+            logger.LogInformation("Handled {RequestName}", requestName);
 
         return response;
     }

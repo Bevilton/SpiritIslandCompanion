@@ -1,7 +1,7 @@
 using Application.Abstractions;
 using Application.Data;
+using Application.Features.Friendships;
 using Domain.Errors;
-using Domain.Models.Friendship;
 using Domain.Models.Player;
 using Domain.Models.PlayerMerge;
 using Domain.Models.User;
@@ -16,7 +16,8 @@ namespace Application.Features.PlayerMerges;
 /// </summary>
 public sealed record SendMergeRequestCommand(Guid RequesterId, Guid PlayerId, Guid TargetUserId) : ICommand;
 
-internal sealed class SendMergeRequestHandler(IAppDbContext db) : ICommandHandler<SendMergeRequestCommand>
+internal sealed class SendMergeRequestHandler(IAppDbContext db, MergeSubjectGames subjectGames, TimeProvider clock)
+    : ICommandHandler<SendMergeRequestCommand>
 {
     public async Task<Result> Handle(SendMergeRequestCommand request, CancellationToken cancellationToken)
     {
@@ -33,38 +34,41 @@ internal sealed class SendMergeRequestHandler(IAppDbContext db) : ICommandHandle
         if (player.CreatedBy != requesterId)
             return Result.Failure(DomainErrors.Player.NotYours);
 
+        // Written before anything is looked up about the two accounts: what the request itself
+        // refuses — asking yourself — is answered as such, not as a friendship that is missing.
+        var merge = PlayerMergeRequest.Create(
+            new PlayerMergeRequestId(Guid.NewGuid()), playerId, requesterId, targetId, clock.GetUtcNow());
+
+        if (merge.IsFailure)
+            return Result.Failure(merge.Error);
+
         // Only a friend can be asked: the merge hands them the seats and, with them, a place
         // in each other's game history — the same bar CreateGame sets for seating an account.
         var areFriends = await db.Friendships
             .AsNoTracking()
-            .AnyAsync(f => f.Status == FriendshipStatus.Accepted &&
-                           ((f.RequesterId.Value == request.RequesterId && f.AddresseeId.Value == request.TargetUserId) ||
-                            (f.RequesterId.Value == request.TargetUserId && f.AddresseeId.Value == request.RequesterId)),
-                cancellationToken);
+            .Accepted()
+            .Between(requesterId, targetId)
+            .AnyAsync(cancellationToken);
 
         if (!areFriends)
             return Result.Failure(DomainErrors.Friendship.NotAccepted);
 
         var pending = await db.PlayerMergeRequests
             .AsNoTracking()
-            .AnyAsync(r => r.Status == PlayerMergeStatus.Pending && r.PlayerId.Value == request.PlayerId,
-                cancellationToken);
+            .About(playerId)
+            .Pending()
+            .AnyAsync(cancellationToken);
 
         if (pending)
             return Result.Failure(DomainErrors.PlayerMerge.AlreadyPending);
 
-        // Caught here as well as on approval, so the person asking is the one who finds out.
-        var games = await MergeSubjectGames.LoadAsync(db, playerId, tracked: false, cancellationToken);
-        if (MergeSubjectGames.HasSeatConflict(games, playerId, targetId))
+        // Caught here as well as on approval (see Game.HandSeatsToUser), so the person asking
+        // is the one who finds out.
+        var games = await subjectGames.LoadAsync(playerId, tracked: false, cancellationToken);
+        if (games.Any(g => g.SeatsBoth(playerId, targetId)))
             return Result.Failure(DomainErrors.PlayerMerge.SeatConflict);
 
-        var mergeResult = PlayerMergeRequest.Create(
-            new PlayerMergeRequestId(Guid.NewGuid()), playerId, requesterId, targetId);
-
-        if (mergeResult.IsFailure)
-            return Result.Failure(mergeResult.Error);
-
-        db.PlayerMergeRequests.Add(mergeResult.Value);
+        db.PlayerMergeRequests.Add(merge.Value);
         return Result.Success();
     }
 }

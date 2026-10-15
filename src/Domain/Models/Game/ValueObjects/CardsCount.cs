@@ -4,7 +4,7 @@ using Domain.Results;
 
 namespace Domain.Models.Game;
 
-public record CardsCount : ValueObject
+public sealed record CardsCount : ValueObject
 {
     public int Value { get; private init; }
 

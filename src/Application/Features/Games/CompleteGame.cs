@@ -4,6 +4,7 @@ using Application.Data;
 using Application.Features.Games.Dtos;
 using Domain.Errors;
 using Domain.Models.Game;
+using Domain.Models.User;
 using Domain.Results;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
@@ -14,6 +15,7 @@ namespace Application.Features.Games;
 /// Adds result and scoring data to a previously drafted game. Score is calculated
 /// server-side. Only the game's owner can complete it — for anyone else it isn't found.
 /// </summary>
+/// <param name="Note">A new note for the game, or null to keep whatever the draft was saved with.</param>
 public sealed record CompleteGameCommand(
     Guid GameId,
     Guid UserId,
@@ -24,7 +26,7 @@ internal sealed class CompleteGameValidator : AbstractValidator<CompleteGameComm
 {
     public CompleteGameValidator()
     {
-        RuleFor(x => x.Note!).MaximumLength(GameRestrictions.NoteLength)
+        RuleFor(x => x.Note!).MaximumLength(GameRestrictions.MaximumNoteLength)
             .WithDomainError(DomainErrors.Game.NoteTooLong)
             .When(x => x.Note is not null);
         RuleFor(x => x.Result).NotNull().WithDomainError(DomainErrors.Game.ResultRequired);
@@ -37,32 +39,26 @@ internal sealed class CompleteGameHandler(IAppDbContext db) : ICommandHandler<Co
 {
     public async Task<Result> Handle(CompleteGameCommand request, CancellationToken cancellationToken)
     {
-        // Owned types load with the game — no Includes needed (see GameQueries).
+        // The seats, adversaries and outcome are owned, so they load with the game (see GameQueries).
+        var ownerId = new UserId(request.UserId);
         var game = await db.Games
             .FirstOrDefaultAsync(
-                g => g.Id == new GameId(request.GameId) && g.OwnerId.Value == request.UserId,
+                g => g.Id == new GameId(request.GameId) && g.OwnerId == ownerId,
                 cancellationToken);
 
         if (game is null)
             return Result.Failure(DomainErrors.Game.NotFound);
 
-        if (game.Result is not null)
-            return Result.Failure(DomainErrors.Game.AlreadyCompleted);
+        // Whether the game already has an outcome is the game's own rule (see Game.Complete). The
+        // numbers below have already passed the validator, so it is the only answer left to give.
+        var outcome = GameOutcomeFactory.Build(request.Result);
+        if (outcome.IsFailure)
+            return Result.Failure(outcome.Error);
 
-        var gameResultOrError = GameFactory.BuildResult(request.Result, game.Difficulty, game.Players.Count);
-        if (gameResultOrError.IsFailure)
-            return Result.Failure(gameResultOrError.Error);
+        var note = GameNote.CreateOptional(request.Note);
+        if (note.IsFailure)
+            return Result.Failure(note.Error);
 
-        GameNote? note = game.Note;
-        if (request.Note is not null)
-        {
-            var noteResult = GameNote.Create(request.Note);
-            if (noteResult.IsFailure) return Result.Failure(noteResult.Error);
-            note = noteResult.Value;
-        }
-
-        game.Complete(gameResultOrError.Value, note);
-
-        return Result.Success();
+        return game.Complete(outcome.Value, note.Value);
     }
 }

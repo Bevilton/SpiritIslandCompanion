@@ -51,26 +51,32 @@ public class PlayerMergeRequest : AggregateRoot<PlayerMergeRequestId>
         PlayerMergeRequestId id,
         PlayerId playerId,
         UserId requesterId,
-        UserId targetUserId)
+        UserId targetUserId,
+        DateTimeOffset createdAt)
     {
         if (requesterId == targetUserId)
             return Result.Failure<PlayerMergeRequest>(DomainErrors.PlayerMerge.CannotMergeSelf);
 
-        return new PlayerMergeRequest(
-            id, playerId, requesterId, targetUserId, PlayerMergeStatus.Pending, DateTimeOffset.UtcNow);
+        return new PlayerMergeRequest(id, playerId, requesterId, targetUserId, PlayerMergeStatus.Pending, createdAt);
     }
 
-    public Result Approve() => Respond(PlayerMergeStatus.Approved);
+    /// <summary>Agrees to the merge. Only the target can, and only while it is still open.</summary>
+    public Result Approve(UserId responder, DateTimeOffset respondedAt) =>
+        Respond(responder, PlayerMergeStatus.Approved, respondedAt);
 
-    public Result Reject() => Respond(PlayerMergeStatus.Rejected);
+    /// <summary>Declines the merge — "that guest wasn't me". Only the target can, and only while it is still open.</summary>
+    public Result Reject(UserId responder, DateTimeOffset respondedAt) =>
+        Respond(responder, PlayerMergeStatus.Rejected, respondedAt);
 
-    private Result Respond(PlayerMergeStatus status)
+    private Result Respond(UserId responder, PlayerMergeStatus status, DateTimeOffset respondedAt)
     {
+        if (responder != TargetUserId)
+            return Result.Failure(DomainErrors.PlayerMerge.NotTarget);
         if (Status != PlayerMergeStatus.Pending)
             return Result.Failure(DomainErrors.PlayerMerge.AlreadyResponded);
 
         Status = status;
-        RespondedAt = DateTimeOffset.UtcNow;
+        RespondedAt = respondedAt;
         return Result.Success();
     }
 
@@ -78,11 +84,13 @@ public class PlayerMergeRequest : AggregateRoot<PlayerMergeRequestId>
     public bool InvolvesUser(UserId userId) =>
         RequesterId == userId || TargetUserId == userId;
 
-#pragma warning disable CS8618
+#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
     /// <summary>
     /// Empty constructor required for EF Core.
     /// </summary>
     [Obsolete("Empty constructor required for EF Core.")]
-    private PlayerMergeRequest(){}
+    private PlayerMergeRequest()
+    {
+    }
 #pragma warning restore
 }

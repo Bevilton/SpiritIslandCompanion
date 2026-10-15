@@ -4,7 +4,7 @@ using Domain.Results;
 
 namespace Domain.Models.Game;
 
-public record DifficultyModifier : ValueObject
+public sealed record DifficultyModifier : ValueObject
 {
     public int Value { get; private init; }
 
@@ -15,11 +15,9 @@ public record DifficultyModifier : ValueObject
 
     public static Result<DifficultyModifier> Create(int value)
     {
-        if (value < GameRestrictions.DifficultyModifierMin || value > GameRestrictions.DifficultyModifierMax)
+        if (value is < GameRestrictions.MinimumDifficultyModifier or > GameRestrictions.MaximumDifficultyModifier)
             return Result.Failure<DifficultyModifier>(DomainErrors.Game.InvalidDifficultyModifier);
 
         return new DifficultyModifier(value);
     }
-
-    public static DifficultyModifier Zero => new(0);
 }

@@ -11,9 +11,9 @@ namespace Application.Features.Friendships;
 /// <summary>
 /// Accepts a pending friend request. Only the addressee can accept.
 /// </summary>
-public sealed record AcceptFriendRequestCommand(Guid FriendshipId, Guid CurrentUserId) : ICommand;
+public sealed record AcceptFriendRequestCommand(Guid FriendshipId, Guid UserId) : ICommand;
 
-internal sealed class AcceptFriendRequestHandler(IAppDbContext db) : ICommandHandler<AcceptFriendRequestCommand>
+internal sealed class AcceptFriendRequestHandler(IAppDbContext db, TimeProvider clock) : ICommandHandler<AcceptFriendRequestCommand>
 {
     public async Task<Result> Handle(AcceptFriendRequestCommand request, CancellationToken cancellationToken)
     {
@@ -23,9 +23,8 @@ internal sealed class AcceptFriendRequestHandler(IAppDbContext db) : ICommandHan
         if (friendship is null)
             return Result.Failure(DomainErrors.Friendship.NotFound);
 
-        if (friendship.AddresseeId != new UserId(request.CurrentUserId))
-            return Result.Failure(Error.Forbidden("Friendship.NotAddressee", "Only the recipient can accept a friend request."));
-
-        return friendship.Accept();
+        // Whether this user may answer, and whether there is still anything to answer, are the
+        // friendship's own rules.
+        return friendship.Accept(new UserId(request.UserId), clock.GetUtcNow());
     }
 }

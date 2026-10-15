@@ -1,3 +1,5 @@
+using Domain.Primitives;
+
 namespace Domain.Models.Static;
 
-public record AspectId(string Value);
+public sealed record AspectId(string Value) : ValueObject;

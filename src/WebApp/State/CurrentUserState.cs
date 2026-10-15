@@ -1,6 +1,6 @@
-using Application.Abstractions;
 using Application.Features.Users;
 using Domain.Models.Static;
+using Infrastructure.Demo;
 using MediatR;
 using Microsoft.AspNetCore.Components.Authorization;
 using WebApp.Auth;

@@ -1,4 +1,4 @@
-using Application.Abstractions;
+using Infrastructure.Demo;
 using Microsoft.AspNetCore.Components.Authorization;
 
 namespace WebApp.Demo;

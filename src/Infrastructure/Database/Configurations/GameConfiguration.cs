@@ -1,79 +1,54 @@
 using Domain.Models.Game;
-using Domain.Models.IslandLayout;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Infrastructure.Database.Configurations;
 
-internal class GameConfiguration : IEntityTypeConfiguration<Game>
+internal sealed class GameConfiguration : IEntityTypeConfiguration<Game>
 {
     public void Configure(EntityTypeBuilder<Game> builder)
     {
         builder.HasKey(x => x.Id);
-        builder.Property(x => x.Id)
-            .HasConversion(x => x.Value, x => new GameId(x));
 
-        builder.OwnsOne(x => x.OwnerId);
-
-        builder.OwnsOne(x => x.Result, b =>
+        // The result is one value with two parts — the outcome the table reported, and the score —
+        // so it is a complex property, and the outcome a complex property inside it: the columns
+        // sit on the game's row, neither has an identity of its own, and a copied game may hold
+        // the same instance. Optional: a draft has no result yet, and reads back as null. The
+        // outcome's columns keep the names they had when its fields sat directly on the result,
+        // so nesting it in the model changed nothing in the schema.
+        builder.ComplexProperty(x => x.Result, result =>
         {
-            b.OwnsOne(x => x.Id);
-            b.OwnsOne(x => x.Blight);
-            b.OwnsOne(x => x.Cards);
-            b.OwnsOne(x => x.Score);
-            b.OwnsOne(x => x.Dahan);
-            b.OwnsOne(x => x.ScoreModifier);
+            result.IsRequired(false);
+            result.ComplexProperty(r => r.Outcome, outcome =>
+            {
+                outcome.Property(o => o.Win).HasColumnName("Result_Win");
+                outcome.Property(o => o.Duration).HasColumnName("Result_Duration");
+                outcome.Property(o => o.Cards).HasColumnName("Result_Cards");
+                outcome.Property(o => o.TerrorLevel).HasColumnName("Result_TerrorLevel");
+                outcome.Property(o => o.Blight).HasColumnName("Result_Blight");
+                outcome.Property(o => o.Dahan).HasColumnName("Result_Dahan");
+                outcome.Property(o => o.ScoreModifier).HasColumnName("Result_ScoreModifier");
+            });
         });
-        builder.OwnsMany(x => x.PlayedAdversaries, b =>
-        {
-            b.ToTable($"{nameof(Game)}_{nameof(PlayedAdversary)}");
-            b.WithOwner().HasForeignKey(nameof(GameId));
-
-            b.HasKey(x => x.Id);
-            b.Property(x => x.Id)
-                .HasConversion(x => x.Value, x => new PlayedAdversaryId(x));
-
-            b.OwnsOne(x => x.AdversaryId);
-            b.OwnsOne(x => x.Level);
-        });
-        builder.OwnsOne(x => x.Scenario, b =>
-        {
-            b.OwnsOne(x => x.Id);
-            b.OwnsOne(x => x.ScenarioId);
-
-            b.ToTable($"{nameof(Game)}_{nameof(PlayedScenario)}");
-        });
-        builder.OwnsOne(x => x.IslandSetupId);
 
         // The game's own copy of a hand-built arrangement, and the library layout it came
         // from. No foreign key on purpose: deleting a saved layout must not cascade into the
         // games played on it. Guarding the delete is the handler's business, not the schema's —
         // DeleteIslandLayout refuses to drop a layout that recorded games still point at.
-        builder.OwnsOne(x => x.IslandLayout, b =>
-            b.Property(x => x.Value).HasMaxLength(IslandLayoutGeometry.MaxLength));
-        builder.OwnsOne(x => x.CustomLayoutId);
+        // (CustomLayoutId is mapped by the conventions in AppDbContext, like every other id.)
 
-        // Nullable: games recorded before the extra board was asked for have no letter to give.
-        builder.OwnsOne(x => x.ExtraBoard);
-
-        builder.OwnsOne(x => x.Difficulty);
-        builder.OwnsOne(x => x.DifficultyModifier);
-        builder.OwnsOne(x => x.Note);
+        builder.OwnsMany(x => x.PlayedAdversaries, b =>
+        {
+            b.ToTable($"{nameof(Game)}_{nameof(PlayedAdversary)}");
+            b.WithOwner().HasForeignKey(nameof(GameId));
+            b.HasKey(x => x.Id);
+        });
 
         builder.OwnsMany(x => x.Players, b =>
         {
             b.ToTable($"{nameof(Game)}_{nameof(GamePlayer)}");
             b.WithOwner().HasForeignKey(nameof(GameId));
-
             b.HasKey(x => x.Id);
-            b.Property(x => x.Id)
-                .HasConversion(x => x.Value, x => new GamePlayerId(x));
-
-            b.OwnsOne(x => x.SpiritId);
-            b.OwnsOne(x => x.AspectId);
-            b.OwnsOne(x => x.StartingBoard);
-            b.OwnsOne(x => x.UserId);
-            b.OwnsOne(x => x.PlayerId);
         });
     }
 }

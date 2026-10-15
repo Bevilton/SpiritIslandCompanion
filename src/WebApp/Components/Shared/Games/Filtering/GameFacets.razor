@@ -132,7 +132,7 @@
         {
             <FilterPill @key="who.Key" Active="@Filter.Who.Contains(who.Key)"
                         OnToggle="() => Bar.Set(() => FilterState.Toggle(Filter.Who, who.Key))">
-                <Icon Name="@(who.Kind == GamePlayerKind.Friend ? "users" : "user")" Class="w-3 h-3"/> @who.Label
+                <Icon Name="@(who.Kind == PlayerKind.Friend ? "users" : "user")" Class="w-3 h-3"/> @who.Label
             </FilterPill>
         }
     </FilterRow>
@@ -174,7 +174,7 @@
     [Parameter, EditorRequired] public IReadOnlyList<ListGamesResponse> Games { get; set; } = [];
 
     private sealed record IslandOption(string Key, string Label);
-    private sealed record WhoOption(string Key, string Label, GamePlayerKind Kind);
+    private sealed record WhoOption(string Key, string Label, PlayerKind Kind);
 
     private IReadOnlyList<Adversary> _adversaryOptions = [];
     private bool _anyWithoutAdversary;
@@ -251,7 +251,7 @@
         _whoOptions = Games.SelectMany(g => g.Players)
             .GroupBy(GamesFilter.WhoKeyOf)
             .Select(g => new { Option = new WhoOption(g.Key, g.First().Name, g.First().Kind), Seats = g.Count() })
-            .OrderByDescending(x => x.Option.Kind == GamePlayerKind.Me)
+            .OrderByDescending(x => x.Option.Kind == PlayerKind.Me)
             .ThenByDescending(x => x.Seats)
             .ThenBy(x => x.Option.Label, StringComparer.CurrentCulture)
             .Select(x => x.Option)

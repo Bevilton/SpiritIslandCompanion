@@ -22,21 +22,17 @@ namespace Application.Features.IslandLayouts;
 /// </summary>
 public sealed record SaveIslandLayoutCommand(
     Guid LayoutId,
-    Guid OwnerId,
+    Guid UserId,
     string Name,
-    string LayoutJson,
-    DateTimeOffset SavedAt) : ICommand;
+    string LayoutJson) : ICommand;
 
 internal sealed class SaveIslandLayoutValidator : AbstractValidator<SaveIslandLayoutCommand>
 {
     public SaveIslandLayoutValidator()
     {
-        // Measured the way IslandLayoutName.Create measures — trimmed — so the validator
-        // can never refuse a name the domain would accept, or the other way round.
         RuleFor(x => x.Name)
-            .Must(n => !string.IsNullOrWhiteSpace(n)).WithDomainError(DomainErrors.IslandLayout.NameRequired)
-            .Must(n => n is null || n.Trim().Length <= IslandLayoutName.MaxLength)
-                .WithDomainError(DomainErrors.IslandLayout.NameTooLong);
+            .NotEmpty().WithDomainError(DomainErrors.IslandLayout.NameRequired)
+            .MaximumTrimmedLength(IslandLayoutName.MaxLength).WithDomainError(DomainErrors.IslandLayout.NameTooLong);
         // Everything past "there is something, and it isn't unbounded" is the geometry's
         // own business — see IslandLayoutGeometry.Create.
         RuleFor(x => x.LayoutJson)
@@ -45,7 +41,7 @@ internal sealed class SaveIslandLayoutValidator : AbstractValidator<SaveIslandLa
     }
 }
 
-internal sealed class SaveIslandLayoutHandler(IAppDbContext db) : ICommandHandler<SaveIslandLayoutCommand>
+internal sealed class SaveIslandLayoutHandler(IAppDbContext db, TimeProvider clock) : ICommandHandler<SaveIslandLayoutCommand>
 {
     public async Task<Result> Handle(SaveIslandLayoutCommand request, CancellationToken cancellationToken)
     {
@@ -57,27 +53,26 @@ internal sealed class SaveIslandLayoutHandler(IAppDbContext db) : ICommandHandle
         if (geometryResult.IsFailure)
             return Result.Failure(geometryResult.Error);
 
-        // Compare the id itself, not its .Value: the key goes through a value converter, and
-        // only the whole key translates to SQL.
         var layoutId = new CustomIslandLayoutId(request.LayoutId);
-        var existing = await db.CustomIslandLayouts.FirstOrDefaultAsync(
-            l => l.Id == layoutId && l.OwnerId.Value == request.OwnerId,
-            cancellationToken);
-
-        if (existing is not null)
-            return existing.Update(nameResult.Value, geometryResult.Value, request.SavedAt);
+        var ownerId = new UserId(request.UserId);
+        var existing = await db.CustomIslandLayouts.FirstOrDefaultAsync(l => l.Id == layoutId, cancellationToken);
 
         // The id is the caller's to mint, not to reuse: one that already exists under another
-        // owner has to fail here, or the insert below becomes a primary-key collision.
-        if (await db.CustomIslandLayouts.AnyAsync(l => l.Id == layoutId, cancellationToken))
+        // owner has to fail here, or the insert below becomes a primary-key collision — and it
+        // fails as not found, so a Save never confirms that a stranger's row exists.
+        if (existing is not null && existing.OwnerId != ownerId)
             return Result.Failure(DomainErrors.IslandLayout.NotFound);
+
+        var savedAt = clock.GetUtcNow();
+        if (existing is not null)
+            return existing.Update(nameResult.Value, geometryResult.Value, savedAt);
 
         db.CustomIslandLayouts.Add(CustomIslandLayout.Create(
             layoutId,
-            new UserId(request.OwnerId),
+            ownerId,
             nameResult.Value,
             geometryResult.Value,
-            request.SavedAt));
+            savedAt));
 
         return Result.Success();
     }

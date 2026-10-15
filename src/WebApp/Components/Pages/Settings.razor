@@ -153,7 +153,7 @@ else
     private async Task Save()
     {
         _saving = true;
-        var result = await Mediator.Send(new UpdateUserSettingsCommand(
+        var result = await Mediator.Send(new SetOwnedExpansionsCommand(
             CurrentUser.RequireUserId(), _ownedExpansions.ToList()));
         _saving = false;
 

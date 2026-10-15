@@ -1,5 +1,6 @@
 using Application.Abstractions;
 using Application.Data;
+using Domain.Models.User;
 using Domain.Results;
 using Microsoft.EntityFrameworkCore;
 
@@ -25,11 +26,12 @@ internal sealed class ListIslandLayoutsHandler(IAppDbContext db)
     public async Task<Result<List<IslandLayoutResponse>>> Handle(
         ListIslandLayoutsQuery request, CancellationToken cancellationToken)
     {
+        var ownerId = new UserId(request.UserId);
         var layouts = await db.CustomIslandLayouts
             .AsNoTracking()
-            .Where(l => l.OwnerId.Value == request.UserId)
+            .Where(l => l.OwnerId == ownerId)
             .OrderBy(l => l.BoardCount)
-            .ThenBy(l => l.Name.Value)
+            .ThenBy(l => l.Name)
             .Select(l => new IslandLayoutResponse(
                 l.Id.Value,
                 l.Name.Value,

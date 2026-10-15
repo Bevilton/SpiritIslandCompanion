@@ -1,4 +1,4 @@
-using Domain.Models.Game.Enums;
+using Domain.Models.Game;
 
 namespace WebApp.Components.Shared.Stats;
 

@@ -1,5 +1,5 @@
 using Application.Features.Games.Dtos;
-using Domain.Models.Game.Enums;
+using Domain.Models.Game;
 using Domain.Services;
 
 namespace WebApp.Components.Shared.Games;

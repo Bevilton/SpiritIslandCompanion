@@ -2,4 +2,4 @@ using Domain.Primitives;
 
 namespace Domain.Models.User;
 
-public record UserId(Guid Value) : Identifier(Value);
+public sealed record UserId(Guid Value) : Identifier(Value);

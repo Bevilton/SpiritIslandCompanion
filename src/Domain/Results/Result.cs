@@ -1,6 +1,6 @@
 namespace Domain.Results;
 
-public class Result : IResult
+public class Result
 {
     protected internal Result(bool isSuccess, Error error)
     {

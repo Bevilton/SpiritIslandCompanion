@@ -21,52 +21,51 @@ internal sealed class SendFriendRequestValidator : AbstractValidator<SendFriendR
     {
         RuleFor(x => x.AddresseeEmail)
             .NotEmpty().WithDomainError(DomainErrors.User.EmailRequired)
+            .MaximumTrimmedLength(Email.MaxLength).WithDomainError(DomainErrors.User.EmailTooLong)
             .EmailAddress().WithDomainError(DomainErrors.User.EmailInvalid);
     }
 }
 
-internal sealed class SendFriendRequestHandler(IAppDbContext db) : ICommandHandler<SendFriendRequestCommand>
+internal sealed class SendFriendRequestHandler(IAppDbContext db, TimeProvider clock) : ICommandHandler<SendFriendRequestCommand>
 {
     public async Task<Result> Handle(SendFriendRequestCommand request, CancellationToken cancellationToken)
     {
-        var requesterId = new UserId(request.RequesterId);
+        // Looked up in the address's canonical form (see Email.Create), so "Anna@…" finds anna.
+        var email = Email.Create(request.AddresseeEmail);
+        if (email.IsFailure)
+            return Result.Failure(email.Error);
 
-        // Find the addressee by email
+        var address = email.Value;
         var addressee = await db.Users
             .AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Email.Value == request.AddresseeEmail, cancellationToken);
+            .FirstOrDefaultAsync(u => u.Email == address, cancellationToken);
 
         if (addressee is null)
-            return Result.Failure(Error.NotFound("User.NotFound", "No user found with that email."));
+            return Result.Failure(DomainErrors.User.NotFoundByEmail);
 
-        var addresseeId = addressee.Id;
-
-        // Check if a friendship already exists in either direction
-        var existing = await db.Friendships
-            .FirstOrDefaultAsync(f =>
-                (f.RequesterId.Value == requesterId.Value && f.AddresseeId.Value == addresseeId.Value) ||
-                (f.RequesterId.Value == addresseeId.Value && f.AddresseeId.Value == requesterId.Value),
-                cancellationToken);
-
-        if (existing is not null)
-        {
-            // A request that was turned down is an answer, not a wall: people fall out and
-            // patch things up, and the old row would otherwise block them for good.
-            if (existing.Status != FriendshipStatus.Rejected)
-                return Result.Failure(DomainErrors.Friendship.AlreadyExists);
-
-            db.Friendships.Remove(existing);
-        }
-
-        var friendshipResult = Friendship.Create(
+        // Written before anything is looked up about the two of them: what the request itself
+        // refuses — asking yourself — is answered as such, not as a request that already exists.
+        var requesterId = new UserId(request.RequesterId);
+        var friendship = Friendship.Create(
             new FriendshipId(Guid.NewGuid()),
             requesterId,
-            addresseeId);
+            addressee.Id,
+            clock.GetUtcNow());
 
-        if (friendshipResult.IsFailure)
-            return Result.Failure(friendshipResult.Error);
+        if (friendship.IsFailure)
+            return Result.Failure(friendship.Error);
 
-        db.Friendships.Add(friendshipResult.Value);
+        // One row between two people, whichever of them asked and however it stands. A request
+        // turned down leaves none behind (see RejectFriendRequest), so people who fall out and
+        // patch things up are never blocked by an old answer.
+        var exists = await db.Friendships
+            .Between(requesterId, addressee.Id)
+            .AnyAsync(cancellationToken);
+
+        if (exists)
+            return Result.Failure(DomainErrors.Friendship.AlreadyExists);
+
+        db.Friendships.Add(friendship.Value);
         return Result.Success();
     }
 }

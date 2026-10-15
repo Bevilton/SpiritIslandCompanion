@@ -7,13 +7,16 @@ namespace Domain.Models.Game;
 
 public class GamePlayer : Entity<GamePlayerId>
 {
-    public SpiritId SpiritId { get; private set; }
-    public AspectId? AspectId { get; private set; }
-    public BoardId StartingBoard { get; private set; }
+    public SpiritId SpiritId { get; private init; }
+    public AspectId? AspectId { get; private init; }
+    public BoardId StartingBoard { get; private init; }
     public UserId? UserId { get; private set; }
     public PlayerId? PlayerId { get; private set; }
 
-    private GamePlayer(GamePlayerId id, BoardId startingBoard, SpiritId spiritId, AspectId? aspectId, UserId? userId, PlayerId? playerId) : base(id)
+    // A seat's identity is its own to mint: nothing outside the game ever refers to a seat by
+    // id, so there is no reason for a caller to supply one.
+    private GamePlayer(BoardId startingBoard, SpiritId spiritId, AspectId? aspectId, UserId? userId, PlayerId? playerId)
+        : base(new GamePlayerId(Guid.NewGuid()))
     {
         SpiritId = spiritId;
         AspectId = aspectId;
@@ -22,58 +25,64 @@ public class GamePlayer : Entity<GamePlayerId>
         PlayerId = playerId;
     }
 
-    public static GamePlayer CreateUserPlayer(GamePlayerId id, BoardId startingBoard, SpiritId spiritId, AspectId? aspectId, UserId userId)
-    {
-        return new GamePlayer(id, startingBoard, spiritId, aspectId, Own(userId), null);
-    }
+    /// <summary>A seat taken by a registered account — the owner's own, or a friend's.</summary>
+    public static GamePlayer ForUser(BoardId startingBoard, SpiritId spiritId, AspectId? aspectId, UserId userId) =>
+        new(startingBoard, spiritId, aspectId, userId, null);
 
-    public static GamePlayer CreatePlayer(GamePlayerId id, BoardId startingBoard, SpiritId spiritId, AspectId? aspectId, PlayerId playerId)
-    {
-        return new GamePlayer(id, startingBoard, spiritId, aspectId, null, Own(playerId));
-    }
+    /// <summary>A seat taken by one of the owner's local players.</summary>
+    public static GamePlayer ForLocalPlayer(BoardId startingBoard, SpiritId spiritId, AspectId? aspectId, PlayerId playerId) =>
+        new(startingBoard, spiritId, aspectId, null, playerId);
 
     /// <summary>
-    /// Hands the seat to a registered account — the local player who sat here turned out to
-    /// be them (see <see cref="PlayerMerge.PlayerMergeRequest"/>). What was played stays;
-    /// only who played it changes.
+    /// The seat as it reads from <paramref name="newOwner"/>'s side of the table — what a copy
+    /// of the game made in their name seats here (see <see cref="Game.CopyForOwner"/>). What was
+    /// played is copied as it is; only who is written down changes: their own account stays
+    /// theirs, an empty seat stays empty (there is nobody in it to write down), and everyone
+    /// else becomes one of their local players — which one, <paramref name="localPlayerFor"/>
+    /// decides, since only the caller knows the new owner's address book.
     /// </summary>
-    public void ReassignToUser(UserId userId)
+    internal GamePlayer CopyFor(UserId newOwner, Func<GamePlayer, PlayerId> localPlayerFor)
     {
-        UserId = Own(userId);
+        if (UserId == newOwner)
+            return ForUser(StartingBoard, SpiritId, AspectId, newOwner);
+        if (UserId is null && PlayerId is null)
+            return new GamePlayer(StartingBoard, SpiritId, AspectId, null, null);
+
+        return ForLocalPlayer(StartingBoard, SpiritId, AspectId, localPlayerFor(this));
+    }
+
+    // Who sits in a seat is the game's to change, never a caller's: the three below are reached
+    // only through Game.HandSeatsToUser, HandSeatsToLocalPlayer and UnseatLocalPlayer, which is
+    // where the rule about seating an account twice lives.
+
+    /// <summary>Hands the seat to a registered account. What was played stays; only who played it changes.</summary>
+    internal void ReassignToUser(UserId userId)
+    {
+        UserId = userId;
         PlayerId = null;
     }
 
-    /// <summary>
-    /// Hands the seat back to a local player — what happens to an account's seat when the
-    /// friendship that let it sit there ends. The record of the evening survives; the link
-    /// to the other account does not.
-    /// </summary>
-    public void ReassignToLocalPlayer(PlayerId playerId)
+    /// <summary>Hands the seat to a local player. What was played stays; only who played it changes.</summary>
+    internal void ReassignToLocalPlayer(PlayerId playerId)
     {
-        PlayerId = Own(playerId);
+        PlayerId = playerId;
         UserId = null;
     }
 
-    /// <summary>
-    /// A private copy of a value the caller may be handing to several seats at once — which
-    /// happens whenever a batch of seats is rewritten to the same person.
-    /// <para>
-    /// Who sits in a seat is stored as an owned type, and the persistence layer tracks owned
-    /// values by object identity: giving one instance to two seats reads as that value moving
-    /// from the first to the second, leaving the first seat naming nobody. Copying here rather
-    /// than at each call site means no caller has to know that.
-    /// </para>
-    /// </summary>
-    private static UserId Own(UserId value) => value with { };
-
-    /// <inheritdoc cref="Own(UserId)"/>
-    private static PlayerId Own(PlayerId value) => value with { };
+    /// <summary>Empties the seat of whoever sat in it, keeping what they played.</summary>
+    internal void Unassign()
+    {
+        UserId = null;
+        PlayerId = null;
+    }
 
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
     /// <summary>
     /// Empty constructor required for EF Core.
     /// </summary>
     [Obsolete("Empty constructor required for EF Core.")]
-    private GamePlayer(){}
+    private GamePlayer()
+    {
+    }
 #pragma warning restore
 }

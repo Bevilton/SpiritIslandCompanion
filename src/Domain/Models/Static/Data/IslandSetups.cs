@@ -29,21 +29,21 @@ public static class IslandSetups
         new(new("star-6p"), "Star", 6),
 
         // Thematic layouts (no 5p — thematic island shape doesn't accommodate it)
-        new(new("thematic-1p"), "Thematic", 1, isThematic: true),
-        new(new("thematic-2p"), "Thematic", 2, isThematic: true),
-        new(new("thematic-3p"), "Thematic", 3, isThematic: true),
-        new(new("thematic-4p"), "Thematic", 4, isThematic: true),
-        new(new("thematic-6p"), "Thematic", 6, isThematic: true),
+        new(new("thematic-1p"), "Thematic", 1, IsThematic: true),
+        new(new("thematic-2p"), "Thematic", 2, IsThematic: true),
+        new(new("thematic-3p"), "Thematic", 3, IsThematic: true),
+        new(new("thematic-4p"), "Thematic", 4, IsThematic: true),
+        new(new("thematic-6p"), "Thematic", 6, IsThematic: true),
 
         // Hand-built in the island playground. These record only the board count — the
         // arrangement itself is stored on the game, and named layouts the player wants to
         // reuse live in CustomIslandLayout.
-        new(new("custom-1p"), "Custom", 1, isCustom: true),
-        new(new("custom-2p"), "Custom", 2, isCustom: true),
-        new(new("custom-3p"), "Custom", 3, isCustom: true),
-        new(new("custom-4p"), "Custom", 4, isCustom: true),
-        new(new("custom-5p"), "Custom", 5, isCustom: true),
-        new(new("custom-6p"), "Custom", 6, isCustom: true),
+        new(new("custom-1p"), "Custom", 1, IsCustom: true),
+        new(new("custom-2p"), "Custom", 2, IsCustom: true),
+        new(new("custom-3p"), "Custom", 3, IsCustom: true),
+        new(new("custom-4p"), "Custom", 4, IsCustom: true),
+        new(new("custom-5p"), "Custom", 5, IsCustom: true),
+        new(new("custom-6p"), "Custom", 6, IsCustom: true),
     ];
 
     /// <summary>
@@ -51,14 +51,21 @@ public static class IslandSetups
     /// name a board count and nothing else. Anything that offers a layout to look at or choose
     /// from wants this rather than <see cref="All"/>: a custom id has no arrangement of its own,
     /// so there is no diagram to draw and picking one without also supplying the geometry is
-    /// rejected (see <c>GameFactory.BuildIslandAsync</c>).
+    /// rejected (see <see cref="Game.GameSetup"/>).
     /// </summary>
     public static IReadOnlyList<IslandSetup> Published { get; } = All.Where(s => !s.IsCustom).ToList();
 
-    /// The id a hand-built arrangement of <paramref name="boardCount"/> boards is saved under.
+    private static readonly HashSet<string> CustomIds =
+        All.Where(s => s.IsCustom).Select(s => s.Id.Value).ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>The id a hand-built arrangement of <paramref name="boardCount"/> boards is saved under.</summary>
     public static string CustomIdFor(int boardCount) => $"custom-{boardCount}p";
 
-    public static bool IsCustomId(string? id) => id is not null && id.StartsWith("custom-", StringComparison.Ordinal);
+    /// <summary>
+    /// Whether the id names one of the hand-built placeholders — a question for the catalogue,
+    /// not for how the id happens to be spelled.
+    /// </summary>
+    public static bool IsCustomId(string? id) => id is not null && CustomIds.Contains(id);
 
     /// <summary>
     /// The thematic island for <paramref name="boardCount"/> boards, or null when there
@@ -67,5 +74,5 @@ public static class IslandSetups
     /// which the real island's shape cannot be divided into.
     /// </summary>
     public static IslandSetup? ThematicFor(int boardCount) =>
-        All.FirstOrDefault(s => s.IsThematic && s.NumberOfPlayers == boardCount);
+        All.FirstOrDefault(s => s.IsThematic && s.BoardCount == boardCount);
 }

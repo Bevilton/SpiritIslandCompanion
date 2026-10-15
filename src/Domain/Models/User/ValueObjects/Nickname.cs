@@ -4,7 +4,7 @@ using Domain.Results;
 
 namespace Domain.Models.User;
 
-public record Nickname : ValueObject
+public sealed record Nickname : ValueObject
 {
     public const int MaxLength = 50;
 
@@ -17,11 +17,12 @@ public record Nickname : ValueObject
 
     public static Result<Nickname> Create(string? nickname)
     {
-        if (string.IsNullOrWhiteSpace(nickname))
+        var trimmed = nickname?.Trim();
+        if (string.IsNullOrEmpty(trimmed))
             return Result.Failure<Nickname>(DomainErrors.User.NicknameRequired);
-        if (nickname.Length > MaxLength)
+        if (trimmed.Length > MaxLength)
             return Result.Failure<Nickname>(DomainErrors.User.NicknameTooLong);
 
-        return new Nickname(nickname);
+        return new Nickname(trimmed);
     }
 }

@@ -4,7 +4,7 @@ using Domain.Results;
 
 namespace Domain.Models.Game;
 
-public record ScoreModifier : ValueObject
+public sealed record ScoreModifier : ValueObject
 {
     public int Value { get; private init; }
 
@@ -15,7 +15,7 @@ public record ScoreModifier : ValueObject
 
     public static Result<ScoreModifier> Create(int value)
     {
-        if (value < GameRestrictions.MinimumScoreModifier || value > GameRestrictions.MaximumScoreModifier)
+        if (value is < GameRestrictions.MinimumScoreModifier or > GameRestrictions.MaximumScoreModifier)
             return Result.Failure<ScoreModifier>(DomainErrors.Game.InvalidScoreModifier);
 
         return new ScoreModifier(value);

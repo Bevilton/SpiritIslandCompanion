@@ -1,4 +1,4 @@
-namespace Domain.Models.Game.Enums;
+namespace Domain.Models.Game;
 
 public enum TerrorLevel
 {

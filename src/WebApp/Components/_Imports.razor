@@ -8,10 +8,9 @@
 @using Microsoft.JSInterop
 @using MediatR
 @using Application.Abstractions
-@* Deliberately NOT here, each imported by its one user instead: ApexCharts (two chart components
-   draw with it, and imported globally it shadowed the catalogue's own type names — ApexCharts.Mode
-   against Domain.Models.Static.Mode, an adversary's level) and the static RenderMode (the render
-   root alone picks one). *@
+@* Deliberately NOT here, each imported by its one user instead: ApexCharts (only the two chart
+   components draw with it, and its short type names — Mode, Tooltip — are the kind that shadow
+   others when global) and the static RenderMode (the render root alone picks one). *@
 @* The feature namespaces are imported wholesale rather than per page: their type names are
    unique across the application layer, and spelling them out inline had grown to a hundred
    Application.Features.X.Y references that said nothing a using couldn't. *@
@@ -27,7 +26,6 @@
 @using Domain.Models.Static
 @using Domain.Models.Static.Data
 @using Domain.Models.Game
-@using Domain.Models.Game.Enums
 @using Domain.Models.IslandLayout
 @* The domain's namespaces are imported as a set for the same reason the feature ones are, and
    the last two were the ones missing from it: Nickname was reached as the whole
@@ -39,6 +37,7 @@
 @using Domain.Services
 @using WebApp
 @using WebApp.Auth
+@using WebApp.Catalogue
 @using WebApp.Components
 @using WebApp.Components.Layout
 @using WebApp.Components.Shared

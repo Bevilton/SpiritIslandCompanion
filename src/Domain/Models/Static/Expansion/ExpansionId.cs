@@ -1,3 +1,5 @@
+using Domain.Primitives;
+
 namespace Domain.Models.Static;
 
-public record ExpansionId(string Value);
+public sealed record ExpansionId(string Value) : ValueObject;

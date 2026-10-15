@@ -1,8 +1,6 @@
-using Application.Abstractions;
 using Application.Data;
 using Infrastructure.Database;
 using Infrastructure.Demo;
-using Infrastructure.Interceptors;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Infrastructure.Extensions;
@@ -11,8 +9,9 @@ public static class ServiceExtensions
 {
     public static void AddInfrastructure(this IServiceCollection services)
     {
-        services.AddScoped<ProcessEventsInterceptor>();
-
+        // AppDbContext itself is the host's to register — the web app does it through Aspire's SQL
+        // Server integration, which owns the connection string. This only decides which context a
+        // scope's IAppDbContext resolves to.
         services.AddSingleton<DemoSandboxRegistry>();
         services.AddScoped<IDemoDataSeeder, DemoDataSeeder>();
 

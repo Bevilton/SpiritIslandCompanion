@@ -1,7 +1,7 @@
 using ApexCharts;
-using Application.Abstractions;
 using Application.Extensions;
 using Infrastructure.Database;
+using Infrastructure.Demo;
 using Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
 using WebApp;

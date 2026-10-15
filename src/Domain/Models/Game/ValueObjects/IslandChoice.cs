@@ -20,7 +20,7 @@ namespace Domain.Models.Game;
 /// otherwise. It is a physical board like any other — which letter it is decides that
 /// region's terrain, so it is part of the setup, not a bare "+1 board".
 /// </param>
-public record IslandChoice(
+public sealed record IslandChoice(
     IslandSetupId SetupId,
     IslandLayoutGeometry? Layout = null,
     CustomIslandLayoutId? SavedLayoutId = null,

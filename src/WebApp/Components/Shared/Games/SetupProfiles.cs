@@ -1,6 +1,7 @@
 using Application.Features.Statistics;
 using Domain.Models.Static;
 using Domain.Models.Static.Data;
+using WebApp.Catalogue;
 using WebApp.Components.Shared.Stats;
 
 namespace WebApp.Components.Shared.Games;

@@ -4,7 +4,7 @@ using Domain.Results;
 
 namespace Domain.Models.Game;
 
-public record DahanCount : ValueObject
+public sealed record DahanCount : ValueObject
 {
     public int Value { get; private init; }
 

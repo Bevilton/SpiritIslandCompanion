@@ -22,8 +22,6 @@ public static class GameData
     // shelf means there ("show everything", not the empty set). The domain lists the catalogue;
     // who owns what is decided above it.
 
-    public static IReadOnlyList<Aspect> GetAspectsForSpirit(SpiritId spiritId)
-    {
-        return Aspects.Where(a => a.SpiritId == spiritId).ToList();
-    }
+    public static IReadOnlyList<Aspect> GetAspectsForSpirit(SpiritId spiritId) =>
+        Aspects.Where(a => a.SpiritId == spiritId).ToList();
 }

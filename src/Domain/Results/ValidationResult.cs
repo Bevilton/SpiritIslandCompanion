@@ -1,8 +1,8 @@
 namespace Domain.Results;
 
-public class ValidationResult : Result, IValidationResult
+public sealed class ValidationResult : Result, IValidationResult
 {
-    private ValidationResult(ValidationError[] errors) : base(false, IValidationResult.ValidationError)
+    private ValidationResult(ValidationError[] errors) : base(false, IValidationResult.ValidationFailed)
     {
         Errors = errors;
     }

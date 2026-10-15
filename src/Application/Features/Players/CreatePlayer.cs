@@ -9,7 +9,7 @@ using FluentValidation;
 
 namespace Application.Features.Players;
 
-public sealed record CreatePlayerCommand(string Name, Guid CreatedByUserId) : ICommand;
+public sealed record CreatePlayerCommand(string Name, Guid UserId) : ICommand;
 
 internal sealed class CreatePlayerValidator : AbstractValidator<CreatePlayerCommand>
 {
@@ -17,7 +17,7 @@ internal sealed class CreatePlayerValidator : AbstractValidator<CreatePlayerComm
     {
         RuleFor(x => x.Name)
             .NotEmpty().WithDomainError(DomainErrors.Player.NameRequired)
-            .MaximumLength(PlayerName.MaxLength).WithDomainError(DomainErrors.Player.NameTooLong);
+            .MaximumTrimmedLength(PlayerName.MaxLength).WithDomainError(DomainErrors.Player.NameTooLong);
     }
 }
 
@@ -25,14 +25,14 @@ internal sealed class CreatePlayerHandler(IAppDbContext db) : ICommandHandler<Cr
 {
     public Task<Result> Handle(CreatePlayerCommand request, CancellationToken cancellationToken)
     {
-        var nameResult = PlayerName.Create(request.Name);
-        if (nameResult.IsFailure)
-            return Task.FromResult(Result.Failure(nameResult.Error));
+        var name = PlayerName.Create(request.Name);
+        if (name.IsFailure)
+            return Task.FromResult(Result.Failure(name.Error));
 
         var player = Player.Create(
             new PlayerId(Guid.NewGuid()),
-            nameResult.Value,
-            new UserId(request.CreatedByUserId));
+            name.Value,
+            new UserId(request.UserId));
 
         db.Players.Add(player);
         return Task.FromResult(Result.Success());

@@ -1,3 +1,5 @@
+using Domain.Primitives;
+
 namespace Domain.Models.Static;
 
-public record IslandSetupId(string Value);
+public sealed record IslandSetupId(string Value) : ValueObject;

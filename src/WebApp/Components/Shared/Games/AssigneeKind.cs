@@ -1,4 +1,4 @@
-using Application.Features.Statistics;
+using Application.Features.Games;
 
 namespace WebApp.Components.Shared.Games;
 

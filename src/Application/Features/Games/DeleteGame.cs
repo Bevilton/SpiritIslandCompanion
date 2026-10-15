@@ -2,6 +2,7 @@ using Application.Abstractions;
 using Application.Data;
 using Domain.Errors;
 using Domain.Models.Game;
+using Domain.Models.User;
 using Domain.Results;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,9 +15,10 @@ internal sealed class DeleteGameHandler(IAppDbContext db) : ICommandHandler<Dele
 {
     public async Task<Result> Handle(DeleteGameCommand request, CancellationToken cancellationToken)
     {
+        var ownerId = new UserId(request.UserId);
         var game = await db.Games
             .FirstOrDefaultAsync(
-                g => g.Id == new GameId(request.GameId) && g.OwnerId.Value == request.UserId,
+                g => g.Id == new GameId(request.GameId) && g.OwnerId == ownerId,
                 cancellationToken);
 
         if (game is null)

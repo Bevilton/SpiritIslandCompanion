@@ -2,7 +2,7 @@ using Application.Abstractions;
 using Application.Data;
 using Application.Features.Games;
 using Domain.Models.Game;
-using Domain.Models.Game.Enums;
+using Domain.Models.User;
 using Domain.Results;
 using Microsoft.EntityFrameworkCore;
 
@@ -102,8 +102,6 @@ public sealed record AdversaryStats(
 
 public sealed record AdversaryLevelStats(int Level, int GamesPlayed, int Wins, int Losses) : IPlayTally;
 
-public enum PlayerKind { Me, Friend, Local }
-
 public sealed record PlayerStats(
     Guid? PlayerId,
     Guid? UserId,
@@ -145,50 +143,29 @@ public sealed record MonthlyStats(
     int Wins,
     int Losses) : IPlayTally;
 
-internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<GetStatisticsQuery, StatisticsResponse>
+internal sealed class GetStatisticsHandler(IAppDbContext db, SeatNameResolver seatNames) : IQueryHandler<GetStatisticsQuery, StatisticsResponse>
 {
+    /// <summary>How many of the latest finished games the page shows as a strip.</summary>
+    private const int RecentGameCount = 5;
+
     public async Task<Result<StatisticsResponse>> Handle(GetStatisticsQuery request, CancellationToken cancellationToken)
     {
         var games = await db.Games
-            .InvolvingUser(request.UserId)
+            .InvolvingUser(new UserId(request.UserId))
             .ToListAsync(cancellationToken);
 
-        // Resolve display names for every user / player referenced in any game.
-        // We pass the value-object types directly so EF Core's configured
-        // HasConversion translates Contains into a SQL IN clause.
-        var userIds = games.SelectMany(g => g.Players)
-            .Where(p => p.UserId is not null)
-            .Select(p => p.UserId!)
-            .Concat(games.Select(g => g.OwnerId))
-            .Distinct()
-            .ToList();
-        var userLookup = (await db.Users
-            .AsNoTracking()
-            .Where(u => userIds.Contains(u.Id))
-            .ToListAsync(cancellationToken))
-            .ToDictionary(u => u.Id.Value, u => u.DisplayName);
-
-        var playerIds = games.SelectMany(g => g.Players)
-            .Where(p => p.PlayerId is not null)
-            .Select(p => p.PlayerId!)
-            .Distinct()
-            .ToList();
-        var playerLookup = (await db.Players
-            .AsNoTracking()
-            .Where(p => playerIds.Contains(p.Id))
-            .ToListAsync(cancellationToken))
-            .ToDictionary(p => p.Id.Value, p => p.Name.Value);
+        var names = await seatNames.LoadAsync(games, cancellationToken);
 
         // PlayerStatistics is always computed across all games — it powers the
         // scope dropdown, so it shouldn't depend on the scope.
-        var playerStatistics = GetPlayerStats(games, request.UserId, userLookup, playerLookup);
+        var playerStatistics = GetPlayerStats(games, request.UserId, names);
 
         // Predicate that picks out the scoped player from a GamePlayer row.
         // Returns true for every row when no scope is set.
         Func<GamePlayer, bool> playerFilter = request switch
         {
-            { ScopeUserId: { } u }   => p => p.UserId is not null && p.UserId.Value == u,
-            { ScopePlayerId: { } l } => p => p.PlayerId is not null && p.PlayerId.Value == l,
+            { ScopeUserId: { } u }   => p => p.UserId?.Value == u,
+            { ScopePlayerId: { } l } => p => p.PlayerId?.Value == l,
             _                        => _ => true,
         };
         var isScoped = request.ScopeUserId is not null || request.ScopePlayerId is not null;
@@ -200,28 +177,21 @@ internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<Get
             : games;
 
         var completedGames = scopedGames.Where(g => g.Result is not null).ToList();
-        var wins = completedGames.Count(g => g.Result!.Win);
-        var losses = completedGames.Count(g => !g.Result!.Win);
-        var inProgress = scopedGames.Count(g => g.Result is null);
+        var tally = Tally.Of(scopedGames.Select(g => g.Result));
 
         var bestGame = completedGames.MaxBy(g => g.Result!.Score.Value);
         var worstGame = completedGames.MinBy(g => g.Result!.Score.Value);
-        var minScore = worstGame?.Result!.Score.Value;
-        var totalPlayTime = completedGames.Count > 0
-            ? TimeSpan.FromTicks(completedGames.Sum(g => g.Result!.Duration.Ticks))
-            : TimeSpan.Zero;
-        var longestStreak = ComputeLongestStreak(completedGames);
 
         var response = new StatisticsResponse(
-            TotalGames: scopedGames.Count,
-            Wins: wins,
-            Losses: losses,
-            InProgress: inProgress,
-            WinRate: completedGames.Count > 0 ? (double)wins / completedGames.Count * 100 : 0,
+            TotalGames: tally.GamesPlayed,
+            Wins: tally.Wins,
+            Losses: tally.Losses,
+            InProgress: tally.GamesPlayed - tally.Completed,
+            WinRate: tally.WinRate,
             AverageDuration: completedGames.Count > 0
-                ? TimeSpan.FromTicks((long)completedGames.Average(g => g.Result!.Duration.Ticks))
+                ? TimeSpan.FromTicks((long)completedGames.Average(g => g.Result!.Outcome.Duration.Ticks))
                 : TimeSpan.Zero,
-            TotalPlayTime: totalPlayTime,
+            TotalPlayTime: TimeSpan.FromTicks(completedGames.Sum(g => g.Result!.Outcome.Duration.Ticks)),
             AverageDifficulty: scopedGames.Count > 0
                 ? scopedGames.Average(g => g.Difficulty.Value)
                 : 0,
@@ -230,15 +200,15 @@ internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<Get
                 : 0,
             BestScore: bestGame?.Result!.Score.Value ?? 0,
             BestScoreGameId: bestGame?.Id.Value,
-            MinScore: minScore,
+            MinScore: worstGame?.Result!.Score.Value,
             MinScoreGameId: worstGame?.Id.Value,
             AverageDahan: completedGames.Count > 0
-                ? completedGames.Average(g => g.Result!.Dahan.Value)
+                ? completedGames.Average(g => g.Result!.Outcome.Dahan.Value)
                 : 0,
             AverageBlight: completedGames.Count > 0
-                ? completedGames.Average(g => g.Result!.Blight.Value)
+                ? completedGames.Average(g => g.Result!.Outcome.Blight.Value)
                 : 0,
-            LongestStreak: longestStreak,
+            LongestStreak: ComputeLongestStreak(completedGames),
             SpiritStatistics: GetSpiritStats(scopedGames, playerFilter),
             AdversaryStatistics: GetAdversaryStats(scopedGames),
             PlayerStatistics: playerStatistics,
@@ -260,10 +230,10 @@ internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<Get
             .GroupBy(x => x.SpiritId.Value)
             .Select(g =>
             {
+                var tally = Tally.Of(g.Select(x => x.Result));
                 var completed = g.Where(x => x.Result is not null).ToList();
-                var w = completed.Count(x => x.Result!.Win);
                 var terrorCounts = completed
-                    .GroupBy(x => x.Result!.TerrorLevel)
+                    .GroupBy(x => x.Result!.Outcome.TerrorLevel)
                     .ToDictionary(tg => tg.Key, tg => tg.Count());
                 // Null groups with null, so the spirit as printed is a row like any aspect
                 // and the rows still sum to the spirit's own total.
@@ -271,18 +241,17 @@ internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<Get
                     .GroupBy(x => x.AspectId?.Value)
                     .Select(ag =>
                     {
-                        var done = ag.Where(x => x.Result is not null).ToList();
-                        var aw = done.Count(x => x.Result!.Win);
-                        return new AspectStats(ag.Key, ag.Count(), aw, done.Count - aw);
+                        var aspectTally = Tally.Of(ag.Select(x => x.Result));
+                        return new AspectStats(ag.Key, aspectTally.GamesPlayed, aspectTally.Wins, aspectTally.Losses);
                     })
                     .OrderByDescending(a => a.GamesPlayed)
                     .ToList();
                 return new SpiritStats(
                     g.Key,
-                    g.Count(),
-                    w,
-                    completed.Count - w,
-                    completed.Count > 0 ? (double)w / completed.Count * 100 : 0,
+                    tally.GamesPlayed,
+                    tally.Wins,
+                    tally.Losses,
+                    tally.WinRate,
                     completed.Count > 0 ? completed.Average(x => x.Result!.Score.Value) : 0,
                     completed.Count > 0 ? completed.Max(x => x.Result!.Score.Value) : null,
                     terrorCounts,
@@ -295,8 +264,8 @@ internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<Get
     private static List<TerrorLevelStats> GetTerrorDistribution(List<Game> completedGames)
     {
         var byLevel = completedGames
-            .GroupBy(g => g.Result!.TerrorLevel)
-            .ToDictionary(g => g.Key, g => (Count: g.Count(), Wins: g.Count(x => x.Result!.Win)));
+            .GroupBy(g => g.Result!.Outcome.TerrorLevel)
+            .ToDictionary(g => g.Key, g => (Count: g.Count(), Wins: g.Count(x => x.Result!.Outcome.Win)));
 
         return Enum.GetValues<TerrorLevel>()
             .Select(t => byLevel.TryGetValue(t, out var v)
@@ -312,28 +281,22 @@ internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<Get
             .GroupBy(x => x.AdversaryId.Value)
             .Select(g =>
             {
-                var completed = g.Where(x => x.Result is not null).ToList();
-                var w = completed.Count(x => x.Result!.Win);
+                var tally = Tally.Of(g.Select(x => x.Result));
                 var levels = g
                     .GroupBy(x => x.Level.Value)
                     .OrderBy(lg => lg.Key)
                     .Select(lg =>
                     {
-                        var levelCompleted = lg.Where(x => x.Result is not null).ToList();
-                        var levelWins = levelCompleted.Count(x => x.Result!.Win);
-                        return new AdversaryLevelStats(
-                            lg.Key,
-                            lg.Count(),
-                            levelWins,
-                            levelCompleted.Count - levelWins);
+                        var levelTally = Tally.Of(lg.Select(x => x.Result));
+                        return new AdversaryLevelStats(lg.Key, levelTally.GamesPlayed, levelTally.Wins, levelTally.Losses);
                     })
                     .ToList();
                 return new AdversaryStats(
                     g.Key,
-                    g.Count(),
-                    w,
-                    completed.Count - w,
-                    completed.Count > 0 ? (double)w / completed.Count * 100 : 0,
+                    tally.GamesPlayed,
+                    tally.Wins,
+                    tally.Losses,
+                    tally.WinRate,
                     g.Average(x => x.Level.Value),
                     levels);
             })
@@ -341,11 +304,7 @@ internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<Get
             .ToList();
     }
 
-    private static List<PlayerStats> GetPlayerStats(
-        List<Game> games,
-        Guid currentUserId,
-        Dictionary<Guid, string> userLookup,
-        Dictionary<Guid, string> playerLookup)
+    private static List<PlayerStats> GetPlayerStats(List<Game> games, Guid currentUserId, SeatNames names)
     {
         return games
             .SelectMany(g => g.Players.Select(p => new
@@ -363,45 +322,30 @@ internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<Get
                 // would give a solo three-spirit win three wins, and the "games" on a person's
                 // card would run ahead of the total on the same page.
                 var played = g.Select(x => x.Game).Distinct().ToList();
+                var tally = Tally.Of(played.Select(x => x.Result));
                 var completed = played.Where(x => x.Result is not null).ToList();
-                var w = completed.Count(x => x.Result!.Win);
 
-                // Spirits stay per seat — all three of them really were played.
+                // Spirits stay per seat — all three of them really were played. Ties broken by
+                // id, so the favourite and the top three read the same on every load: seats
+                // come back from the database in no particular order.
                 var spiritTallies = g
                     .GroupBy(x => x.SpiritId.Value)
                     .Select(sg => new { SpiritId = sg.Key, Count = sg.Count() })
                     .OrderByDescending(t => t.Count)
+                    .ThenBy(t => t.SpiritId, StringComparer.Ordinal)
                     .ToList();
 
-                string name;
-                PlayerKind kind;
-                if (g.Key.UserId is { } uid)
-                {
-                    kind = uid == currentUserId ? PlayerKind.Me : PlayerKind.Friend;
-                    name = kind == PlayerKind.Me
-                        ? "You"
-                        : userLookup.GetValueOrDefault(uid, "Unknown");
-                }
-                else if (g.Key.PlayerId is { } pid)
-                {
-                    kind = PlayerKind.Local;
-                    name = playerLookup.GetValueOrDefault(pid, "Unknown");
-                }
-                else
-                {
-                    kind = PlayerKind.Local;
-                    name = "Unassigned";
-                }
+                var (name, kind) = names.Describe(g.Key.UserId, g.Key.PlayerId, currentUserId);
 
                 return new PlayerStats(
                     g.Key.PlayerId,
                     g.Key.UserId,
                     name,
                     kind,
-                    played.Count,
-                    w,
-                    completed.Count - w,
-                    completed.Count > 0 ? (double)w / completed.Count * 100 : 0,
+                    tally.GamesPlayed,
+                    tally.Wins,
+                    tally.Losses,
+                    tally.WinRate,
                     completed.Count > 0 ? completed.Average(x => x.Result!.Score.Value) : 0,
                     completed.Count > 0 ? completed.Max(x => x.Result!.Score.Value) : null,
                     spiritTallies.Take(3).Select(t => t.SpiritId).ToList(),
@@ -414,18 +358,18 @@ internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<Get
     private static List<ScenarioStats> GetScenarioStats(List<Game> games)
     {
         return games
-            .Where(g => g.Scenario is not null)
-            .GroupBy(g => g.Scenario!.ScenarioId.Value)
+            .Where(g => g.ScenarioId is not null)
+            .GroupBy(g => g.ScenarioId!.Value)
             .Select(g =>
             {
+                var tally = Tally.Of(g.Select(x => x.Result));
                 var completed = g.Where(x => x.Result is not null).ToList();
-                var w = completed.Count(x => x.Result!.Win);
                 return new ScenarioStats(
                     g.Key,
-                    g.Count(),
-                    w,
-                    completed.Count - w,
-                    completed.Count > 0 ? (double)w / completed.Count * 100 : 0,
+                    tally.GamesPlayed,
+                    tally.Wins,
+                    tally.Losses,
+                    tally.WinRate,
                     completed.Count > 0 ? completed.Average(x => x.Result!.Score.Value) : 0);
             })
             .OrderByDescending(s => s.GamesPlayed)
@@ -439,14 +383,8 @@ internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<Get
             .GroupBy(x => x.StartingBoard.Value)
             .Select(g =>
             {
-                var completed = g.Where(x => x.Result is not null).ToList();
-                var w = completed.Count(x => x.Result!.Win);
-                return new BoardStats(
-                    g.Key,
-                    g.Count(),
-                    w,
-                    completed.Count - w,
-                    completed.Count > 0 ? (double)w / completed.Count * 100 : 0);
+                var tally = Tally.Of(g.Select(x => x.Result));
+                return new BoardStats(g.Key, tally.GamesPlayed, tally.Wins, tally.Losses, tally.WinRate);
             })
             .OrderByDescending(s => s.GamesPlayed)
             .ToList();
@@ -456,12 +394,11 @@ internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<Get
     {
         return games
             .GroupBy(g => new { g.StartedAt.Year, g.StartedAt.Month })
-            .Select(g => new MonthlyStats(
-                g.Key.Year,
-                g.Key.Month,
-                g.Count(),
-                g.Count(x => x.Result is { Win: true }),
-                g.Count(x => x.Result is { Win: false })))
+            .Select(g =>
+            {
+                var tally = Tally.Of(g.Select(x => x.Result));
+                return new MonthlyStats(g.Key.Year, g.Key.Month, tally.GamesPlayed, tally.Wins, tally.Losses);
+            })
             .OrderByDescending(s => s.Year)
             .ThenByDescending(s => s.Month)
             .ToList();
@@ -469,23 +406,23 @@ internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<Get
 
     /// <summary>
     /// The latest games that actually have an outcome. Drafts are deliberately left out:
-    /// with nothing to report they crowd finished games out of a five-slot strip, and the
-    /// surfaces that care about unfinished games list them as work to do instead.
+    /// with nothing to report they crowd finished games out of the strip, and the surfaces
+    /// that care about unfinished games list them as work to do instead.
     /// </summary>
     private static List<RecentGameSummary> GetRecentGames(List<Game> games) =>
         games
             .Where(g => g.Result is not null)
             .OrderByDescending(g => g.StartedAt)
-            .Take(5)
+            .Take(RecentGameCount)
             .Select(g => new RecentGameSummary(
                 g.Id.Value,
                 g.StartedAt,
-                g.Result!.Win,
+                g.Result!.Outcome.Win,
                 g.Result.Score.Value,
                 g.Difficulty.Value,
                 g.Players.Count,
                 g.PlayedAdversaries.Select(a => a.AdversaryId.Value).ToList(),
-                g.Scenario?.ScenarioId.Value,
+                g.ScenarioId?.Value,
                 g.Players.Select(p => p.SpiritId.Value).ToList()))
             .ToList();
 
@@ -495,7 +432,7 @@ internal sealed class GetStatisticsHandler(IAppDbContext db) : IQueryHandler<Get
         var current = 0;
         foreach (var g in completedGames.OrderBy(g => g.StartedAt))
         {
-            if (g.Result!.Win)
+            if (g.Result!.Outcome.Win)
             {
                 current++;
                 if (current > best) best = current;

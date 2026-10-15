@@ -21,7 +21,7 @@ internal sealed class SetNicknameValidator : AbstractValidator<SetNicknameComman
     {
         RuleFor(x => x.Nickname)
             .NotEmpty().WithDomainError(DomainErrors.User.NicknameRequired)
-            .MaximumLength(Nickname.MaxLength).WithDomainError(DomainErrors.User.NicknameTooLong);
+            .MaximumTrimmedLength(Nickname.MaxLength).WithDomainError(DomainErrors.User.NicknameTooLong);
     }
 }
 
@@ -29,9 +29,9 @@ internal sealed class SetNicknameHandler(IAppDbContext db) : ICommandHandler<Set
 {
     public async Task<Result> Handle(SetNicknameCommand request, CancellationToken cancellationToken)
     {
-        var nicknameResult = Nickname.Create(request.Nickname.Trim());
-        if (nicknameResult.IsFailure)
-            return Result.Failure(nicknameResult.Error);
+        var nickname = Nickname.Create(request.Nickname);
+        if (nickname.IsFailure)
+            return Result.Failure(nickname.Error);
 
         var user = await db.Users
             .FirstOrDefaultAsync(u => u.Id == new UserId(request.UserId), cancellationToken);
@@ -39,7 +39,7 @@ internal sealed class SetNicknameHandler(IAppDbContext db) : ICommandHandler<Set
         if (user is null)
             return Result.Failure(DomainErrors.User.NotFound);
 
-        user.UpdateProfile(nicknameResult.Value);
+        user.SetNickname(nickname.Value);
         return Result.Success();
     }
 }

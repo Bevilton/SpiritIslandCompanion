@@ -1,3 +1,5 @@
+using Domain.Primitives;
+
 namespace Domain.Models.Static;
 
-public record ScenarioId(string Value);
+public sealed record ScenarioId(string Value) : ValueObject;

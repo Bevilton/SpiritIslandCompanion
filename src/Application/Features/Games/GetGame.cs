@@ -4,6 +4,7 @@ using Application.Features.Games.Dtos;
 using Domain.Errors;
 using Domain.Models.Game;
 using Domain.Models.Static.Data;
+using Domain.Models.User;
 using Domain.Results;
 using Microsoft.EntityFrameworkCore;
 
@@ -52,14 +53,14 @@ internal sealed class GetGameHandler(IAppDbContext db) : IQueryHandler<GetGameQu
     {
         // Owned types load with the game — no Includes needed (see GameQueries).
         var game = await db.Games
-            .InvolvingUser(request.UserId)
+            .InvolvingUser(new UserId(request.UserId))
             .FirstOrDefaultAsync(g => g.Id == new GameId(request.GameId), cancellationToken);
 
         if (game is null)
             return Result.Failure<GetGameResponse>(DomainErrors.Game.NotFound);
 
-        var setup = GameData.IslandSetups.FirstOrDefault(s => s.Id.Value == game.IslandSetupId.Value);
-        var extraBoard = setup is not null && setup.NumberOfPlayers > game.Players.Count;
+        var setup = GameData.IslandSetups.FirstOrDefault(s => s.Id == game.IslandSetupId);
+        var extraBoard = setup is not null && setup.BoardCount > game.Players.Count;
         var thematicMaps = setup?.IsThematic ?? false;
 
         // The saved layout's name, when the island came from the player's library. The game has
@@ -87,27 +88,10 @@ internal sealed class GetGameHandler(IAppDbContext db) : IQueryHandler<GetGameQu
             game.Note?.Value,
             game.OwnerId.Value,
             game.Result is not null,
-            game.Result is not null
-                ? new GameResultResponse(
-                    game.Result.Win,
-                    game.Result.Duration,
-                    game.Result.Cards.Value,
-                    game.Result.TerrorLevel,
-                    game.Result.Blight.Value,
-                    game.Result.Dahan.Value,
-                    game.Result.Score.Value,
-                    game.Result.ScoreModifier.Value)
-                : null,
-            game.Scenario?.ScenarioId.Value,
-            game.Players.Select(p => new GamePlayerResponse(
-                p.SpiritId.Value,
-                p.AspectId?.Value,
-                p.StartingBoard.Value,
-                p.UserId?.Value,
-                p.PlayerId?.Value)).ToList(),
-            game.PlayedAdversaries.Select(a => new GameAdversaryResponse(
-                a.AdversaryId.Value,
-                a.Level.Value)).ToList());
+            game.Result?.ToResponse(),
+            game.ScenarioId?.Value,
+            game.Players.Select(p => p.ToResponse()).ToList(),
+            game.PlayedAdversaries.Select(a => a.ToResponse()).ToList());
 
         return response;
     }

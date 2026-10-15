@@ -1,3 +1,5 @@
+using Domain.Primitives;
+
 namespace Domain.Models.Static;
 
-public record SpiritId(string Value);
+public sealed record SpiritId(string Value) : ValueObject;

@@ -10,11 +10,19 @@ namespace Application.Data;
 
 public interface IAppDbContext
 {
-    public DbSet<Game> Games { get; set; }
-    public DbSet<Player> Players { get; set; }
-    public DbSet<User> Users { get; set; }
-    public DbSet<Friendship> Friendships { get; set; }
-    public DbSet<PlayerMergeRequest> PlayerMergeRequests { get; set; }
-    public DbSet<CustomIslandLayout> CustomIslandLayouts { get; set; }
+    DbSet<Game> Games { get; }
+    DbSet<Player> Players { get; }
+    DbSet<User> Users { get; }
+    DbSet<Friendship> Friendships { get; }
+    DbSet<PlayerMergeRequest> PlayerMergeRequests { get; }
+    DbSet<CustomIslandLayout> CustomIslandLayouts { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Forgets everything tracked, saved or not, so one command leaves nothing behind for the
+    /// next one in the same scope — neither half-made changes to save by accident, nor tracked
+    /// instances to read back stale (see <c>SaveChangesBehaviour</c>).
+    /// </summary>
+    void DiscardChanges();
 }

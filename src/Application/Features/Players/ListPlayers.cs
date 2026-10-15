@@ -14,10 +14,11 @@ internal sealed class ListPlayersHandler(IAppDbContext db) : IQueryHandler<ListP
 {
     public async Task<Result<List<ListPlayersResponse>>> Handle(ListPlayersQuery request, CancellationToken cancellationToken)
     {
+        var owner = new UserId(request.UserId);
         var players = await db.Players
             .AsNoTracking()
-            .Where(p => p.CreatedBy.Value == request.UserId)
-            .OrderBy(p => p.Name.Value)
+            .Where(p => p.CreatedBy == owner)
+            .OrderBy(p => p.Name)
             .Select(p => new ListPlayersResponse(p.Id.Value, p.Name.Value))
             .ToListAsync(cancellationToken);
 

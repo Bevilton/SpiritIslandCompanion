@@ -54,7 +54,7 @@ public abstract class IslandTileBase : ComponentBase
     protected string Name => Setup?.Name ?? Saved?.Name ?? "Island layout";
 
     /// <summary>How many boards it is cut into.</summary>
-    protected int BoardCount => Setup?.NumberOfPlayers ?? Saved?.BoardCount ?? 0;
+    protected int BoardCount => Setup?.BoardCount ?? Saved?.BoardCount ?? 0;
 
     /// <summary>The board count in words — "4 boards" — for the tooltip and the line under the
     /// name.</summary>

@@ -192,7 +192,7 @@
 
         var entries = GameData.PublishedIslandSetups
             .Select(s => new LayoutEntry(
-                s.Id.Value, s.Name, s.NumberOfPlayers,
+                s.Id.Value, s.Name, s.BoardCount,
                 s.IsThematic ? LayoutKind.Thematic : LayoutKind.Standard, s, null))
             .ToList();
 

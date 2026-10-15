@@ -4,7 +4,7 @@ using Domain.Results;
 
 namespace Domain.Models.Game;
 
-public record BlightCount : ValueObject
+public sealed record BlightCount : ValueObject
 {
     public int Value { get; private init; }
 

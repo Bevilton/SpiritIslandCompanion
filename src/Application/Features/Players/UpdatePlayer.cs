@@ -3,6 +3,7 @@ using Application.Behaviour;
 using Application.Data;
 using Domain.Errors;
 using Domain.Models.Player;
+using Domain.Models.User;
 using Domain.Results;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
@@ -18,7 +19,7 @@ internal sealed class UpdatePlayerValidator : AbstractValidator<UpdatePlayerComm
     {
         RuleFor(x => x.Name)
             .NotEmpty().WithDomainError(DomainErrors.Player.NameRequired)
-            .MaximumLength(PlayerName.MaxLength).WithDomainError(DomainErrors.Player.NameTooLong);
+            .MaximumTrimmedLength(PlayerName.MaxLength).WithDomainError(DomainErrors.Player.NameTooLong);
     }
 }
 
@@ -26,9 +27,9 @@ internal sealed class UpdatePlayerHandler(IAppDbContext db) : ICommandHandler<Up
 {
     public async Task<Result> Handle(UpdatePlayerCommand request, CancellationToken cancellationToken)
     {
-        var nameResult = PlayerName.Create(request.Name);
-        if (nameResult.IsFailure)
-            return Result.Failure(nameResult.Error);
+        var name = PlayerName.Create(request.Name);
+        if (name.IsFailure)
+            return Result.Failure(name.Error);
 
         var player = await db.Players
             .FirstOrDefaultAsync(p => p.Id == new PlayerId(request.PlayerId), cancellationToken);
@@ -37,10 +38,10 @@ internal sealed class UpdatePlayerHandler(IAppDbContext db) : ICommandHandler<Up
             return Result.Failure(DomainErrors.Player.NotFound);
         // A local player belongs to the account that wrote them down — the same bar
         // DeletePlayer sets, since renaming somebody else's guest is no less of a change.
-        if (player.CreatedBy.Value != request.UserId)
+        if (player.CreatedBy != new UserId(request.UserId))
             return Result.Failure(DomainErrors.Player.NotYours);
 
-        player.Rename(nameResult.Value);
+        player.Rename(name.Value);
         return Result.Success();
     }
 }

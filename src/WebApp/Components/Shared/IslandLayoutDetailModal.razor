@@ -102,7 +102,7 @@
         _geometry = null;
         _savedAt = null;
         _name = setup.Name;
-        _boardCount = setup.NumberOfPlayers;
+        _boardCount = setup.BoardCount;
         _regions = ThematicIslandBoards.For(setup.Id);
         Open(SetupSubjectKind.IslandLayout, setup.Id.Value, GamesLink.ForIsland(setup.Id.Value, ScopeWho));
     }

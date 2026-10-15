@@ -18,7 +18,7 @@ namespace Domain.Models.Static.Data;
 /// make sense together with the mirrored view.
 /// </para>
 /// <para>
-/// Each region is named in <see cref="BoardDetails"/> (<c>ThematicName</c>), and the six of
+/// Each region is named in the web app's <c>BoardDetails</c> (<c>ThematicName</c>), and the six of
 /// them tile the island as three rows of two. The check that catches a wrong pairing: a
 /// board's coast faces its own compass direction, so every board on the island's east side
 /// has its ocean to the east and every one on the west side has it to the west.

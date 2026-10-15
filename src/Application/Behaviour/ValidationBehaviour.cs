@@ -1,55 +1,54 @@
-﻿using Domain.Results;
+using System.Reflection;
+using Domain.Results;
 using FluentValidation;
 using MediatR;
-using Microsoft.Extensions.Logging;
 
 namespace Application.Behaviour;
 
-public class ValidationBehaviour<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse> where TRequest : IRequest<TResponse> where TResponse : Result
+/// <summary>
+/// Runs the request's validators before its handler and, when any rule fails, answers with
+/// every failure at once — as a validation result, so a form can show them field by field.
+/// </summary>
+public sealed class ValidationBehaviour<TRequest, TResponse>(IEnumerable<IValidator<TRequest>> validators)
+    : IPipelineBehavior<TRequest, TResponse>
+    where TRequest : IRequest<TResponse>
+    where TResponse : Result
 {
-    private readonly IEnumerable<IValidator<TRequest>> _validators;
-    private readonly ILogger<ValidationBehaviour<TRequest, TResponse>> _logger;
-
-    public ValidationBehaviour(IEnumerable<IValidator<TRequest>> validators, ILogger<ValidationBehaviour<TRequest, TResponse>> logger)
-    {
-        _validators = validators;
-        _logger = logger;
-    }
+    /// <summary>
+    /// How a failure is wrapped as this response type: <see cref="ValidationResult"/> for a
+    /// bare <see cref="Result"/>, <see cref="ValidationResult{TValue}"/> for a
+    /// <see cref="Result{TValue}"/>. Resolved once per closed type rather than by reflection
+    /// on every failing request.
+    /// </summary>
+    private static readonly Func<ValidationError[], TResponse> Failure = ResolveFailureFactory();
 
     public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
     {
-        if (!_validators.Any())
-            return await next();
+        var context = new ValidationContext<TRequest>(request);
+        var errors = new List<ValidationError>();
 
-        var errors = _validators
-            .Select(validator => validator.Validate(request))
-            .SelectMany(validationResult => validationResult.Errors)
-            .Where(validationFailure => validationFailure is not null)
-            .Select(failure => new ValidationError(failure.PropertyName, failure.ErrorCode, failure.ErrorMessage))
-            .Distinct()
-            .ToArray();
-
-        if (errors.Any())
-            return CreateValidationResult<TResponse>(errors);
-
-        _logger.LogInformation("The request is valid");
-
-        return await next();
-    }
-
-    private static TResult CreateValidationResult<TResult>(ValidationError[] errors) where TResult : Result
-    {
-        if (typeof(TResult) == typeof(Result))
+        foreach (var validator in validators)
         {
-            return (ValidationResult.WithErrors(errors) as TResult)!;
+            var result = await validator.ValidateAsync(context, cancellationToken);
+            errors.AddRange(result.Errors.Select(f => new ValidationError(f.PropertyName, f.ErrorCode, f.ErrorMessage)));
         }
 
-        var validationResult = typeof(ValidationResult<>)
-            .GetGenericTypeDefinition()
-            .MakeGenericType(typeof(TResult).GenericTypeArguments[0])
-            .GetMethod(nameof(ValidationResult<object>.WithErrors))!
-            .Invoke(null, new object?[] { errors })!;
+        return errors.Count > 0
+            ? Failure(errors.Distinct().ToArray())
+            : await next(cancellationToken);
+    }
 
-        return (TResult)validationResult;
+    private static Func<ValidationError[], TResponse> ResolveFailureFactory()
+    {
+        if (typeof(TResponse) == typeof(Result))
+            return errors => (TResponse)(Result)ValidationResult.WithErrors(errors);
+
+        // Result<TValue>: build the matching ValidationResult<TValue> through its own factory.
+        var valueType = typeof(TResponse).GetGenericArguments()[0];
+        var factory = typeof(ValidationResult<>)
+            .MakeGenericType(valueType)
+            .GetMethod(nameof(ValidationResult<>.WithErrors), BindingFlags.Public | BindingFlags.Static)!;
+
+        return errors => (TResponse)factory.Invoke(null, [errors])!;
     }
 }

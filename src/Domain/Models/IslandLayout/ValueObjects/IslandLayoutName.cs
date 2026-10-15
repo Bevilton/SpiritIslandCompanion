@@ -8,7 +8,7 @@ namespace Domain.Models.IslandLayout;
 /// What the player calls a shape they built and want to use again — "Sunrise Bay",
 /// "the long one". Short on purpose: it has to fit on a layout tile in the picker.
 /// </summary>
-public record IslandLayoutName : ValueObject
+public sealed record IslandLayoutName : ValueObject
 {
     public const int MaxLength = 40;
 

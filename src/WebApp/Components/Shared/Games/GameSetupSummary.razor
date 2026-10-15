@@ -65,7 +65,7 @@
             <div class="mt-1 flex flex-wrap items-center gap-1.5">
                 @if (setup is not null)
                 {
-                    <span class="row-sub">@Copy.Count(setup.NumberOfPlayers, "board")</span>
+                    <span class="row-sub">@Copy.Count(setup.BoardCount, "board")</span>
                 }
                 @* SetupChip — the same chip the games list puts beside a match's title for the
                    same facts, so a game reads the same way in the list and on its own page. *@

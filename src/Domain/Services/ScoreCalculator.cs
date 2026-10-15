@@ -1,5 +1,4 @@
 using Domain.Models.Game;
-using Domain.Results;
 
 namespace Domain.Services;
 
@@ -28,17 +27,18 @@ public static class ScoreCalculator
     /// </summary>
     public static int PerPlayer(int tokens, int playerCount) => tokens / Math.Max(1, playerCount);
 
-    public static Result<Score> Calculate(
-        bool win,
-        Difficulty difficulty,
-        DahanCount dahan,
-        CardsCount cards,
-        BlightCount blight,
-        int playerCount,
-        ScoreModifier scoreModifier)
+    /// <summary>What an outcome scored at the table it was reported from.</summary>
+    public static Score Calculate(GameOutcome outcome, Difficulty difficulty, int playerCount)
     {
-        var total = Compute(win, difficulty.Value, dahan.Value, cards.Value, blight.Value, playerCount, scoreModifier.Value);
-        return Score.Create(total);
+        // Compute clamps to the range a Score may hold, which is what lets it be built directly.
+        return new Score(Compute(
+            outcome.Win,
+            difficulty.Value,
+            outcome.Dahan.Value,
+            outcome.Cards.Value,
+            outcome.Blight.Value,
+            playerCount,
+            outcome.ScoreModifier.Value));
     }
 
     /// <summary>
